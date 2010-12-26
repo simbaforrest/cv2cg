@@ -35,9 +35,9 @@ osg::ref_ptr<osg::Node> createScene(std::string filename)
 	std::ifstream fin(filename.c_str());
 
 	osg::ref_ptr<osg::Group> ret = new osg::Group;
-	ret->setName("CameraSimulator_SceneRoot");
+	ret->setName("CameraSimulator.SceneRoot");
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
-	geode->setName("CameraSimulator_LineGeode");
+	geode->setName("CameraSimulator.VertexLineGeode");
 	ret->addChild(geode);
 
 	v3a = new osg::Vec3Array;//
@@ -269,7 +269,7 @@ int CameraSimulator::run()
 
 	viewer.setUpViewInWindow(50,50,500,500);
 
-	viewer.getCamera()->setClearColor(osg::Vec4(0.1,0.1,0.1,0));
+	viewer.getCamera()->setClearColor(osg::Vec4(0,0.1,0.3,1));
 
 	return viewer.run();
 }

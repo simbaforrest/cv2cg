@@ -256,6 +256,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 	std::ifstream in(filename.c_str());
 
 	osg::ref_ptr<osg::Group> ret = new osg::Group;
+	ret->setName("Switcher.SceneRoot");
 
 	std::string modelfile;
 	in >> modelfile;
@@ -286,6 +287,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 			osg::ref_ptr<osg::MatrixTransform> mtf = 
 				Make_Photo(*cam, *img);
 			mtf->setUserData(cam);
+			mtf->setName(std::string("MatTrans")+strnum);
 			ret->addChild(mtf);
 		}
 
@@ -401,5 +403,7 @@ readBundlerFile(std::string filename,
 				in >> camId >> key >> u >> v;
 		}
 	}
+	std::cout<<filename<<std::endl;
+	osgDB::writeNodeFile(*ret, filename+string(".osg"));
 	return ret;
 }

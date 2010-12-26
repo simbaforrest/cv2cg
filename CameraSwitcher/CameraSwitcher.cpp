@@ -47,10 +47,58 @@ void printHelp()
 	printf("\t按p键：在控制台打印当前相机的位置与姿态信息\n");
 	printf("\t按c键：控制台清屏\n");
 	printf("\t按h键：在控制台打印帮助信息\n");
+	printf("\t按=键：按顺序切换相机\n");
 #endif
 }
 
 const unsigned int PICKED_MASK=10;
+int camId = -1;
+
+class CamIDFinder : public osg::NodeVisitor
+{
+public:
+	CamIDFinder() : osg::NodeVisitor(
+		osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {
+			findCam = 0;
+			found = false;
+	}
+	osg::Camera* findCam;
+	std::string idstr;
+	bool found;
+
+	virtual void apply(osg::MatrixTransform& mt)
+	{
+		osg::Camera* cam = dynamic_cast<osg::Camera*>(mt.getUserData());
+		if(found || !cam) {
+			traverse(mt);
+			return;
+		}
+
+		std::cout<<"Iterate Cam name = "<<cam->getName()<<std::endl;
+		if( cam->getName() == idstr ) {
+			std::cout<<"found!"<<std::endl;
+			found = true;
+			findCam = cam;
+		} else {
+			traverse(mt);
+		}
+	}
+};
+
+osg::ref_ptr<osg::Camera> get_camera_from_id(int id, osg::Node* root)
+{
+	std::cout<<"root name="<<root->getName()<<std::endl;
+	std::stringstream ss;
+	ss << id;
+	std::string strnum;
+	ss >> strnum;
+	std::string idstr = std::string(std::string("cam")+strnum);
+	std::cout<<"To Find Cam Id string = "<<idstr<<std::endl;
+	osg::ref_ptr<CamIDFinder> finder = new CamIDFinder;
+	finder->idstr = idstr;
+	root->accept(*finder);
+	return finder->findCam;
+}
 
 class CameraUpdator : public osg::NodeCallback
 {
@@ -326,6 +374,32 @@ public:
 				}
 				if(ea.getKey()=='h') {
 					printHelp();
+					return true;
+				}
+				if(ea.getKey()=='=') {
+					++camId;
+					//now updator still have valid s/e cam, no need to pick
+					if(_updator->Get_Start_Camera().valid() &&
+						_updator->Get_Destination_Camera().valid())
+						return true;
+
+					std::cout<<"Change To Next Camera..."<<std::endl;
+					_updator->Set_Start_Camera(new osg::Camera(*viewer->getCamera()));
+					osg::Camera* cam = get_camera_from_id(camId, viewer->getSceneData());
+					_updator->Set_Destination_Camera( cam );
+
+					if(!_updator->Get_Destination_Camera().valid()) {
+						std::cout<<"No valid destination camera!"<<std::endl;
+						_updator->Set_Start_Camera(0);
+						_updator->Set_Destination_Camera(0);
+						camId = -1;
+						return true;
+					}
+
+					viewer->setCameraManipulator(0);
+					_updator->Lock_Dest_Camera();//prevent pick again
+					_updator->Unlock_Last_Dest_Camera();//release last pick;
+					_updator->Start_Update();
 					return true;
 				}
 				break;

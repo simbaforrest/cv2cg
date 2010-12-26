@@ -1,0 +1,38 @@
+﻿2010-12-25 Simbaforrest
+为CameraSwitcher添加按=键顺序切换相机功能（防止出现视野内看不到相机而
+无法双击切换的情况发生）
+
+2010-11-20 Simbaforrest
+封装clapack和cminpack为MatrixManip库；
+添加CameraAlgebra库，去除CalibrateAPI，去除对于VXL，OPENCV的依赖。
+
+2010-06-20 Simbaforrest
+修改CameraSwitcher，添加几个操作，包括上下左右移动，缩放，固定视点等等
+
+2010-05-06 Simbaforrest
+修改CalibrateAPI，添加VP函数，进行灭点标定（弱标定）
+添加PhotoMeasurer模块，量测影像
+
+2010-04-20 Simbaforrest
+修改CalibrateAPI，添加PnP函数，输入K矩阵，对应点，即可求出内参数
+添加了对OpenCV的依赖
+
+2010-04-17 Simbaforrest
+修改CV_CG.h，使得输出.cp文件中的像点坐标为图像坐标（即以图像左上角点
+为原点，水平向左为x轴正向，水平向下为y轴正向）。
+
+2010-04-07 Simbaforrest
+CameraSimulator 模拟照相机
+	功能：
+		模拟照相过程（设置相机位置、姿态、焦距、像主点、像幅），
+	并且以CG、CV两种形式输出相机参数（内外参数）为.par文件，相片
+	输出为.png文件，同时根据绘制文件中的VERTEX数据输出控制点.cp
+	文件，用于进行相机标定；可以拍摄多张照片，并且输出.swt文件，
+	作为CameraSwitcher的输入文件。
+		读入绘制文件内，必须提供VERTEX数据以提供物方点，可以通过
+	LINE命令仔细绘制模型，亦可通过MODEL命令读入已有osg/ive模型
+	
+CameraSwitcher  相机切换器
+	功能：
+		读入一个模型文件以及多个相机文件对（照片文件+相机参数文件），
+	生成相机场景，双击场景中的相机，即可平滑切换至该相机视角
