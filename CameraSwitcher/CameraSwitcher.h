@@ -18,6 +18,8 @@
 /* CameraSwitcher.h */
 
 #include <string>
+#include <osg/ref_ptr>
+#include <osg/Group>
 
 struct CameraSwitcher
 {
@@ -25,3 +27,21 @@ struct CameraSwitcher
 	bool writeModel;
 	int run();
 };
+
+osg::ref_ptr<osg::Node> 
+createSceneFromFile(std::string filename);
+
+osg::ref_ptr<osg::Camera> 
+readCameraFile(std::string str, double n=1, double f=1000);
+
+osg::ref_ptr<osg::MatrixTransform> 
+Make_Photo(const osg::Camera& camera, osg::Image& image);
+
+#if 0
+osg::ref_ptr<osg::Node>
+createSceneFromBundlerResult(std::string filename);
+
+osg::ref_ptr<osg::Node>
+readBundlerFile(std::string filename,
+								std::vector<std::string> imgfilelist);
+#endif

@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 	cs.infilename = std::string(argv[1]);
 	cs.writeModel=false;
 	if(argc>2) {
-		if(std::string("write_model") == std::string(argv[2]))
+		if(std::string("w") == std::string(argv[2]))
 			cs.writeModel=true;
 	}
 	return cs.run();

@@ -1,4 +1,7 @@
-﻿2010-12-25 Simbaforrest
+﻿2010-12-28 Simbaforrest
+修改CameraSwitcher代码结构，将SwitchHandler以及CameraUpdator移出为两个类
+
+2010-12-25 Simbaforrest
 为CameraSwitcher添加按=键顺序切换相机功能（防止出现视野内看不到相机而
 无法双击切换的情况发生）
 

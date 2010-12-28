@@ -18,420 +18,34 @@
 
 #include "CameraSwitcher.h"
 
-#include <osg/ref_ptr>
-#include <osg/Group>
-#include <osgViewer/Viewer>
-#include <osg/NodeVisitor>
-#include <osgDB/ReadFile>
-#include <osgDB/WriteFile>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+
 #include <osg/NodeCallback>
 #include <osgGA/GUIEventHandler>
 #include <osgGA/TrackballManipulator>
 #include <osgGA/StateSetManipulator>
 #include <osgViewer/ViewerEventHandlers>
+#include <osg/Texture2D>
+#include <osgViewer/Viewer>
+#include <osg/NodeVisitor>
+#include <osg/MatrixTransform>
+#include <osg/geometry>
+#include <osgText/Text>
+#include <osg/AlphaFunc>
+#include <osg/blendcolor>
+#include <osg/BlendFunc>
+#include <osg/BlendEquation>
+#include <osgDB/ReadFile>
+#include <osgDB/WriteFile>
+#include <osgDB/FileNameUtils>
+#include <osg/Point>
 
-#include <iostream>
-
-#include "SwitcherAPI.h"
-
-void printHelp()
-{
-	system("cls");
-#ifdef USE_IN_CHINA
-	printf("\n\t欢迎使用相机浏览器——CameraSwitcher！\n");
-	printf("使用方法：\n");
-	printf("\t鼠标双击：使用鼠标双击相机（cam0,cam1,...）,即可平滑的切换到该相机所代表的视角.\n");
-	printf("\t按住s键不放拖动鼠标：视点位置不变，只改变相机姿态\n");
-	printf("\t按方向键 上下左右：改变像主点位置\n");
-	printf("\t按PageUp，PageDown：放大缩小\n");
-	printf("\t按p键：在控制台打印当前相机的位置与姿态信息\n");
-	printf("\t按c键：控制台清屏\n");
-	printf("\t按h键：在控制台打印帮助信息\n");
-	printf("\t按=键：按顺序切换相机\n");
-#endif
-}
-
-const unsigned int PICKED_MASK=10;
-int camId = -1;
-
-class CamIDFinder : public osg::NodeVisitor
-{
-public:
-	CamIDFinder() : osg::NodeVisitor(
-		osg::NodeVisitor::TRAVERSE_ALL_CHILDREN) {
-			findCam = 0;
-			found = false;
-	}
-	osg::Camera* findCam;
-	std::string idstr;
-	bool found;
-
-	virtual void apply(osg::MatrixTransform& mt)
-	{
-		osg::Camera* cam = dynamic_cast<osg::Camera*>(mt.getUserData());
-		if(found || !cam) {
-			traverse(mt);
-			return;
-		}
-
-		std::cout<<"Iterate Cam name = "<<cam->getName()<<std::endl;
-		if( cam->getName() == idstr ) {
-			std::cout<<"found!"<<std::endl;
-			found = true;
-			findCam = cam;
-		} else {
-			traverse(mt);
-		}
-	}
-};
-
-osg::ref_ptr<osg::Camera> get_camera_from_id(int id, osg::Node* root)
-{
-	std::cout<<"root name="<<root->getName()<<std::endl;
-	std::stringstream ss;
-	ss << id;
-	std::string strnum;
-	ss >> strnum;
-	std::string idstr = std::string(std::string("cam")+strnum);
-	std::cout<<"To Find Cam Id string = "<<idstr<<std::endl;
-	osg::ref_ptr<CamIDFinder> finder = new CamIDFinder;
-	finder->idstr = idstr;
-	root->accept(*finder);
-	return finder->findCam;
-}
-
-class CameraUpdator : public osg::NodeCallback
-{
-private:
-	int MaxCnt;
-	osgViewer::View* viewer;
-	osg::ref_ptr<osgGA::TrackballManipulator> manip;
-	osg::ref_ptr<osg::Camera> s;
-	osg::ref_ptr<osg::Camera> e;
-	osg::ref_ptr<osg::Camera> lastE;
-	bool updating;
-	int cnt;
-public:
-	CameraUpdator(osgViewer::View* v) {
-		viewer = v;
-		manip = new osgGA::TrackballManipulator;
-		viewer->setCameraManipulator(manip);
-		MaxCnt = 100;
-		updating = false;
-		cnt=0;
-		s=e=0;
-		lastE=0;
-	}
-
-	inline bool IsUpdating() { return updating; }
-
-	inline bool Start_Update()
-	{
-		cnt = 0;
-		if( s.valid() && e.valid() ) {
-			std::cout<<"Begin Update"<<std::endl;
-			updating = true;
-			return true;
-		}
-		return false;
-	}
-	inline void Stop_Update()
-	{
-		updating = false;
-	}
-
-	inline void Set_Start_Camera(osg::Camera* s_)
-	{ s = s_; }
-	inline osg::ref_ptr<osg::Camera> Get_Start_Camera()
-	{ return s; }
-
-	inline void Set_Destination_Camera(osg::Camera* e_)
-	{ e = e_; }
-	inline osg::ref_ptr<osg::Camera> Get_Destination_Camera()
-	{ return e; }
-
-	inline osg::ref_ptr<osg::Camera> Get_Last_Dest_Camera()
-	{ return lastE; }
-
-	inline void Lock_Dest_Camera()
-	{
-		if(e.valid()) e->setNodeMask(PICKED_MASK);
-	}
-	inline void Unlock_Last_Dest_Camera()
-	{
-		if(lastE.valid()) lastE->setNodeMask(1);
-	}
-
-
-#define CUBICALLY_ELAPSE
-	//map counter n{0,MaxCnt} to time t{0,1}
-	inline double Elapsed_time(int n)
-	{
-#ifdef LINEARLY_ELAPSE
-		// linearly elapsed time
-		// same speed
-		static const double deno = 1.0/MaxCnt;
-		return deno * n;
-#elif defined PARABOLICALLY_ELAPSE
-		// parabolically elapsed time
-		// first slow, last fast
-		static const double MaxDeno = 1.0/(MaxCnt*MaxCnt);
-		return MaxDeno * n * n;
-#elif defined CUBICALLY_ELAPSE
-		// cubically elapsed time
-		// first slow, then fast, last slow
-		static const double a = 3.0/MaxCnt/MaxCnt;
-		static const double b = -2.0/MaxCnt/MaxCnt/MaxCnt;
-		double n2 = n*n;
-		return a*n2+b*n2*n;
-#endif
-	}
-
-	inline void Update(osg::Camera* cam)
-	{
-		if(!cam) return;
-		double t = Elapsed_time(cnt);
-		std::cout<<"Interpolating... counter="<<cnt<<" time="<<t<<std::endl;
-		Interpolate_Camera(*s,*e, t,*cam);
-		++cnt;
-	}
-
-	inline void Finish_Update()
-	{
-		std::cout<<"Finish Update"<<std::endl;
-		Stop_Update();
-		osg::Vec3 eye,center,up;
-		e->getViewMatrixAsLookAt(eye,center,up);
-		manip->setHomePosition(eye, center, up);
-		viewer->setCameraManipulator(manip);
-
-		lastE = e;
-		s = 0;
-		e = 0;
-	}
-
-	void operator()(osg::Node* node, osg::NodeVisitor* nv)
-	{
-		osg::Camera* cam = dynamic_cast<osg::Camera*>(node);
-		if(cam && updating) {
-			if( !(s.valid() && e.valid()) ) {
-				viewer->setCameraManipulator(manip);
-				Stop_Update();
-			} else {
-				if(cnt>MaxCnt || e==lastE)
-					Finish_Update();
-				else
-					Update(cam);
-			}
-		}
-		traverse(node, nv);
-	}
-};
-
-class SwitcherHandler : public osgGA::GUIEventHandler
-{
-private:
-	CameraUpdator* _updator;
-
-	double _dist;
-	osg::Vec3 _center;
-	bool _lock;
-public:
-	SwitcherHandler(CameraUpdator* updator):_updator(updator),_lock(false) {}
-
-	osg::ref_ptr<osg::Camera> 
-		pick_camera(const osgGA::GUIEventAdapter& ea,
-		osgViewer::View* viewer)
-	{
-		osg::Camera* ret=0;
-
-		double x = ea.getXnormalized();
-		double y = ea.getYnormalized();
-
-		osgUtil::PolytopeIntersector* picker =
-			new osgUtil::PolytopeIntersector(
-			osgUtil::Intersector::PROJECTION,
-			x-0.01, y-0.01, x+0.01, y+0.01 );
-
-		osgUtil::IntersectionVisitor iv( picker );
-		viewer->getCamera()->accept( iv );
-
-		if (picker->containsIntersections())
-		{
-			osgUtil::PolytopeIntersector::Intersections& intersections =
-				picker->getIntersections();
-			osgUtil::PolytopeIntersector::Intersections::iterator itr =
-				intersections.begin();
-			for(; itr!=intersections.end(); ++itr) {
-				osgUtil::PolytopeIntersector::Intersection& intersection = 
-					(*itr);//picker->getFirstIntersection();
-
-				osg::NodePath& nodePath =
-					intersection.nodePath;
-				unsigned int idx = nodePath.size();
-				osg::MatrixTransform* sel=NULL;
-				while (idx--)	{
-					// 查找交集节点路径中的最后一个
-					sel =	dynamic_cast<osg::MatrixTransform*>( nodePath[ idx ] );
-					if (sel == NULL)
-						continue;
-
-					osg::Camera* storedCam = dynamic_cast<osg::Camera*>(sel->getUserData());
-					if(storedCam==NULL)
-						continue;
-					// 				if(_updator->Get_Last_Dest_Camera()==storedCam)
-					// 					continue;
-					if(storedCam->getNodeMask()==PICKED_MASK)
-						continue;
-					return ret = storedCam;
-				}//end while
-			}//end for
-		}//end if
-		return ret;
-	}
-
-	bool handle(const osgGA::GUIEventAdapter& ea,
-		osgGA::GUIActionAdapter& aa)
-	{
-		osgViewer::View* viewer =
-			dynamic_cast<osgViewer::View*>( &aa );
-		if (!viewer ||
-			ea.getHandled() ||
-			!_updator ) return false;
-
-		switch(ea.getEventType())
-		{
-		case(osgGA::GUIEventAdapter::KEYDOWN):
-			{
-				if(ea.getKey()=='s') {
-					CameraUpdator* updator = dynamic_cast<CameraUpdator*>(
-						viewer->getCamera()->getUpdateCallback() );
-					osgGA::TrackballManipulator* manip = 
-						dynamic_cast<osgGA::TrackballManipulator*>(
-						viewer->getCameraManipulator() );
-					if(_lock || !manip || (updator && updator->IsUpdating()) ) return true;
-					_lock = true;
-					_dist = manip->getDistance();
-					_center = manip->getCenter();
-					manip->setDistance(0);
-					osg::Vec3 eye,cen,up;
-					viewer->getCamera()->getViewMatrixAsLookAt(eye, cen, up);
-					manip->setCenter(eye);
-					return true;
-				}
-
-				double l,r,b,t,n,f;
-				viewer->getCamera()->getProjectionMatrixAsFrustum(l,r,b,t,n,f);
-				double dw,dh,dd;
-				bool bmodified = false;
-				dd = 0.01;
-				dw = dd*fabs(r-l); dh = dd*fabs(t-b);
-				if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Up) {
-					t+=dh;b+=dh;
-					bmodified = true;
-				} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Down) {
-					b-=dh;t-=dh;
-					bmodified = true;
-				} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Left) {
-					l+=dw;r+=dw;
-					bmodified = true;
-				} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Right) {
-					l-=dw;r-=dw;
-					bmodified = true;
-				} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Page_Up) {
-					t+=dh;b-=dh;l-=dw;r+=dw;
-					bmodified = true;
-				} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Page_Down) {
-					t-=dh;b+=dh;l+=dw;r-=dw;
-					bmodified = true;
-				}
-				viewer->getCamera()->setProjectionMatrixAsFrustum(l,r,b,t,n,f);
-				if(bmodified) return true;
-				break;
-			}
-		case(osgGA::GUIEventAdapter::KEYUP):
-			{
-				if(ea.getKey()=='s') {
-					CameraUpdator* updator = dynamic_cast<CameraUpdator*>(
-						viewer->getCamera()->getUpdateCallback() );
-					osgGA::TrackballManipulator* manip = 
-						dynamic_cast<osgGA::TrackballManipulator*>(
-						viewer->getCameraManipulator() );
-					if(!manip || (updator && updator->IsUpdating()) ) return true;
-					_lock = false;
-					manip->setDistance(_dist);
-					manip->setCenter(_center);
-					viewer->home();
-					return true;
-				}
-				if(ea.getKey()=='p') {
-					CV_CG_Report(*(viewer->getCamera()));
-					return true;
-				}
-				if(ea.getKey()=='c') {
-					system("cls");
-					return true;
-				}
-				if(ea.getKey()=='h') {
-					printHelp();
-					return true;
-				}
-				if(ea.getKey()=='=') {
-					++camId;
-					//now updator still have valid s/e cam, no need to pick
-					if(_updator->Get_Start_Camera().valid() &&
-						_updator->Get_Destination_Camera().valid())
-						return true;
-
-					std::cout<<"Change To Next Camera..."<<std::endl;
-					_updator->Set_Start_Camera(new osg::Camera(*viewer->getCamera()));
-					osg::Camera* cam = get_camera_from_id(camId, viewer->getSceneData());
-					_updator->Set_Destination_Camera( cam );
-
-					if(!_updator->Get_Destination_Camera().valid()) {
-						std::cout<<"No valid destination camera!"<<std::endl;
-						_updator->Set_Start_Camera(0);
-						_updator->Set_Destination_Camera(0);
-						camId = -1;
-						return true;
-					}
-
-					viewer->setCameraManipulator(0);
-					_updator->Lock_Dest_Camera();//prevent pick again
-					_updator->Unlock_Last_Dest_Camera();//release last pick;
-					_updator->Start_Update();
-					return true;
-				}
-				break;
-			}
-		case(osgGA::GUIEventAdapter::DOUBLECLICK):
-			{
-				//now updator still have valid s/e cam, no need to pick
-				if(_updator->Get_Start_Camera().valid() &&
-					_updator->Get_Destination_Camera().valid())
-					return true;
-
-				std::cout<<"Double clicked..."<<std::endl;
-				_updator->Set_Start_Camera(new osg::Camera(*viewer->getCamera()));
-				_updator->Set_Destination_Camera( pick_camera(ea,viewer) );
-
-				if(!_updator->Get_Destination_Camera().valid()) {
-					std::cout<<"No valid destination camera!"<<std::endl;
-					_updator->Set_Start_Camera(0);
-					_updator->Set_Destination_Camera(0);
-					return true;
-				}
-
-				viewer->setCameraManipulator(0);
-				_updator->Lock_Dest_Camera();//prevent pick again
-				_updator->Unlock_Last_Dest_Camera();//release last pick;
-				_updator->Start_Update();
-				return true;
-			}
-		}//end of switch
-		return false;
-	}
-};
+#include "CV_CG.h"
+#include "CameraUpdator.h"
+#include "SwitchHandler.h"
 
 int CameraSwitcher::run()
 {
@@ -441,17 +55,22 @@ int CameraSwitcher::run()
 		osgDB::writeNodeFile(*scene,
 			infilename+std::string("-model.osg"));
 
-	printHelp();
+	SwitchHandler::printHelp();
 
 	osgViewer::Viewer viewer;
 	viewer.getCamera()->setClearColor(osg::Vec4(0.1f,0.1f,0.3f,0.0f));
 	viewer.setSceneData(scene);
 	CameraUpdator* cu = new CameraUpdator(&viewer);
-	SwitcherHandler* sh = new SwitcherHandler(cu);
+	SwitchHandler* sh = new SwitchHandler(cu);
 	viewer.getCamera()->setUpdateCallback(cu);
 	viewer.addEventHandler(sh);
 	viewer.getCamera()->setComputeNearFarMode(
 		osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+	
+	//disable small feature culling
+	osg::CullSettings::CullingMode cullingMode = viewer.getCamera()->getCullingMode();
+	cullingMode &= ~(osg::CullStack::SMALL_FEATURE_CULLING);
+	viewer.getCamera()->setCullingMode(cullingMode);
 
 	viewer.addEventHandler( new osgGA::StateSetManipulator(
 		viewer.getCamera()->getOrCreateStateSet()) );
@@ -459,3 +78,364 @@ int CameraSwitcher::run()
 
 	return viewer.run();
 }
+
+/////////////////////////////////////////////////////
+///   API
+#define ENABLE_BUNDLER 0 // currently deprecated
+
+osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
+{
+#if ENABLE_BUNDLER // currently deprecated
+	if(osgDB::getFileExtension(filename)==std::string("bundler")) {
+		return createSceneFromBundlerResult(filename);
+	}
+#endif
+
+	std::string filedir = osgDB::getFilePath(filename);
+	filedir+=std::string("\\");
+	std::ifstream in(filename.c_str());
+
+	osg::ref_ptr<osg::Group> ret = new osg::Group;
+	ret->setName("Switcher.SceneRoot");
+
+	std::string modelfile;
+	in >> modelfile;
+
+	osg::ref_ptr<osg::Node> model = osgDB::readNodeFile(filedir+modelfile);
+	ret->addChild(model);
+
+	osg::ref_ptr<osg::Camera> cam;
+	osg::ref_ptr<osg::Image> img;
+
+	bool atImageLine=true;
+	int cnt=0;
+	while(in) {
+		std::string str;
+		std::getline(in, str, '\n');
+		if(str.length()==0) continue;
+
+		if(atImageLine) {
+			img = osgDB::readImageFile(filedir+str);
+		} else {
+			cam = readCameraFile(filedir+str);
+			std::stringstream ss;
+			ss << cnt;
+			++cnt;
+			std::string strnum;
+			ss >> strnum;
+			cam->setName(std::string("cam")+strnum);
+			osg::ref_ptr<osg::MatrixTransform> mtf = 
+				Make_Photo(*cam, *img);
+			mtf->setUserData(cam);
+			mtf->setName(std::string("MatTrans")+strnum);
+			ret->addChild(mtf);
+		}
+
+		atImageLine = !atImageLine;
+	}
+
+	return ret;
+}
+
+osg::ref_ptr<osg::Camera> 
+readCameraFile(std::string str, double n, double f)
+{
+	std::ifstream in(str.c_str());
+	osg::ref_ptr<osg::Camera> ret = new osg::Camera;
+	double K[3][3]={0},C[3],R[3][3];
+	bool readK,readC,readR;
+	readK=readC=readR=false;
+	while(in) {
+		if(readK && readR && readC)
+			break;
+
+		std::string str;
+		std::getline(in, str, '\n');
+		if(str.length()==0) continue;
+
+		if(str.find("n=")!=str.npos) {
+			std::stringstream ss;
+			ss << str;
+			std::string tmp;
+			while(true) {
+				ss >> tmp;
+				if(tmp.find("n=")!=tmp.npos) {
+					sscanf(tmp.c_str(),"n=%lf", &n);
+					break;
+				}
+			}
+		}
+
+		if(str.find("f=")!=str.npos) {
+			std::stringstream ss;
+			ss << str;
+			std::string tmp;
+			while(true) {
+				ss >> tmp;
+				if(tmp.find("f=")!=tmp.npos) {
+					sscanf(tmp.c_str(),"f=%lf", &f);
+					break;
+				}
+			}
+		}
+
+		if(str.find_first_of("x=")==0) {
+			double x,y,w,h;
+			sscanf(str.c_str(),
+				"x=%lf y=%lf w=%lf h=%lf",
+				&x,&y,&w,&h
+				);
+			osg::ref_ptr<osg::Viewport> vp = new osg::Viewport(x,y,w,h);
+			ret->setViewport(vp);
+		}
+
+		if(str == std::string("K(alphaX alphaY u0 v0)=")) {
+			in >> K[0][0] >> K[1][1] >> K[0][2] >> K[1][2];
+			readK=true;
+			continue;
+		}
+
+		if(str == std::string("R=")) {
+			for(int i=0; i<3; ++i)
+				for(int j=0; j<3; ++j)
+					in >> R[i][j];
+			readR=true;
+			continue;
+		}
+
+		if(str == std::string("C=")) {
+			in >> C[0] >> C[1] >> C[2];
+			readC=true;
+			continue;
+		}
+
+		if(str == std::string("T=")) {
+			double T[3];
+			in >> T[0] >> T[1] >> T[2];
+			double Rt[3][3];
+			MatrixManip::Transpose(3,3,R[0],Rt[0]);
+			MatrixManip::Product331(Rt[0], T, C);
+			C[0]*=-1;C[1]*=-1;C[2]*=-1;
+			readC=true;
+			continue;
+		}
+
+		if(str == std::string("P=")) {
+			double P[3][4], T[3];
+			for(int i=0; i<3; ++i) for(int j=0; j<4; ++j)
+				in >> P[i][j];
+			MatrixManip::Print(3,4,P[0],"P");
+			if( !CameraAlgebra::Decompose(P, K, R, C, T) ) {
+				std::cout<<"Camera Decomposition failed! exit!"<<std::endl;
+				system("pause");
+				exit(-1);
+			}
+			readK = readR = readC = true;
+		}
+	}
+	if(readK && readR && readC) {
+		if(ret->getViewport()==0)
+			ret->setViewport(0,0,500,500);
+		Camera_Composition(K,C,R,n,f,0,*ret);
+	}
+	return ret;
+}
+
+osg::ref_ptr<osg::MatrixTransform>
+Make_Photo(const osg::Camera& camera,
+					 osg::Image& image)
+{
+	osg::Matrix proj = camera.getProjectionMatrix();
+	osg::Matrix view = camera.getViewMatrix();
+
+	const double znear = proj(3,2) / (proj(2,2)-1.0) * 1.1;
+
+	const double nLeft = znear * (proj(2,0)-1.0) / proj(0,0);
+	const double nRight = znear * (1.0+proj(2,0)) / proj(0,0);
+	const double nTop = znear * (1.0+proj(2,1)) / proj(1,1);
+	const double nBottom = znear * (proj(2,1)-1.0) / proj(1,1);
+
+	osg::Vec3Array* v = new osg::Vec3Array;
+	v->push_back( osg::Vec3( nLeft, nBottom, -znear ) );
+	v->push_back( osg::Vec3( nRight, nBottom, -znear ) );
+	v->push_back( osg::Vec3( nRight, nTop, -znear ) );
+	v->push_back( osg::Vec3( nLeft, nTop, -znear ) );
+	v->push_back( osg::Vec3( 0., 0., 0. ) );
+
+	osg::Vec2Array* vt = new osg::Vec2Array;
+	vt->resize( 5 );
+	(*vt)[0].set( 0,0 );
+	(*vt)[1].set( 1,0 );
+	(*vt)[2].set( 1,1 );
+	(*vt)[3].set( 0,1 );
+	(*vt)[4].set( 0,0 );
+
+	osg::Geometry* geom = new osg::Geometry;
+	geom->setVertexArray( v );
+	geom->setTexCoordArray(0, vt);
+
+	osg::Vec4Array* c = new osg::Vec4Array;
+	c->push_back( osg::Vec4( 1., 1., 1., 1. ) );
+	geom->setColorArray( c );
+	geom->setColorBinding( osg::Geometry::BIND_OVERALL );
+
+	GLushort idxLoops0[4] = {0, 1, 2, 3 };
+	geom->addPrimitiveSet( new osg::DrawElementsUShort( 
+		osg::PrimitiveSet::QUADS, 4, idxLoops0 ) );
+
+	osg::StateSet* stateset = geom->getOrCreateStateSet();
+	osg::Texture2D* texture = new osg::Texture2D;
+	texture->setImage(&image);
+	stateset->setTextureAttributeAndModes(0,texture,osg::StateAttribute::ON);
+	//this enables the transparency of photo
+	osg::BlendFunc* blend = new osg::BlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+	stateset->setAttributeAndModes(blend,osg::StateAttribute::ON);
+	stateset->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
+
+	osg::Geode* geode = new osg::Geode;
+	geode->addDrawable( geom );
+
+	osg::Geometry* lgeom = new osg::Geometry;
+	lgeom->setVertexArray(v);
+	lgeom->setColorArray( c );
+	lgeom->setColorBinding( osg::Geometry::BIND_OVERALL );
+	GLushort idxLines[8] = {0, 4, 1, 4, 2, 4, 3, 4};
+	lgeom->addPrimitiveSet( new osg::DrawElementsUShort( 
+		osg::PrimitiveSet::LINES, 8, idxLines ));
+	geode->addDrawable(lgeom);
+
+	osgText::Text* t = new osgText::Text;
+	t->setText(camera.getName());
+	t->setPosition(v->at(4));
+	t->setCharacterSizeMode(osgText::Text::SCREEN_COORDS);
+	t->setCharacterSize(48.0f);
+	t->setColor(osg::Vec4(1,0,0,1));
+	t->getOrCreateStateSet()->setMode(GL_DEPTH_TEST,
+		osg::StateAttribute::OFF); // add this so can always see the name of the cam
+	t->setAxisAlignment(osgText::Text::SCREEN);
+	geode->addDrawable(t);
+
+	geode->getOrCreateStateSet()->setMode(
+		GL_LIGHTING, osg::StateAttribute::OFF | osg::StateAttribute::PROTECTED );
+	geode->getOrCreateStateSet()->setMode(
+		GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::PROTECTED );
+
+	osg::MatrixTransform* mt = new osg::MatrixTransform;
+	mt->setMatrix( osg::Matrixd::inverse( view ) );
+	mt->addChild( geode );
+
+	return mt;
+}
+
+#if ENABLE_BUNDLER // currently deprecated
+osg::ref_ptr<osg::Node>
+createSceneFromBundlerResult(std::string filename)
+{
+	std::string filedir = osgDB::getFilePath(filename);
+	filedir+=std::string("\\");
+	std::ifstream in(filename.c_str());
+
+	std::string bundlerfile;
+	in >> bundlerfile;
+	bundlerfile = filedir + bundlerfile;
+
+	std::vector<std::string> imgfilelist;
+	while(in) {
+		std::string str;
+		std::getline(in, str, '\n');
+		if(str.length()==0) continue;
+
+		imgfilelist.push_back(filedir+str);
+	}
+
+	return readBundlerFile(bundlerfile, imgfilelist);
+}
+
+osg::ref_ptr<osg::Node>
+readBundlerFile(std::string filename,
+								std::vector<std::string> imgfilelist)
+{
+	osg::ref_ptr<osg::Group> ret = new osg::Group;
+
+	std::ifstream in(filename.c_str());
+	while(in) {
+		std::string str;
+		std::getline(in, str, '\n');
+		if(str.length()==0) continue;
+		if(str[0]=='#') continue;
+
+		std::stringstream ss;
+		ss << str;
+		int nCam, nPt;
+		ss >> nCam >> nPt;
+
+		for(int i=0; i<nCam; ++i) {
+			double f,k1,k2;
+			double R[3][3],t[3],C[3],K[3][3]={0};
+			in >> f >> k1 >> k2;
+			for(int a=0; a<3; ++a)
+				for(int b=0; b<3; ++b)
+					in >> R[a][b];
+			in >> t[0] >> t[1] >> t[2];
+			if(f==0) continue;
+
+			osg::ref_ptr<osg::Image> img = osgDB::readImageFile(imgfilelist[i]);
+			if( !img.valid() ) continue;
+			osg::ref_ptr<osg::Camera> cam = new osg::Camera;
+			MatrixManip::Zeros(3,3,K[0]);
+			K[0][0]=K[1][1]=f;
+			K[2][2]=1;
+			K[0][2] = img->s()/2;
+			K[1][2] = img->t()/2;
+			MatrixManip::ProductAtB(3,3,3,1,R[0],t,C);
+			C[0]*=-1;C[1]*=-1;C[2]*=-1;
+			//CameraAlgebra::RotationMatrix_PH_CV(R[0]);
+			cam->setViewport(0,0,500,500);
+			Camera_Composition(K,C,R,1,1000,0,*cam);
+			osg::Vec3 center(C[0],C[1],C[2]);
+			osg::Vec3 lookdir(-R[2][0],-R[2][1],-R[2][2]);
+			osg::Vec3 up(R[1][0],R[1][1],R[1][2]);
+			cam->setViewMatrixAsLookAt(center, center+lookdir*10, up);
+
+			std::stringstream ss;
+			ss << i;
+			std::string strnum;
+			ss >> strnum;
+			cam->setName(std::string("cam")+strnum);
+			osg::ref_ptr<osg::MatrixTransform> mtf = 
+				Make_Photo(*cam, *img);
+			mtf->setUserData(cam);
+			ret->addChild(mtf);
+		}
+
+		osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+		osg::ref_ptr<osg::Geometry> geom = new osg::Geometry;
+		ret->addChild(geode);
+		geode->addDrawable(geom);
+		osg::ref_ptr<osg::Vec3Array> v3a = new osg::Vec3Array;
+		osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+		geom->setVertexArray(v3a);
+		geom->setColorArray(colors);
+		geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+		osg::DrawArrays* da = new osg::DrawArrays(osg::PrimitiveSet::POINTS,
+			0, nPt);
+		geom->addPrimitiveSet(da);
+		geom->getOrCreateStateSet()->setAttributeAndModes(new osg::Point(3));
+		geom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+		while(nPt--) {
+			double x,y,z,r,g,b;
+			in >> x >> y >> z >> r >> g >> b;
+			v3a->push_back(osg::Vec3(x,y,z));
+			colors->push_back(osg::Vec4(r/255.0,g/255.0,b/255.0,1));
+			int nList, camId, key;
+			double u, v;
+			in >> nList;
+			while(nList--)
+				in >> camId >> key >> u >> v;
+		}
+	}
+	std::cout<<filename<<std::endl;
+	osgDB::writeNodeFile(*ret, filename+string(".osg"));
+	return ret;
+}
+#endif

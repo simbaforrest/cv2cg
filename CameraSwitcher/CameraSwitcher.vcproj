@@ -192,11 +192,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\CameraUpdator.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\main.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\SwitcherAPI.cpp"
+				RelativePath=".\SwitchHandler.cpp"
 				>
 			</File>
 		</Filter>
@@ -210,11 +214,15 @@
 				>
 			</File>
 			<File
+				RelativePath=".\CameraUpdator.h"
+				>
+			</File>
+			<File
 				RelativePath=".\resource.h"
 				>
 			</File>
 			<File
-				RelativePath=".\SwitcherAPI.h"
+				RelativePath=".\SwitchHandler.h"
 				>
 			</File>
 		</Filter>
