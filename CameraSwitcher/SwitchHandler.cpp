@@ -268,7 +268,7 @@ bool SwitchHandler::handle(const osgGA::GUIEventAdapter& ea,
 
 void SwitchHandler::printHelp()
 {
-	system("cls");
+	//system("cls");
 #ifdef USE_IN_CHINA
 	printf("\n\t欢迎使用相机浏览器——CameraSwitcher！\n");
 	printf("使用方法：\n");

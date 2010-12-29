@@ -31,8 +31,9 @@ struct CameraSwitcher
 osg::ref_ptr<osg::Node> 
 createSceneFromFile(std::string filename);
 
-osg::ref_ptr<osg::Camera> 
-readCameraFile(std::string str, double n=1, double f=1000);
+osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
+	double K[3][3], double C[3], double R[3][3],
+	double& n, double& f);
 
 osg::ref_ptr<osg::MatrixTransform> 
 Make_Photo(const osg::Camera& camera, osg::Image& image);

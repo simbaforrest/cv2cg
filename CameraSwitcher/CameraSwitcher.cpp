@@ -53,7 +53,7 @@ int CameraSwitcher::run()
 		createSceneFromFile(infilename);
 	if(writeModel)
 		osgDB::writeNodeFile(*scene,
-			infilename+std::string("-model.osg"));
+			infilename+std::string("_model.osg"));
 
 	SwitchHandler::printHelp();
 
@@ -106,6 +106,8 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 
 	osg::ref_ptr<osg::Camera> cam;
 	osg::ref_ptr<osg::Image> img;
+	double K[3][3]={0},C[3],R[3][3];
+	double n=1,f=1000;
 
 	bool atImageLine=true;
 	int cnt=0;
@@ -113,22 +115,35 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 		std::string str;
 		std::getline(in, str, '\n');
 		if(str.length()==0) continue;
+		//cout<<"[createSceneFromFile] "<<str<<endl;
 
 		if(atImageLine) {
 			img = osgDB::readImageFile(filedir+str);
 		} else {
-			cam = readCameraFile(filedir+str);
+			if( !img.valid() ||
+				!(cam = readCameraFile(filedir+str, K, C, R, n, f)) ) {
+					std::cout<<"read cam file error!"<<std::endl;
+				continue;
+			}
+			
+			cv2cg(K,C,R,n,f, img->s(), img->t(), *cam);
+
 			std::stringstream ss;
 			ss << cnt;
 			++cnt;
 			std::string strnum;
 			ss >> strnum;
 			cam->setName(std::string("cam")+strnum);
+
 			osg::ref_ptr<osg::MatrixTransform> mtf = 
 				Make_Photo(*cam, *img);
 			mtf->setUserData(cam);
+			cam->setUserData(img);
 			mtf->setName(std::string("MatTrans")+strnum);
 			ret->addChild(mtf);
+
+			img = 0;
+			cam = 0;
 		}
 
 		atImageLine = !atImageLine;
@@ -137,12 +152,12 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 	return ret;
 }
 
-osg::ref_ptr<osg::Camera> 
-readCameraFile(std::string str, double n, double f)
+osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
+	double K[3][3], double C[3], double R[3][3],
+	double& n, double& f)
 {
 	std::ifstream in(str.c_str());
 	osg::ref_ptr<osg::Camera> ret = new osg::Camera;
-	double K[3][3]={0},C[3],R[3][3];
 	bool readK,readC,readR;
 	readK=readC=readR=false;
 	while(in) {
@@ -191,6 +206,7 @@ readCameraFile(std::string str, double n, double f)
 
 		if(str == std::string("K(alphaX alphaY u0 v0)=")) {
 			in >> K[0][0] >> K[1][1] >> K[0][2] >> K[1][2];
+			K[2][2] = 1;
 			readK=true;
 			continue;
 		}
@@ -233,10 +249,11 @@ readCameraFile(std::string str, double n, double f)
 			readK = readR = readC = true;
 		}
 	}
-	if(readK && readR && readC) {
-		if(ret->getViewport()==0)
-			ret->setViewport(0,0,500,500);
-		Camera_Composition(K,C,R,n,f,0,*ret);
+	if( !(readK && readR && readC) ){
+		//if(ret->getViewport()==0)
+		//	ret->setViewport(0,0,500,500);
+		cout<<"Error! Camera Parameter not enough!"<<endl;
+		ret = 0;
 	}
 	return ret;
 }
@@ -245,15 +262,16 @@ osg::ref_ptr<osg::MatrixTransform>
 Make_Photo(const osg::Camera& camera,
 					 osg::Image& image)
 {
-	osg::Matrix proj = camera.getProjectionMatrix();
 	osg::Matrix view = camera.getViewMatrix();
-
-	const double znear = proj(3,2) / (proj(2,2)-1.0) * 1.1;
-
-	const double nLeft = znear * (proj(2,0)-1.0) / proj(0,0);
-	const double nRight = znear * (1.0+proj(2,0)) / proj(0,0);
-	const double nTop = znear * (1.0+proj(2,1)) / proj(1,1);
-	const double nBottom = znear * (proj(2,1)-1.0) / proj(1,1);
+	double znear,zfar,nLeft,nRight,nTop,nBottom;
+	camera.getProjectionMatrixAsFrustum(
+		nLeft,nRight,nBottom,nTop,znear,zfar);
+	const double constscale = 1.1;
+	znear*=constscale;
+	nLeft*=constscale;
+	nRight*=constscale;
+	nTop*=constscale;
+	nBottom*=constscale;
 
 	osg::Vec3Array* v = new osg::Vec3Array;
 	v->push_back( osg::Vec3( nLeft, nBottom, -znear ) );
@@ -391,7 +409,7 @@ readBundlerFile(std::string filename,
 			C[0]*=-1;C[1]*=-1;C[2]*=-1;
 			//CameraAlgebra::RotationMatrix_PH_CV(R[0]);
 			cam->setViewport(0,0,500,500);
-			Camera_Composition(K,C,R,1,1000,0,*cam);
+			cv2cg(K,C,R,1,1000,0,*cam);
 			osg::Vec3 center(C[0],C[1],C[2]);
 			osg::Vec3 lookdir(-R[2][0],-R[2][1],-R[2][2]);
 			osg::Vec3 up(R[1][0],R[1][1],R[1][2]);

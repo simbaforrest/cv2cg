@@ -1,4 +1,7 @@
-﻿2010-12-28 Simbaforrest
+﻿2010-12-29 Simbaforrest
+修改CV_CG.h文件，替换部分函数名称以及参数列表，同时改正了几个算法上的bug
+
+2010-12-28 Simbaforrest
 修改CameraSwitcher代码结构，将SwitchHandler以及CameraUpdator移出为两个类
 
 2010-12-25 Simbaforrest

@@ -40,23 +40,24 @@ inline void CG_Project(const osg::Camera& camera,
 	v = h-v; // be careful, this change the photo coordinate system to computer vision
 }
 
-inline void Camera_Decomposition(const osg::Camera& camera,
+inline void cg2cv(const osg::Camera& camera,
+	double imgW, double imgH,
 	double K[3][3], double C[3], double R[3][3])
 {
 	double l,r,b,t,n,f;
 	camera.getProjectionMatrixAsFrustum(l,r,b,t,n,f);
-	const osg::Viewport* vp = camera.getViewport();
-	double x0 = vp->x(), y0 = vp->y(), w = vp->width(), h = vp->height();
+	//const osg::Viewport* vp = camera.getViewport();
+	//double x0 = vp->x(), y0 = vp->y(), w = vp->width(), h = vp->height();
 
 	//K
 	//[ alphaX    0     u0 ]
 	//[   0     alphaY  v0 ]
 	//[   0       0      1 ]
 	MatrixManip::Zeros(3,3,K[0]);
-	K[0][0] = n*w/(r-l); //alphaX
-	K[1][1] = n*h/(t-b); //alphaY
-	K[0][2] = -w*(r+l)/((r-l)*2)+x0+w/2;//u0
-	K[1][2] = h*(t+b)/((t-b)*2)-y0+h/2;//v0
+	K[0][0] = n*imgW/(r-l); //alphaX
+	K[1][1] = n*imgH/(t-b); //alphaY
+	K[0][2] = -imgW*(r+l)/((r-l)*2)+imgW/2;//u0
+	K[1][2] = imgH*(t+b)/((t-b)*2)+imgH/2;//v0
 	K[2][2] = 1;
 
 	osg::Vec3 center,eye,up;
@@ -69,36 +70,34 @@ inline void Camera_Decomposition(const osg::Camera& camera,
 	R[2][0] = -vmat(0,2); R[2][1] = -vmat(1,2); R[2][2] = -vmat(2,2);
 }
 
-inline void Camera_Composition(const double K[3][3], const double C[3],
+inline void cv2cg(const double K[3][3], const double C[3],
 	const double R[3][3], const double n, const double f,
-	const osg::Viewport* vp, osg::Camera& camera)
+	const double imgW, const double imgH, osg::Camera& camera)
 {
 	//intrinsic
 	double ax=K[0][0], ay=K[1][1], u0=K[0][2], v0=K[1][2];
 	double l,r,t,b;
 
-	double x0,y0,w,h;
-	if(vp) {
-		x0 = vp->x(), y0 = vp->y(), w = vp->width(), h = vp->height();
-	} else {
-		const osg::Viewport* vpi = camera.getViewport();
-		if(!vpi) {
-			osg::notify(osg::NOTICE)<<
-				"No Viewport available! Camera_Composition Failed!"
-				<<std::endl;
-			return;
-		}
-		x0 = vpi->x(), y0 = vpi->y(), w = vpi->width(), h = vpi->height();
-	}
+	//double x0,y0,w,h;
+	//if(vp) {
+	//	x0 = vp->x(), y0 = vp->y(), w = vp->width(), h = vp->height();
+	//} else {
+	//	const osg::Viewport* vpi = camera.getViewport();
+	//	if(!vpi) {
+	//		osg::notify(osg::NOTICE)<<
+	//			"No Viewport available! cv2cg Failed!"
+	//			<<std::endl;
+	//		return;
+	//	}
+	//	x0 = vpi->x(), y0 = vpi->y(), w = vpi->width(), h = vpi->height();
+	//}
 
-	r = ( n*w*0.5 - n*(u0-x0-w*0.5) ) / ax;
-	l = r - n*w/ax;
-	t = ( n*h*0.5 - n*(-v0-y0+h*0.5) ) / ay;
-	b = t - n*h/ay;
+	r = ( n*imgW*0.5 - n*(u0-imgW*0.5) ) / ax;
+	l = r - n*imgW/ax;
+	t = ( n*imgH*0.5 - n*(-v0+imgH*0.5) ) / ay;
+	b = t - n*imgH/ay;
 
 	camera.setProjectionMatrixAsFrustum(l,r,b,t,n,f);
-	osg::ref_ptr<osg::Viewport> vpn = new osg::Viewport(x0,y0,w,h);
-	camera.setViewport(vpn);
 
 	//extrinsic
 	double T[3];
@@ -156,14 +155,29 @@ inline void CG_Report(const osg::Camera& camera,
 	out<<"[0,0,0]->["<<u<<","<<v<<"]"<<std::endl;
 }
 
-inline void CV_Report(const osg::Camera& camera, 
+inline void CV_Report(const osg::Camera& camera,
 	std::ostream& out=std::cout)
 {
+	const osg::Image* img = dynamic_cast<const osg::Image*>(
+		camera.getUserData());
+	double imgW=500, imgH=500;
+	if(!img) {
+		out << "Camera do not have valid Image as UserData!"
+			" use viewport size instead!"<<std::endl;
+		const osg::Viewport* vp = camera.getViewport();
+		if(!vp)
+			out << "No valid viewport, use default image size!"<<std::endl;
+		imgW = vp->width(); imgH = vp->height();
+		out << "imgW=" << imgW << " imgH=" <<imgH<<std::endl;
+	} else {
+		imgW=img->s(), imgH=img->t();
+		out << "imgW=" << imgW << " imgH=" <<imgH<<std::endl;
+	}
+
 	out<<"-------------Vision----------------"<<std::endl;
 	double K[3][3],C[3],T[3],R[3][3],P[3][4];
-	Camera_Decomposition(camera,K,C,R);
+	cg2cv(camera, imgW, imgH, K,C,R);
 	CameraAlgebra::Compose(K[0],C,R[0],P[0]);
-	MatrixManip::Print(3,4,P[0],"P");
 	MatrixManip::Product331(R[0], C, T);
 	T[0]*=-1;T[1]*=-1;T[2]*=-1;
 
