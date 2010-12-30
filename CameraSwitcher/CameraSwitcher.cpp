@@ -90,6 +90,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 		return createSceneFromBundlerResult(filename);
 	}
 #endif
+	using namespace std;
 
 	std::string filedir = osgDB::getFilePath(filename);
 	filedir+=std::string("\\");
@@ -100,6 +101,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 
 	std::string modelfile;
 	in >> modelfile;
+	cout<<"[createSceneFromFile] "<<modelfile<<endl;
 
 	osg::ref_ptr<osg::Node> model = osgDB::readNodeFile(filedir+modelfile);
 	ret->addChild(model);
@@ -115,7 +117,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 		std::string str;
 		std::getline(in, str, '\n');
 		if(str.length()==0) continue;
-		//cout<<"[createSceneFromFile] "<<str<<endl;
+		cout<<"[createSceneFromFile] "<<str<<endl;
 
 		if(atImageLine) {
 			img = osgDB::readImageFile(filedir+str);
@@ -156,6 +158,8 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 	double K[3][3], double C[3], double R[3][3],
 	double& n, double& f)
 {
+	using std::cout;
+	using std::endl;
 	std::ifstream in(str.c_str());
 	osg::ref_ptr<osg::Camera> ret = new osg::Camera;
 	bool readK,readC,readR;
@@ -228,9 +232,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 		if(str == std::string("T=")) {
 			double T[3];
 			in >> T[0] >> T[1] >> T[2];
-			double Rt[3][3];
-			MatrixManip::Transpose(3,3,R[0],Rt[0]);
-			MatrixManip::Product331(Rt[0], T, C);
+			helper::mulAtB(3,3,3,1,R[0],T,C);
 			C[0]*=-1;C[1]*=-1;C[2]*=-1;
 			readC=true;
 			continue;
@@ -240,12 +242,8 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 			double P[3][4], T[3];
 			for(int i=0; i<3; ++i) for(int j=0; j<4; ++j)
 				in >> P[i][j];
-			MatrixManip::Print(3,4,P[0],"P");
-			if( !CameraAlgebra::Decompose(P, K, R, C, T) ) {
-				std::cout<<"Camera Decomposition failed! exit!"<<std::endl;
-				system("pause");
-				exit(-1);
-			}
+			helper::print(3,4,P[0],"P");
+			helper::decompose(P[0],K[0],R[0],T,C);
 			readK = readR = readC = true;
 		}
 	}

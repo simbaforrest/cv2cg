@@ -122,8 +122,8 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(OSGHOME)/include&quot;;&quot;$(ProjectDir)..\CameraSimulator&quot;;&quot;$(SolutionDir)CameraAlgebra&quot;;&quot;$(SolutionDir)MatrixManip&quot;"
+				Optimization="2"
+				AdditionalIncludeDirectories="&quot;$(OSGHOME)/include&quot;;&quot;$(OpenCVHOME)\include\opencv&quot;;&quot;$(SolutionDir)include&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				RuntimeTypeInfo="true"
@@ -143,10 +143,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="OpenThreads.lib osg.lib osgDB.lib osgGA.lib osgUtil.lib osgViewer.lib osgText.lib"
+				AdditionalDependencies="OpenThreads.lib osg.lib osgDB.lib osgGA.lib osgUtil.lib osgViewer.lib osgText.lib opengl32.lib cv210.lib cxcore210.lib highgui210.lib"
 				OutputFile="$(OutDir)/CameraSwitcher.exe"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(OSGHOME)/lib"
+				AdditionalLibraryDirectories="&quot;$(OSGHOME)/lib&quot;;&quot;$(OpenCVHOME)\lib\Release&quot;;"
 				IgnoreDefaultLibraryNames="libcmt.lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"

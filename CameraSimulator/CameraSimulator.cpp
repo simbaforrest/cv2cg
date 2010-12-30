@@ -20,7 +20,7 @@
 
 #include "SimulatorAPI.h"
 
-#include "MatrixManip.h"
+#include "OpenCVHelper.h"
 #include "CV_CG.h"
 #include "Reader.h"
 
