@@ -79,5 +79,6 @@ namespace Log {
 #define LogW(msg) Log::w(msg, __FUNCTION__)
 #define LogI(msg) Log::i(msg, __FUNCTION__)
 #define LogD(msg) Log::d(msg, __FUNCTION__)
+#define LogA(...) fprintf(Log::logfile, __VA_ARGS__)
 
 #endif//__LOG_HEADER__

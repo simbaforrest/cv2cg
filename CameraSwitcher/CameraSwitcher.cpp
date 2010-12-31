@@ -46,6 +46,7 @@
 #include "CV_CG.h"
 #include "CameraUpdator.h"
 #include "SwitchHandler.h"
+#include "Log.h"
 
 int CameraSwitcher::run()
 {
@@ -92,8 +93,8 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 #endif
 	using namespace std;
 
-	std::string filedir = osgDB::getFilePath(filename);
-	filedir+=std::string("\\");
+	std::string filedir = helper::getFileDir(filename);
+	//LogI("file dir = "); LogA("\t%s\n",filedir.c_str());
 	std::ifstream in(filename.c_str());
 
 	osg::ref_ptr<osg::Group> ret = new osg::Group;
@@ -102,6 +103,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 	std::string modelfile;
 	in >> modelfile;
 	cout<<"[createSceneFromFile] "<<modelfile<<endl;
+	modelfile = helper::getNameWithExtension(modelfile);
 
 	osg::ref_ptr<osg::Node> model = osgDB::readNodeFile(filedir+modelfile);
 	ret->addChild(model);
@@ -117,14 +119,16 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 		std::string str;
 		std::getline(in, str, '\n');
 		if(str.length()==0) continue;
+		str = helper::getNameWithExtension(str);
 		cout<<"[createSceneFromFile] "<<str<<endl;
 
 		if(atImageLine) {
 			img = osgDB::readImageFile(filedir+str);
 		} else {
-			if( !img.valid() ||
-				!(cam = readCameraFile(filedir+str, K, C, R, n, f)) ) {
-					std::cout<<"read cam file error!"<<std::endl;
+			if( !img.valid() ) {
+				LogE("no valid image!"); continue;
+			}
+			if(	!(cam = readCameraFile(filedir+str, K, C, R, n, f)) ) {
 				continue;
 			}
 			
@@ -171,6 +175,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 		std::string str;
 		std::getline(in, str, '\n');
 		if(str.length()==0) continue;
+		//cout<<str<<endl;
 
 		if(str.find("n=")!=str.npos) {
 			std::stringstream ss;
@@ -211,6 +216,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 		if(str == std::string("K(alphaX alphaY u0 v0)=")) {
 			in >> K[0][0] >> K[1][1] >> K[0][2] >> K[1][2];
 			K[2][2] = 1;
+			//helper::print(3,3,K[0],"K");
 			readK=true;
 			continue;
 		}
@@ -219,12 +225,14 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 			for(int i=0; i<3; ++i)
 				for(int j=0; j<3; ++j)
 					in >> R[i][j];
+			//helper::print(3,3,R[0],"R");
 			readR=true;
 			continue;
 		}
 
 		if(str == std::string("C=")) {
 			in >> C[0] >> C[1] >> C[2];
+			//helper::print(3,1,C,"C");
 			readC=true;
 			continue;
 		}
@@ -232,6 +240,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 		if(str == std::string("T=")) {
 			double T[3];
 			in >> T[0] >> T[1] >> T[2];
+			//helper::print(3,1,T,"T");
 			helper::mulAtB(3,3,3,1,R[0],T,C);
 			C[0]*=-1;C[1]*=-1;C[2]*=-1;
 			readC=true;
@@ -242,7 +251,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 			double P[3][4], T[3];
 			for(int i=0; i<3; ++i) for(int j=0; j<4; ++j)
 				in >> P[i][j];
-			helper::print(3,4,P[0],"P");
+			//helper::print(3,4,P[0],"P");
 			helper::decompose(P[0],K[0],R[0],T,C);
 			readK = readR = readC = true;
 		}
@@ -250,7 +259,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 	if( !(readK && readR && readC) ){
 		//if(ret->getViewport()==0)
 		//	ret->setViewport(0,0,500,500);
-		cout<<"Error! Camera Parameter not enough!"<<endl;
+		LogE("Camera Parameter not enough!");
 		ret = 0;
 	}
 	return ret;

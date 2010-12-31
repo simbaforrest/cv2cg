@@ -131,8 +131,8 @@ struct SnapImage : public osg::Camera::DrawCallback
 			std::string parName = _filename+strnum+std::string(".par");
 			std::string cpName = _filename+strnum+std::string(".cp");
 			std::string pngName = _filename+strnum+std::string(".png");
-			allfile << osgDB::getSimpleFileName(pngName) << std::endl;
-			allfile << osgDB::getSimpleFileName(parName) << std::endl;
+			allfile << helper::getNameWithExtension(pngName) << std::endl;
+			allfile << helper::getNameWithExtension(parName) << std::endl;
 
 			//write CG&&CV parameters
 			std::ofstream out(parName.c_str());
@@ -245,7 +245,7 @@ int CameraSimulator::run()
 	}
 
 	std::string swtfilename = (outputFileName+std::string(".swt"));
-	std::string outfilename_nodir = osgDB::getSimpleFileName(outputFileName);
+	std::string outfilename_nodir = helper::getNameWithExtension(outputFileName);
 	std::ofstream allfile(swtfilename.c_str());
 	allfile << outfilename_nodir+std::string("_model.osg") << std::endl;
 
