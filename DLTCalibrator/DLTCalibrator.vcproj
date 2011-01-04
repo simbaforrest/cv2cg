@@ -114,7 +114,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="&quot;$(OpenCVHOME)\include\opencv&quot;;&quot;$(SolutionDir)include&quot;"
+				AdditionalIncludeDirectories="&quot;$(OpenCVHOME)\include&quot;;&quot;$(SolutionDir)include&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -133,9 +133,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="cv210.lib cxcore210.lib highgui210.lib"
+				AdditionalDependencies="opencv_core220.lib opencv_features2d220.lib opencv_video220.lib opencv_highgui220.lib opencv_imgproc220.lib opencv_ml220.lib opencv_contrib220.lib opencv_calib3d220.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="&quot;$(OpenCVHOME)\lib\Release&quot;;"
+				AdditionalLibraryDirectories="$(OpenCVHome)/lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"

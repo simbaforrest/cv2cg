@@ -19,16 +19,20 @@
 #include <iostream>
 #include "CameraSimulator.h"
 
+#include "Log.inc"
+#include "Log.h"
+
 int main( int argc, char **argv )
 {
 #ifdef USE_IN_CHINA
 	setlocale(LC_ALL,"chs");
 #endif
 	if(argc<=1) {
-		std::cout<<"Usage: \n\t"<<argv[0]<<" <InputFileName> [<OutPutFileName>(Without extention!)]"<<std::endl;
-		std::cout<<"Example: \n\t"<<argv[0]<<" draw.txt D:\\Out"<<std::endl;
-		std::cout<<"Example: \n\t"<<argv[0]<<" draw.txt"<<std::endl;
-		return 1;
+		LogI("Usage: \n\tCameraSimulator.exe <InputFileName>"
+			" [<OutPutFileName>(Without extention!)]\n");
+		LogI("Example: \n\tCameraSimulator.exe draw.txt D:\\Out\n");
+		LogI("Example: \n\tCameraSimulator.exe draw.txt\n");
+		return -1;
 	}
 
 	CameraSimulator cs;

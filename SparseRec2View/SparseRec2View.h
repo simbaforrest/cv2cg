@@ -53,6 +53,7 @@ private:
 	double F[9];
 	double lamda;//restrict baseline length
 	std::vector<Pt3> result;
+	bool _onlysurf;
 
 private:
 	bool loadImage();
@@ -62,7 +63,7 @@ private:
 	bool estimateRelativePose();
 
 public:
-	SparseRec2View(string ipath1, string ipath2, double k[9], double lamda_=1);
+	SparseRec2View(string ipath1, string ipath2, double k[9], double lamda_=1, bool onlysurf=false);
 	~SparseRec2View();
 
 	bool run();

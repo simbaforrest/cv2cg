@@ -21,6 +21,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "include", "include", "{B4B2
 		include\DirHelper.h = include\DirHelper.h
 		include\ImageHelper.h = include\ImageHelper.h
 		include\Log.h = include\Log.h
+		include\Log.inc = include\Log.inc
 		include\OpenCVHelper.h = include\OpenCVHelper.h
 	EndProjectSection
 EndProject

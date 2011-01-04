@@ -1,3 +1,4 @@
+#pragma once
 /* 
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
@@ -14,30 +15,14 @@
  *
  */
 
-/* main.cpp */
+/* Log.inc
+   please only include this file in only one of your .cpp files,
+   usually include it in main.cpp */
 
-#include <iostream>
-#include "CameraSwitcher.h"
+#include <stdio.h>
 
-#include "Log.inc"
-#include "Log.h"
-
-int main(int argc, char** argv)
-{
-#ifdef USE_IN_CHINA
-	setlocale(LC_ALL,"chs");
-#endif
-	if(argc<2) {
-		LogI("Usage: CameraSwitcher.exe <filename>\n");
-		return -1;
-	}
-
-	CameraSwitcher cs;
-	cs.infilename = std::string(argv[1]);
-	cs.writeModel=false;
-	if(argc>2) {
-		if(std::string("w") == std::string(argv[2]))
-			cs.writeModel=true;
-	}
-	return cs.run();
+namespace Log {
+	//switch them
+	bool debug=true, info=true, error=true, warn=true;
+	FILE *logfile = stdout;
 }

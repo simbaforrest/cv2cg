@@ -22,6 +22,7 @@
 #include <sstream>
 
 #include "OpenCVHelper.h"
+#include "Log.inc"
 #include "Log.h"
 
 /////////////////////////////////////////////
@@ -34,7 +35,7 @@ namespace helper {
 		double *P)
 	{
 		if(npoints<6) {
-			LogE("require at least 6 correspondences!");
+			TagE("require at least 6 correspondences!\n");
 			return false;
 		}
 
@@ -82,13 +83,12 @@ namespace helper {
 	// sumsqErr, sum of squared error of ReprojectErr
 	// sd, standard deviation
 	// detail error for each points will be reported
-	// by MatrixManip::Log::i
+	// by Log
 	void reprojectionError(int npoints, double const *p,
 		double const *X, double const *P, double& meanErr,
 		double& maxErr, double& sumsqErr, double& sd)
 	{
-		LogI("ReprojectionError :");
-#define ReportErr(msg) Log::i(msg);
+		LogI("ReprojectionError :\n");
 		double sumErr = 0;
 		meanErr = maxErr = sumsqErr = sd = 0;
 		for(int i=0; i<npoints; ++i) {
@@ -97,9 +97,7 @@ namespace helper {
 			double du,dv;
 			du = p[2*i+0] - pp[0];
 			dv = p[2*i+1] - pp[1];
-			char msg[100];
-			sprintf_s<100>(msg, "(% 10f, % 10f)", du, dv);
-			ReportErr(msg);
+			LogI("(% 10f, % 10f)\n", du, dv);
 
 			double sqErr = du*du+dv*dv;
 			double err = sqrt(sqErr);
@@ -113,17 +111,11 @@ namespace helper {
 		else
 			sd=sqrt((sumsqErr - sumErr*sumErr/npoints) / (npoints-1));
 
-		char msg[100];
-		sprintf_s<100>(msg, "Mean Re-project Error=% 10f", meanErr);
-		ReportErr(msg);
-		sprintf_s<100>(msg, "Max  Re-project Error=% 10f", maxErr);
-		ReportErr(msg);
-		sprintf_s<100>(msg, "Sum of squared Errors=% 10f", sumsqErr);
-		ReportErr(msg);
-		sprintf_s<100>(msg, "Standard Deviation=% 10f", sd);
-		ReportErr(msg);
-#undef ReportErr
-		LogI("ReprojectionError done!");
+		LogI("Mean Re-project Error=% 10f\n", meanErr);
+		LogI("Max  Re-project Error=% 10f\n", maxErr);
+		LogI("Sum of squared Errors=% 10f\n", sumsqErr);
+		LogI("Standard Deviation=% 10f\n", sd);
+		LogI("ReprojectionError done!\n");
 	}
 
 }
@@ -195,9 +187,10 @@ void calibrate(std::ofstream& fout)
 int main( int argc, char **argv )
 {
 	if(argc<=1) {
-		std::cout<<"Usage: \n\t"<<argv[0]<<" <InputFileName> [<OutPutFileName>(Without extention!)]"<<std::endl;
-		std::cout<<"Example: \n\t"<<argv[0]<<" test.cp"<<std::endl;
-		std::cout<<"Example: \n\t"<<argv[0]<<" test.cp D:\\Out"<<std::endl;
+		LogI("Usage: \n\tDLTCalibrator.exe <InputFileName>"
+			" [<OutPutFileName>(Without extention!)]\n"
+			"Example: \n\tDLTCalibrator.exe test.cp"
+			"Example: \n\tDLTCalibrator.exe test.cp D:\\Out\n");
 		return 1;
 	}
 

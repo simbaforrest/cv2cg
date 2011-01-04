@@ -42,11 +42,13 @@
 #include <fstream>
 #include <sstream>
 
+#include "Log.h"
+
 inline void printUsage(bool chinese=true)
 {
-	system("cls");
+	//system("cls");
 	if(!chinese) {
-		std::cout<<
+		LogI(
 "Usage:\n\
    Mouse:\n\tLEFT_BUTTON,RIGHT_BUTTON can be used to change the \
 position and posture of the camera, i.e. change the \
@@ -63,10 +65,9 @@ write out an image, a parameter file, a control points file and \
 also an osg model file.\n\
 By the Way, by changing the size of the window, you can change the \
 size of the image you get, i.e., the size of the window is just that of the output \
-image."
-		<<std::endl;
+image.\n");
 	} else {
-		std::cout<<
+		LogI(
 "使用方法:\n\
    鼠标:\n\
 \t左键，右键 用于改变相机位置和姿态, \
@@ -85,8 +86,7 @@ image."
 \t'g' 打印当前相机的计算机图形学参数.\n\
 \t'v' 打印当前相机的计算机视觉参数.\n\
 \t同时，改变窗口大小可以改变照片的像幅，即：输\
-出影像的大小亦为窗口大小."
-		<<std::endl;
+出影像的大小亦为窗口大小.\n");
 	}
 }
 

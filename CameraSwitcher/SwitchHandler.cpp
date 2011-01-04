@@ -19,6 +19,8 @@
 #include "CameraUpdator.h"
 #include "CV_CG.h"
 
+#include "Log.h"
+
 //////////////////////////////////////////////////////////
 /// API
 int nextCamId = 0;
@@ -43,9 +45,9 @@ public:
 			return;
 		}
 
-		std::cout<<"Iterate Cam name = "<<cam->getName()<<std::endl;
+		//std::cout<<"Iterate Cam name = "<<cam->getName()<<std::endl;
 		if( cam->getName() == idstr ) {
-			std::cout<<"found!"<<std::endl;
+			//std::cout<<"found!"<<std::endl;
 			found = true;
 			findCam = cam;
 		} else {
@@ -56,13 +58,13 @@ public:
 
 osg::ref_ptr<osg::Camera> get_camera_from_id(int id, osg::Node* root)
 {
-	std::cout<<"root name="<<root->getName()<<std::endl;
+	//std::cout<<"root name="<<root->getName()<<std::endl;
 	std::stringstream ss;
 	ss << id;
 	std::string strnum;
 	ss >> strnum;
 	std::string idstr = std::string(std::string("cam")+strnum);
-	std::cout<<"To Find Cam Id string = "<<idstr<<std::endl;
+	//std::cout<<"To Find Cam Id string = "<<idstr<<std::endl;
 	osg::ref_ptr<CamIDFinder> finder = new CamIDFinder;
 	finder->idstr = idstr;
 	root->accept(*finder);
@@ -216,13 +218,13 @@ bool SwitchHandler::handle(const osgGA::GUIEventAdapter& ea,
 					_updator->Get_Destination_Camera().valid())
 					return true;
 
-				std::cout<<"Change To Next Camera..."<<std::endl;
+				//std::cout<<"Change To Next Camera..."<<std::endl;
 				_updator->Set_Start_Camera(new osg::Camera(*viewer->getCamera()));
 				osg::Camera* cam = get_camera_from_id(nextCamId, viewer->getSceneData());
 				_updator->Set_Destination_Camera( cam );
 
 				if(!_updator->Get_Destination_Camera().valid()) {
-					std::cout<<"No valid destination camera!"<<std::endl;
+					//std::cout<<"No valid destination camera!"<<std::endl;
 					_updator->Set_Start_Camera(0);
 					_updator->Set_Destination_Camera(0);
 					nextCamId = 0; // not found, so next cam is now the first one
@@ -245,12 +247,12 @@ bool SwitchHandler::handle(const osgGA::GUIEventAdapter& ea,
 				_updator->Get_Destination_Camera().valid())
 				return true;
 
-			std::cout<<"Double clicked..."<<std::endl;
+			LogD("Double clicked...\n");
 			_updator->Set_Start_Camera(new osg::Camera(*viewer->getCamera()));
 			_updator->Set_Destination_Camera( pick_camera(ea,viewer) );
 
 			if(!_updator->Get_Destination_Camera().valid()) {
-				std::cout<<"No valid destination camera!"<<std::endl;
+				LogD("No valid destination camera!\n");
 				_updator->Set_Start_Camera(0);
 				_updator->Set_Destination_Camera(0);
 				return true;
@@ -281,16 +283,16 @@ void SwitchHandler::printHelp()
 	printf("\t按h键：在控制台打印帮助信息\n");
 	printf("\t按,或.键：按顺序切换相机\n");
 #else
-	printf("\n\tWelcome to use CameraSwitcher!\n");
-	printf("Usage:\n");
-	printf("\tDOUBLE CLICK : double click on cameras(cam0,cam1,...),"
-		     "can smoothly change your viewpoints to that camera.\n");
-	printf("\tHold s and DRAG : do not change eye position, only rotate camera.\n");
-	printf("\tPress UP,DOWN,LEFT,RIGHT : change principle point\n");
-	printf("\tPress PageUp，PageDown : scale image\n");
-	printf("\tPress p : print to console information of current camera\n");
-	printf("\tPress c : clear concole\n");
-	printf("\tPress h : print help information to console\n");
-	printf("\tPress , or . : switch between cameras\n");
+	LogI("\n\tWelcome to use CameraSwitcher!\n"
+		"Usage:\n"
+		"\tDOUBLE CLICK : double click on cameras(cam0,cam1,...),"
+		     "can smoothly change your viewpoints to that camera.\n"
+		"\tHold s and DRAG : do not change eye position, only rotate camera.\n"
+		"\tPress UP,DOWN,LEFT,RIGHT : change principle point\n"
+		"\tPress PageUp，PageDown : scale image\n"
+		"\tPress p : print to console information of current camera\n"
+		"\tPress c : clear concole\n"
+		"\tPress h : print help information to console\n"
+		"\tPress , or . : switch between cameras\n");
 #endif
 }

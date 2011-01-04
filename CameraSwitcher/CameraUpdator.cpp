@@ -112,14 +112,14 @@ void CameraUpdator::Update(osg::Camera* cam)
 {
 	if(!cam) return;
 	double t = Elapsed_time(cnt);
-	std::cout<<"Interpolating... counter="<<cnt<<" time="<<t<<std::endl;
+	std::cout<<"Interpolating... counter="<<cnt<<" time="<<t<<"\r";
 	Interpolate_Camera(*s,*e, t,*cam);
 	++cnt;
 }
 
 void CameraUpdator::Finish_Update()
 {
-	std::cout<<"Finish Update"<<std::endl;
+	std::cout<<".............................Finish Update"<<std::endl;
 	Stop_Update();
 	osg::Vec3 eye,center,up;
 	e->getViewMatrixAsLookAt(eye,center,up);

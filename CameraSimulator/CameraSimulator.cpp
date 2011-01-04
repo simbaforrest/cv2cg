@@ -24,6 +24,8 @@
 #include "CV_CG.h"
 #include "Reader.h"
 
+#include "Log.h"
+
 osg::ref_ptr<osg::Vec3Array> v3a;
 osg::ref_ptr<osg::Node> scene;
 
@@ -39,6 +41,8 @@ osg::ref_ptr<osg::Node> createScene(std::string filename)
 	osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 	geode->setName("CameraSimulator.VertexLineGeode");
 	ret->addChild(geode);
+
+	bool addText = true;
 
 	v3a = new osg::Vec3Array;//
 	while(fin) {
@@ -72,11 +76,16 @@ osg::ref_ptr<osg::Node> createScene(std::string filename)
 		} else if(type == "MODEL") {
 			osg::ref_ptr<osg::Group> group = ReadModel(num, fin);
 			ret->addChild(group);
+		} else if(type == "NOTEXT") {
+			addText = false;
+		} else {
+			TagW("ignore unknown type : %s\n", type.c_str());
 		}
 	}
 	geode->getOrCreateStateSet()->setMode(
 		GL_LIGHTING, osg::StateAttribute::OFF);
 
+	if(addText)
 	{
 		for(unsigned int i=0; i<v3a->size(); ++i) {
 			osgText::Text* t = new osgText::Text;
@@ -151,9 +160,8 @@ struct SnapImage : public osg::Camera::DrawCallback
 				GL_UNSIGNED_BYTE);
 			osgDB::writeImageFile(*_image, pngName);
 
-			osg::notify(osg::NOTICE)<<cnt
-				<<": Taken screenshot! Results are written to '"
-				<<_filename<<"'"<<std::endl;
+			LogI("%d: Taken screenshot! Results are"
+				" written to '%s'\n", cnt, _filename.c_str());
 			++cnt;
 		}
 		_snapImage = false;
@@ -170,6 +178,9 @@ struct SnapeImageHandler : public osgGA::GUIEventHandler
 
 	osg::Camera* camera;
 
+	double _dist;
+	osg::Vec3 _center;
+
 	bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
 	{
 		if (ea.getHandled()) return false;
@@ -180,9 +191,39 @@ struct SnapeImageHandler : public osgGA::GUIEventHandler
 
 		switch(ea.getEventType())
 		{
+		case(osgGA::GUIEventAdapter::KEYDOWN):
+		{
+			//hold s and drag : do not change eye position, only change rotation
+			if(ea.getKey()=='s') {
+				osgGA::TrackballManipulator* manip = 
+					dynamic_cast<osgGA::TrackballManipulator*>(
+					viewer->getCameraManipulator() );
+				if(/*_lock ||*/ !manip) return true;
+				//_lock = true;
+				_dist = manip->getDistance();
+				_center = manip->getCenter();
+				manip->setDistance(0);
+				osg::Vec3 eye,cen,up;
+				viewer->getCamera()->getViewMatrixAsLookAt(eye, cen, up);
+				manip->setCenter(eye);
+				return true;
+			}
+			return false;
+		}
 		case(osgGA::GUIEventAdapter::KEYUP):
 			{
 				const int tmpKey = ea.getKey();
+				if(tmpKey=='s') {
+					osgGA::TrackballManipulator* manip = 
+						dynamic_cast<osgGA::TrackballManipulator*>(
+						viewer->getCameraManipulator() );
+					if(!manip) return true;
+					//_lock = false;
+					manip->setDistance(_dist);
+					manip->setCenter(_center);
+					viewer->home();
+					return true;
+				}
 				if(tmpKey == _key)
 				{
 					_snapImage->_snapImage = true; return true;
@@ -240,7 +281,7 @@ int CameraSimulator::run()
 	scene = createScene(inputFileName);
 	if (!scene)
 	{
-		osg::notify(osg::NOTICE)<<"No model Created"<<std::endl;
+		TagE("No model Created\n");
 		return 1;
 	}
 

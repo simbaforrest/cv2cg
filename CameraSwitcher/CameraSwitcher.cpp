@@ -77,6 +77,8 @@ int CameraSwitcher::run()
 		viewer.getCamera()->getOrCreateStateSet()) );
 	viewer.addEventHandler(new osgViewer::StatsHandler);
 
+	viewer.setUpViewInWindow(50,50,500,500);
+
 	return viewer.run();
 }
 
@@ -102,7 +104,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 
 	std::string modelfile;
 	in >> modelfile;
-	cout<<"[createSceneFromFile] "<<modelfile<<endl;
+	TagI("parsing... %s\n",modelfile.c_str());
 	modelfile = helper::getNameWithExtension(modelfile);
 
 	osg::ref_ptr<osg::Node> model = osgDB::readNodeFile(filedir+modelfile);
@@ -120,13 +122,13 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 		std::getline(in, str, '\n');
 		if(str.length()==0) continue;
 		str = helper::getNameWithExtension(str);
-		cout<<"[createSceneFromFile] "<<str<<endl;
+		TagI("parsing... %s\n",str.c_str());
 
 		if(atImageLine) {
 			img = osgDB::readImageFile(filedir+str);
 		} else {
 			if( !img.valid() ) {
-				LogE("no valid image!"); continue;
+				TagE("no valid image!\n"); continue;
 			}
 			if(	!(cam = readCameraFile(filedir+str, K, C, R, n, f)) ) {
 				continue;
@@ -259,7 +261,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 	if( !(readK && readR && readC) ){
 		//if(ret->getViewport()==0)
 		//	ret->setViewport(0,0,500,500);
-		LogE("Camera Parameter not enough!");
+		TagE("Camera Parameter not enough!\n");
 		ret = 0;
 	}
 	return ret;

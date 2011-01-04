@@ -53,7 +53,7 @@ public:
 	{
 		cnt = 0;
 		if( s.valid() && e.valid() ) {
-			std::cout<<"Begin Update"<<std::endl;
+			std::cout<<"Begin Update........................\r";
 			updating = true;
 			return true;
 		}

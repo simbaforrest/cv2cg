@@ -1,5 +1,4 @@
-#ifndef __LOG_HEADER__
-#define __LOG_HEADER__
+#pragma once
 /* 
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
@@ -22,63 +21,25 @@
 
 namespace Log {
 	//switch them
-	static bool debug=true, info=true, error=true, warn=true;
-	static FILE *logfile = stdout;
+	extern bool debug, info, error, warn;
+	extern FILE *logfile;
 
-	/// With Tag at the beginning
-	// debug
-	inline static void d(const char* msg, const char* tag) {
-		if(debug && logfile) 
-			fprintf(logfile, "[%s debug] %s\n", tag, msg);
-	}
-
-	// info
-	inline static void i(const char* msg, const char* tag) {
-		if(info && logfile)
-			fprintf(logfile, "[%s info] %s\n", tag, msg);
-	}
-
-	// error
-	inline static void e(const char* msg, const char* tag) {
-		if(error && logfile)
-			fprintf(logfile, "[%s error] %s\n", tag, msg);
-	}
-
-	// warn
-	inline static void w(const char* msg, const char* tag) {
-		if(warn && logfile)
-			fprintf(logfile, "[%s warn] %s\n", tag, msg);
-	}
-
-	/// Without Tag
-	// debug
-	inline static void d(const char* msg) {
-		if(debug && logfile) 
-			fprintf(logfile, "\t%s\n", msg);
-	}
-
-	// info
-	inline static void i(const char* msg) {
-		if(info && logfile)
-			fprintf(logfile, "\t%s\n", msg);
-	}
-
-	// error
-	inline static void e(const char* msg) {
-		if(error && logfile)
-			fprintf(logfile, "\t%s\n", msg);
-	}
-
-	// warn
-	inline static void w(const char* msg) {
-		if(warn && logfile)
-			fprintf(logfile, "\t%s\n", msg);
+	inline static bool tag(const char* tag, const char* level, bool control) {
+		if(control && logfile)
+			fprintf(logfile, "[%s %s] ", tag, level);
+		return true;
 	}
 }//Log
-#define LogE(msg) Log::e(msg, __FUNCTION__)
-#define LogW(msg) Log::w(msg, __FUNCTION__)
-#define LogI(msg) Log::i(msg, __FUNCTION__)
-#define LogD(msg) Log::d(msg, __FUNCTION__)
-#define LogA(...) fprintf(Log::logfile, __VA_ARGS__)
 
-#endif//__LOG_HEADER__
+#define LogD(...) fprintf(Log::debug?Log::logfile:0,__VA_ARGS__)
+#define LogI(...) fprintf(Log::info?Log::logfile:0,__VA_ARGS__)
+#define LogE(...) fprintf(Log::error?Log::logfile:0,__VA_ARGS__)
+#define LogW(...) fprintf(Log::warn?Log::logfile:0,__VA_ARGS__)
+#define TagD(...) Log::tag(__FUNCTION__, "debug", Log::debug),\
+                    fprintf(Log::debug?Log::logfile:0,__VA_ARGS__)
+#define TagI(...) Log::tag(__FUNCTION__, "info", Log::info),\
+                    fprintf(Log::info?Log::logfile:0,__VA_ARGS__)
+#define TagE(...) Log::tag(__FUNCTION__, "error", Log::error),\
+                    fprintf(Log::error?Log::logfile:0,__VA_ARGS__)
+#define TagW(...) Log::tag(__FUNCTION__, "warn", Log::warn),\
+                    fprintf(Log::warn?Log::logfile:0,__VA_ARGS__)

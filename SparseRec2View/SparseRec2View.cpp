@@ -33,7 +33,7 @@ static CvScalar colors[] =
 };
 
 SparseRec2View::SparseRec2View(string ipath1,
-							 string ipath2, double k[9], double lamda_)
+							 string ipath2, double k[9], double lamda_, bool onlysurf)
 {
 	memcpy(K, k, sizeof(double)*9);
 	lamda = lamda_;
@@ -41,7 +41,7 @@ SparseRec2View::SparseRec2View(string ipath1,
 	imgpath2 = ipath2;
 	
 	dir = helper::getFileDir(imgpath1);
-	LogI("main dir = ");	Log::i(dir.c_str());
+	TagI("main dir = %s\n",dir.c_str());
 
 	imgname1 = helper::getNameNoExtension(imgpath1);
 	imgname2 = helper::getNameNoExtension(imgpath2);
@@ -52,6 +52,8 @@ SparseRec2View::SparseRec2View(string ipath1,
 	key1=key2=0;
 	des1=des2=0;
 	storage=0;
+
+	_onlysurf=onlysurf;
 }
 
 #define SAFEREL(p) {if((p)) cvReleaseImage(&(p)); (p)=0;}
@@ -71,15 +73,47 @@ SparseRec2View::~SparseRec2View()
 
 bool SparseRec2View::save()
 {
-	//save reconstructed points
-	string path1(dir+imgname1+string("-")+imgname2+string(".X"));
-	std::ofstream o1(path1.c_str());
-	o1 << "VERTEX " << (int)result.size() << endl;
-	for(int i=0; i<(int)result.size(); ++i) {
-		o1<<result[i].x<<" "<<result[i].y<<" "<<result[i].z<<endl;
+	if(!_onlysurf) {
+		//save reconstructed points
+		string path1(dir+imgname1+string("-")+imgname2+string(".X"));
+		std::ofstream o1(path1.c_str());
+		o1 << "VERTEX " << (int)result.size() << endl;
+		for(int i=0; i<(int)result.size(); ++i) {
+			o1<<result[i].x<<" "<<result[i].y<<" "<<result[i].z<<endl;
+		}
+		o1.close();
+		TagI("save reconstructed points to\n  %s\n",path1.c_str());
+
+		//save cam par
+		string path7(imgpath1+string(".par"));
+		std::ofstream o7(path7.c_str());
+		o7.setf(std::ios::scientific);
+		o7 << "K(alphaX alphaY u0 v0)=" <<endl;
+		o7 << K[0] << " " << K[4] << " " << K[2] << " " << K[5] << endl;
+		o7 << "R=" << endl;
+		o7 << "1 0 0\n0 1 0\n0 0 1" <<endl;
+		o7 << "T=" << endl;
+		o7 << "0 0 0" << endl;
+		o7.close();
+		TagI("save camera 1's parameters to\n  %s\n",path7.c_str());
+
+		string path8(imgpath2+string(".par"));
+		std::ofstream o8(path8.c_str());
+		o8.setf(std::ios::scientific);
+		o8 << "K(alphaX alphaY u0 v0)=" <<endl;
+		o8 << K[0] <<" "<< K[4] <<" "<< K[2] <<" "<< K[5] << endl;
+		o8 << "R=" << endl;
+		for(int i=0; i<3; ++i) {
+			for(int j=0; j<3; ++j) {
+				o8 << R[i*3+j] << " ";
+			}
+			o8 << endl;
+		}
+		o8 << "T=" << endl;
+		o8 << t[0] <<" "<< t[1] <<" "<< t[2] << endl;
+		o8.close();
+		TagI("save camera 2's parameters to\n  %s\n",path8.c_str());
 	}
-	o1.close();
-	LogI("save reconstructed points to"); Log::i(path1.c_str());
 
 	CvFont font = cvFont( 0.5, 1 );
 	CvPoint text_origin;
@@ -100,16 +134,16 @@ bool SparseRec2View::save()
 		o2 << r1->pt.x <<" "<< r1->pt.y <<" "<< r2->pt.x <<" "<< r2->pt.y <<endl;
 
 		char tmp[100];
-		sprintf(tmp, "%d", cnt++);
-		text_origin.x = r1->pt.x+5;
-		text_origin.y = r1->pt.y-5;
+		sprintf_s<100>(tmp, "%d", cnt++);
+		text_origin.x = (int)r1->pt.x+5;
+		text_origin.y = (int)r1->pt.y-5;
 		cvPutText( img1, tmp, text_origin, &font, CV_RGB(0,0,0));
-		text_origin.x = r2->pt.x+5;
-		text_origin.y = r2->pt.y-5;
+		text_origin.x = (int)r2->pt.x+5;
+		text_origin.y = (int)r2->pt.y-5;
 		cvPutText( img2, tmp, text_origin, &font, CV_RGB(0,0,0));
 	}
 	o2.close();
-	LogI("save matched point pairs to"); Log::i(path2.c_str());
+	TagI("save matched point pairs to\n  %s\n",path2.c_str());
 
 	//save images
 	string path3(imgpath1+string("-surf.jpg"));
@@ -117,14 +151,14 @@ bool SparseRec2View::save()
 	string path5(dir+imgname1+string("-")+imgname2+string(".jpg"));
 	if(img1) cvSaveImage(path3.c_str(), img1);
 	else {
-		LogE("no valid image to save!");
+		TagE("no valid image to save!\n");
 		return false;
 	}
 	if(img2) cvSaveImage(path4.c_str(), img2);
 	if(combined) cvSaveImage(path5.c_str(), combined);
-	LogI("save surfed image 1 to"); Log::i(path3.c_str());
-	LogI("save surfed image 2 to"); Log::i(path4.c_str());
-	LogI("save combined image to"); Log::i(path5.c_str());
+	TagI("save surfed image 1 to\n  %s\n",path3.c_str());
+	TagI("save surfed image 2 to\n  %s\n",path4.c_str());
+	TagI("save combined image to\n  %s\n",path5.c_str());
 
 	//save F
 	string path6(dir+imgname1+string("-")+imgname2+string(".fmatrix"));
@@ -137,37 +171,7 @@ bool SparseRec2View::save()
 		o6 << endl;
 	}
 	o6.close();
-	LogI("save fundamental matrix to"); Log::i(path6.c_str());
-
-	//save cam par
-	string path7(imgpath1+string(".par"));
-	std::ofstream o7(path7.c_str());
-	o7.setf(std::ios::scientific);
-	o7 << "K(alphaX alphaY u0 v0)=" <<endl;
-	o7 << K[0] << " " << K[4] << " " << K[2] << " " << K[5] << endl;
-	o7 << "R=" << endl;
-	o7 << "1 0 0\n0 1 0\n0 0 1" <<endl;
-	o7 << "T=" << endl;
-	o7 << "0 0 0" << endl;
-	o7.close();
-	LogI("save camera 1's parameters to"); Log::i(path7.c_str());
-
-	string path8(imgpath2+string(".par"));
-	std::ofstream o8(path8.c_str());
-	o8.setf(std::ios::scientific);
-	o8 << "K(alphaX alphaY u0 v0)=" <<endl;
-	o8 << K[0] <<" "<< K[4] <<" "<< K[2] <<" "<< K[5] << endl;
-	o8 << "R=" << endl;
-	for(int i=0; i<3; ++i) {
-		for(int j=0; j<3; ++j) {
-			o8 << R[i*3+j] << " ";
-		}
-		o8 << endl;
-	}
-	o8 << "T=" << endl;
-	o8 << t[0] <<" "<< t[1] <<" "<< t[2] << endl;
-	o8.close();
-	LogI("save camera 2's parameters to"); Log::i(path8.c_str());
+	TagI("save fundamental matrix to\n  %s\n",path6.c_str());
 
 	return true;
 }
@@ -175,10 +179,6 @@ bool SparseRec2View::save()
 bool SparseRec2View::run()
 {
 	if( !loadImage() ) {
-		LogE("can not open image at");
-		Log::i(imgpath1.c_str());
-		Log::i("\tor");
-		Log::i(imgpath2.c_str());
 		return false;
 	}
 	if( !surf() ) {
@@ -190,6 +190,10 @@ bool SparseRec2View::run()
 	if( !estimateFmatrix() ) {
 		return false;
 	}
+
+	if(_onlysurf)
+		return true;
+
 	if( !estimateRelativePose() ) {
 		return false;
 	}
@@ -199,9 +203,15 @@ bool SparseRec2View::run()
 bool SparseRec2View::loadImage()
 {
 	img1 = cvLoadImage(imgpath1.c_str());
-	if(!img1) return false;
+	if(!img1) {
+		TagE("can not open image at\n  %s\n",imgpath1.c_str());
+		return false;
+	}
 	img2 = cvLoadImage(imgpath2.c_str());
-	if(!img2) return false;
+	if(!img2) {
+		TagE("can not open image at\n  %s\n",imgpath2.c_str());
+		return false;
+	}
 	igrey1 = cvCreateImage(cvGetSize(img1), 8, 1);
 	igrey2 = cvCreateImage(cvGetSize(img2), 8, 1);
 	cvCvtColor(img1, igrey1, CV_RGB2GRAY);
@@ -220,10 +230,10 @@ bool SparseRec2View::surf()
 	double tt = (double)cvGetTickCount();
 	cvExtractSURF( igrey1, 0, &key1, &des1, storage, params );
 	cvExtractSURF( igrey2, 0, &key2, &des2, storage, params );
-	LogI("key number for image 1 =");	LogA("\t%d\n",key1->total);
-	LogI("key number for image 2 ="); LogA("\t%d\n",key2->total);
+	TagI("key number for image 1 = %d\n",key1->total);
+	TagI("key number for image 2 = %d\n",key2->total);
 	tt = (double)cvGetTickCount() - tt;
-	LogI("surf time = "); LogA("\t%lf ms\n",tt/(cvGetTickFrequency()*1000.));
+	TagI("surf time = %lf ms\n",tt/(cvGetTickFrequency()*1000.));
 
 	for(int i=0; i<key1->total; ++i) {
 		CvSURFPoint* r = (CvSURFPoint*)cvGetSeqElem( key1, i );
@@ -303,7 +313,7 @@ bool SparseRec2View::match()
 	}
 	//---end------
 	tt = (double)cvGetTickCount() - tt;
-	LogI("flann match time = "); LogA("\t%lf ms\n",tt/(cvGetTickFrequency()*1000.) );
+	TagI("flann match time = %lf ms\n",tt/(cvGetTickFrequency()*1000.) );
 	
 	return true;
 }
@@ -332,10 +342,9 @@ bool SparseRec2View::estimateFmatrix()
 	}
 	//see opencv manual for other options in computing the fundamental matrix
 	int num = cvFindFundamentalMat(points1,points2,fundMatr,CV_FM_RANSAC,3,0.99,status);
-	if( num == 1 )
-		LogI("Fundamental matrix was foundn!");
+	if( num == 1 ) {TagD("Fundamental matrix was foundn!\n");}
 	else	{
-		LogE("Fundamental matrix was not foundn!");
+		TagE("Fundamental matrix was not foundn!\n");
 		return false;
 	}
 
@@ -355,7 +364,7 @@ bool SparseRec2View::estimateFmatrix()
 		//cvLine( img1, cvPointFrom32f(r1->pt), cvPointFrom32f(r2->pt), colors[3]);
 		//cvLine( img2, cvPointFrom32f(r2->pt), cvPointFrom32f(r1->pt), colors[3]);
 	}
-	LogI("number of correct correspond points found by RANSAC = ");	LogA("\t%d\n",cnt);
+	TagI("number of correct correspond points found by RANSAC = %d\n",cnt);
 	correctPairsNum = cnt;
 
 	//memcpy(F, fundMatr->data.db, sizeof(double)*9);
@@ -539,7 +548,7 @@ bool SparseRec2View::estimateRelativePose()
 			memcpy(R, Rb, 9 * sizeof(double));
 			t[0] = -u3[0]; t[1] = -u3[1]; t[2] = -u3[2];
 		} else {
-			LogE("no case was found!");
+			TagE("no case was found!\n");
 			return false;
 		}
 	};
@@ -571,9 +580,9 @@ bool SparseRec2View::estimateRelativePose()
 
 		double u,v;
 		Project(P1,X[0],X[1],X[2], u,v);
-		cout<<">P1\t"<<u-r1->pt.x<<"\t"<<v-r1->pt.y<<endl;
+		LogD(">P1\t%lf\t%lf\n",u-r1->pt.x,v-r1->pt.y);
 		Project(P2,X[0],X[1],X[2], u,v);
-		cout<<">P2\t"<<u-r2->pt.x<<"\t"<<v-r2->pt.y<<endl;
+		LogD(">P2\t%lf\t%lf\n",u-r2->pt.x,v-r2->pt.y);
 	}
 
 	return true;

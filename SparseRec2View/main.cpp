@@ -26,15 +26,18 @@
 
 #include "SparseRec2View.h"
 
+#include "Log.inc" // for log control
+#include "Log.h"
+
 using namespace std;
 
 int main(int argc, char** argv)
 {
 	if(argc<4) {
-		cout<<"Usage:\n\t"<<argv[0]<<
-			" <name of config file> <name of image file 1> <name of image file 2>"<<endl;
-		cout<<"config file is composed of K and lamda"<<endl;
-		cout<<"Example:\n\t"<<argv[0]<<" cam.txt left.jpg righ.jpg"<<endl;
+		LogI("Usage:\n\tSparseRec2View.exe <name of config file>"
+			" <name of image file 1> <name of image file 2>\n");
+		LogI("config file is composed of K and lamda\n");
+		LogI("Example:\n\tSparseRec2View.exe cam.txt left.jpg righ.jpg\n");
 		return -1;
 	}
 
@@ -42,21 +45,28 @@ int main(int argc, char** argv)
 	std::ifstream in(argv[1]);
 	for(int i=0; i<9; ++i) in >> K[i];
 	in >> lamda;
-	cout<<"[main] K="<<endl;
+	TagD("K=\n");
 	for(int i=0; i<3; ++i) {
-		for(int j=0; j<3; ++j) {
-			cout << K[i*3+j] << " ";
-		}
-		cout << endl;
+		for(int j=0; j<3; ++j)
+			LogD("\t%lf",K[i*3+j]);
+		LogD("\n");
 	}
-	cout<<"[main] lamda="<<lamda<<endl;
+	TagD("lamda=%lf\n",lamda);
 
-	SparseRec2View tvs(string(argv[2]), string(argv[3]), K, lamda);
+	bool onlysurf=false;
+	if(argc>4) {
+		if( argv[4] == std::string("-onlysurf") ) {
+			TagI("onlysurf turned on, no reconstruction.\n");
+			onlysurf=true;
+		}
+	}
 
-	cout<<"[main] Begin:"<<endl;
+	SparseRec2View tvs(string(argv[2]), string(argv[3]), K, lamda, onlysurf);
+
+	TagI("Begin :\n");
 	tvs.run();
 	tvs.save();
-	cout<<"[main] Done!"<<endl;
+	TagI("Done!\n");
 	
 	return 0;
 }
