@@ -41,6 +41,8 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	Log::debug = false;
+
 	double K[9]={0}, lamda=1;
 	std::ifstream in(argv[1]);
 	for(int i=0; i<9; ++i) in >> K[i];
@@ -53,15 +55,15 @@ int main(int argc, char** argv)
 	}
 	TagD("lamda=%lf\n",lamda);
 
-	bool onlysurf=false;
+	bool onlymatch=false;
 	if(argc>4) {
-		if( argv[4] == std::string("-onlysurf") ) {
-			TagI("onlysurf turned on, no reconstruction.\n");
-			onlysurf=true;
+		if( argv[4] == std::string("-onlymatch") ) {
+			TagI("onlymatch turned on, no reconstruction.\n");
+			onlymatch=true;
 		}
 	}
 
-	SparseRec2View tvs(string(argv[2]), string(argv[3]), K, lamda, onlysurf);
+	SparseRec2View tvs(string(argv[2]), string(argv[3]), K, lamda, onlymatch);
 
 	TagI("Begin :\n");
 	tvs.run();

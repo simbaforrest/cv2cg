@@ -95,4 +95,50 @@ namespace CameraHelper {
 			CvMatHelper::mul(3,3,3,4,K,PP,P);
 		}
 	}
+
+	inline void triangulate(const double x1, const double y1,
+		const double x2, const double y2,
+		const double P1[12], const double P2[12], double X[3])
+	{
+		double A[12] = {
+			P1[0]-x1*P1[8], P1[1]-x1*P1[9], P1[2]-x1*P1[10],
+			P1[4]-y1*P1[8], P1[5]-y1*P1[9], P1[6]-y1*P1[10],
+			P2[0]-x2*P2[8], P2[1]-x2*P2[9], P2[2]-x2*P2[10],
+			P2[4]-y2*P2[8], P2[5]-y2*P2[9], P2[6]-y2*P2[10]
+		};
+		double b[4] = {
+			x1*P1[11]-P1[3],
+			y1*P1[11]-P1[7],
+			x2*P2[11]-P2[3],
+			y2*P2[11]-P2[7]
+		};
+
+		CreateCvMatHead(_A,4,3,A);
+		CreateCvMatHead(_b,4,1,b);
+		CreateCvMatHead(_X,3,1,X);
+		cvSolve(&_A,&_b,&_X, CV_SVD);
+
+		//double A[16] = {
+		//	x1*P1[8]-P1[0], x1*P1[9]-P1[1], x1*P1[10]-P1[2], x1*P1[11]-P1[3],
+		//	y1*P1[8]-P1[4], y1*P1[9]-P1[5], y1*P1[10]-P1[6], y1*P1[11]-P1[7],
+		//	x2*P2[8]-P2[0], x2*P2[9]-P2[1], x2*P2[10]-P2[2], x2*P2[11]-P2[3],
+		//	y2*P2[8]-P2[4], y2*P2[9]-P2[5], y2*P2[10]-P2[6], y2*P2[11]-P2[7]
+		//};
+		//double x[4] = {0};
+		//double B[4] = {0};
+		////double u[16],w[16],v[16];
+
+		//CreateCVHead(_A,4,4,A);
+		//CreateCVHead(_x,4,1,x);
+		//CreateCVHead(_B,4,1,B);
+		////CreateCVHead(_u,4,4,u);
+		////CreateCVHead(_w,4,4,w);
+		////CreateCVHead(_v,4,4,v);
+
+		////cvSVD(&_A, &_w, &_u, &_v);
+		//cvSolve(&_A, &_B, &_x, CV_SVD);
+		//X[0] = x[0]/x[3];
+		//X[1] = x[1]/x[3];
+		//X[2] = x[2]/x[3];
+	}
 }//CameraHelper

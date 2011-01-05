@@ -26,50 +26,44 @@
 
 #include "OpenCVHelper.h"
 
-struct Pt3 {
-	Pt3(double _x=0, double _y=0, double _z=0) {
-		x=_x; y=_y; z=_z;
-	}
-	double x,y,z;
-};
-
 using namespace std;
+using namespace cv;
 
 class SparseRec2View {
 private:
+	FeatureDetector* detector;
+	DescriptorExtractor* descriptor;
+	DescriptorMatcher* matcher;
+
+	//img1 as train image, img2 as query image
 	string imgpath1, imgpath2;
 	string dir;
 	string imgname1, imgname2;
-	IplImage *img1, *img2;
-	IplImage *igrey1, *igrey2;
-	IplImage *combined;
-	CvSeq *key1, *key2;
-	CvSeq *des1, *des2;
-	CvMemStorage* storage;
-	vector<int> pairs;
-	int correctPairsNum;
+	Mat img1, img2;
+	Mat igrey1, igrey2;
+	Mat combined;
+	vector<KeyPoint> key1, key2;
+	vector<DMatch> matches;
+	vector<Point3f> results;//reconstructed points
+	vector<Point2f> p1, p2;//matched image points
+	vector<uchar> inliers;//inliers in p1-p2 for fmatrix, 0 means outlier
+	int inliersNum;
 	double K[9];
 	double R[9],t[3];//for image 2
 	double F[9];
 	double lamda;//restrict baseline length
-	std::vector<Pt3> result;
-	bool _onlysurf;
-
+	bool _onlymatch;
 private:
 	bool loadImage();
-	bool surf();
+	bool detect();
 	bool match();
-	bool estimateFmatrix();
+	bool fmatrix();//estimate fundamental matrix
 	bool estimateRelativePose();
 
 public:
-	SparseRec2View(string ipath1, string ipath2, double k[9], double lamda_=1, bool onlysurf=false);
+	SparseRec2View(string ipath1, string ipath2, double k[9], double lamda_=1, bool onlymatch=false);
 	~SparseRec2View();
 
 	bool run();
 	bool save();
 };
-
-void Triangulate(const double x1, const double y1,
-		const double x2, const double y2,
-		const double P1[12], const double P2[12], double X[3]);

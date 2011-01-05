@@ -1,4 +1,9 @@
-﻿2010-12-31 Simbaforrest
+﻿2011-01-04 Simbaforrest
+1.fix bugs in Log.h
+2.Upgrade to OpenCV2.2
+3.modified SparseRec2View project
+
+2010-12-31 Simbaforrest
 1.将OpenCVHelper.h拆分为几个不同的Helper头文件，并增添功能
 2.加入SparseRec2View两视图重建工具，利用已知内参数的两张照片重建稀疏点云
 3.创建cv2cg.bat脚本文件，用于进行

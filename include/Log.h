@@ -31,15 +31,15 @@ namespace Log {
 	}
 }//Log
 
-#define LogD(...) fprintf(Log::debug?Log::logfile:0,__VA_ARGS__)
-#define LogI(...) fprintf(Log::info?Log::logfile:0,__VA_ARGS__)
-#define LogE(...) fprintf(Log::error?Log::logfile:0,__VA_ARGS__)
-#define LogW(...) fprintf(Log::warn?Log::logfile:0,__VA_ARGS__)
+#define LogD(...) if(Log::debug) fprintf(Log::logfile,__VA_ARGS__)
+#define LogI(...) if(Log::info) fprintf(Log::logfile,__VA_ARGS__)
+#define LogE(...) if(Log::error) fprintf(Log::logfile,__VA_ARGS__)
+#define LogW(...) if(Log::warn) fprintf(Log::logfile,__VA_ARGS__)
 #define TagD(...) Log::tag(__FUNCTION__, "debug", Log::debug),\
-                    fprintf(Log::debug?Log::logfile:0,__VA_ARGS__)
+	Log::debug?fprintf(Log::logfile,__VA_ARGS__):0
 #define TagI(...) Log::tag(__FUNCTION__, "info", Log::info),\
-                    fprintf(Log::info?Log::logfile:0,__VA_ARGS__)
+    Log::info?fprintf(Log::logfile,__VA_ARGS__):0
 #define TagE(...) Log::tag(__FUNCTION__, "error", Log::error),\
-                    fprintf(Log::error?Log::logfile:0,__VA_ARGS__)
+	Log::error?fprintf(Log::logfile,__VA_ARGS__):0
 #define TagW(...) Log::tag(__FUNCTION__, "warn", Log::warn),\
-                    fprintf(Log::warn?Log::logfile:0,__VA_ARGS__)
+	Log::warn?fprintf(Log::logfile,__VA_ARGS__):0
