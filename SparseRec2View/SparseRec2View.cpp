@@ -58,6 +58,8 @@ SparseRec2View::~SparseRec2View()
 	detector = 0;
 	delete descriptor;
 	descriptor = 0;
+	delete matcher;
+	matcher = 0;
 }
 
 bool SparseRec2View::run()
@@ -67,25 +69,14 @@ bool SparseRec2View::run()
 		return false;
 	}
 
-	if( !loadImage() ) {
-		return false;
-	}
-	if( !detect() ) {
-		return false;
-	}
-	if( !match() ) {
-		return false;
-	}
-	if( !fmatrix() ) {
-		return false;
-	}
+	if( !loadImage() )	return false;
+	if( !detect() )		return false;
+	if( !match() )		return false;
+	if( !fmatrix() )	return false;
 
-	if(_onlymatch)
-		return true;
+	if(_onlymatch) return true;
 
-	if( !estimateRelativePose() ) {
-		return false;
-	}
+	if( !estimateRelativePose() ) return false;
 	return true;
 }
 
@@ -252,23 +243,11 @@ bool SparseRec2View::estimateRelativePose()
 	double P2[12];
 	CreateCvMatHead(_P2,3,4,P2);
 
-	//Print(3,3,F,"F");
-	//Print(3,3,E,"E");
-	//Print(3,3,U,"U");
-	//Print(3,3,S,"S");
-	//Print(3,3,VT,"VT");
-	//Print(3,1,u3,"tu");
-	//Print(3,3,Ra,"Ra");
-	//Print(3,3,Rb,"Rb");
-	//Print(3,4,P1,"P1");
-
 	// test Ra
 	P2[0]=Ra[0]; P2[1]=Ra[1]; P2[2]=Ra[2]; P2[3]=u3[0];
 	P2[4]=Ra[3]; P2[5]=Ra[4]; P2[6]=Ra[5]; P2[7]=u3[1];
 	P2[8]=Ra[6]; P2[9]=Ra[7]; P2[10]=Ra[8]; P2[11]=u3[2];
 	cvMatMul(&_K,&_P2,&_P2); //P2 = K*[Ra,u3];
-
-	//Print(3,4,P2,"P2");
 
 	int c1_pos = 0, c1_neg = 0;
 	int c2_pos = 0, c2_neg = 0;
