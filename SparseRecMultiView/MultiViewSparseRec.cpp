@@ -53,7 +53,10 @@ bool MVSR::run(vector<string> imgnamelist)
 	matcher->clear();
 
 	if(!loadimage(imgnamelist)) return false;
-	if(!detect())				return false;
+	if(!detect())								return false;
+	if(!match())								return false;
+	if(!save())									return false;
+	return true;
 }
 
 bool MVSR::loadimage(vector<string> imgnamelist)
@@ -85,6 +88,9 @@ bool MVSR::detect()
 		MVSRpicture& pic = pictures[i];
 		detector->detect(pic.grey, pic.key);
 		descriptor->compute(pic.grey, pic.key, pic.des);
+		//init map from image point to object point
+		pic.map.resize(pic.key.size());
+		std::fill(pic.map.begin(), pic.map.end(), -1);
 	}
 	tt = (double)getTickCount() - tt;
 	TagI("detect+describe time = %lf s\n", tt/getTickFrequency());
@@ -109,10 +115,43 @@ bool MVSR::match()
 		for(int j=0; j<(int)matches.size(); ++j) {
 			const DMatch& m = matches[j];
 			if(m.imgIdx==i) continue; //match to self, ignore
-			TODO
+			addmatchpair(i, m.queryIdx, m.imgIdx, m.trainIdx);
 		}
 	}
 	tt = (double)getTickCount() - tt;
 	TagI("match time = %lf s\n", tt/getTickFrequency());
 	return true;
+}
+
+//add linkage between object points and image's keypoint
+void MVSR::linkimgobj(int objIdx, int imgi, int keyi)
+{
+	clouds[objIdx].observe(imgi, keyi);
+	pictures[imgi].map[keyi] = objIdx;
+}
+
+void MVSR::addmatchpair(int imgi, int keyi, int imgj, int keyj)
+{
+	MVSRpicture& pici = pictures[imgi];
+	MVSRpicture& picj = pictures[imgj];
+	if( pici.map[keyi]==-1 && picj.map[keyj]==-1 ) {
+		//need a new object point
+		clouds.push_back( MVSRobjpoint() );
+		linkimgobj(clouds.size()-1, imgi, keyi);
+		linkimgobj(clouds.size()-1, imgj, keyj);
+	} else if( pici.map[keyi]==-1 ) {
+		int objIdx = picj.map[keyj];
+		linkimgobj(objIdx, imgi, keyi);
+	} else if( picj.map[keyj]==-1 ) {
+		int objIdx = pici.map[keyi];
+		linkimgobj(objIdx, imgj, keyj);
+	} else {
+		TagE("(img %d, key %d)<->(img %d, key %d) already exist!",
+			imgi, keyi, imgj, keyj);
+	}
+}
+
+bool MVSR::save()
+{
+
 }

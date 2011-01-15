@@ -43,7 +43,7 @@ struct MVSRobjpoint {
 	//<i,j> means this obj point is observed in jth keypoint on picture i
 	struct Record {
 		int imgi, keyj;
-		Record(int i, int j) {imgi=i; keyj=j;}
+		Record(int i=-1, int j=-1) {imgi=i; keyj=j;}
 	};
 	vector<Record> obs;
 	Point3d pos;
@@ -72,7 +72,11 @@ private:
 	bool loadimage(vector<string> imgnamelist);
 	bool detect();
 	bool match();
+	bool save();
+
 	//add match pair for
 	//(keypoint[keyi] in img[imgi])<->(keypoint[keyj] in img[imgj])
 	void addmatchpair(int imgi, int keyi, int imgj, int keyj);
+	//add linkage between object points and image's keypoint
+	void linkimgobj(int objIdx, int imgi, int keyi);
 };
