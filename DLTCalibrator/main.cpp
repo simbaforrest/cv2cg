@@ -165,7 +165,8 @@ void calibrate(std::ofstream& fout)
 	helper::DLT(g_num, ipa, wpa, P[0]);
 	helper::decompose(P[0], KK[0], R[0], T, C);
 	fout<<"K(alphaX alphaY u0 v0)="<<std::endl;
-	fout<<KK[0][0]<<" "<<KK[1][1]<<" "<<KK[0][2]<<" "<<KK[1][2]<<std::endl;
+	fout<<KK[0][0]/KK[2][2]<<" "<<KK[1][1]/KK[2][2]<<" "
+		<<KK[0][2]/KK[2][2]<<" "<<KK[1][2]/KK[2][2]<<std::endl;
 	helper::print(
 		fout<<"R="<<std::endl,
 		R[0],3,3);
@@ -189,8 +190,8 @@ int main( int argc, char **argv )
 	if(argc<=1) {
 		LogI("Usage: \n\tDLTCalibrator.exe <InputFileName>"
 			" [<OutPutFileName>(Without extention!)]\n"
-			"Example: \n\tDLTCalibrator.exe test.cp"
-			"Example: \n\tDLTCalibrator.exe test.cp D:\\Out\n");
+			"Example: \n\tDLTCalibrator.exe test.cp\n"
+			"\tDLTCalibrator.exe test.cp D:\\Out\n");
 		return 1;
 	}
 
