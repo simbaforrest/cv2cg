@@ -1,4 +1,7 @@
-﻿2011-01-04 Simbaforrest
+﻿2011-02-11 Simbaforrest
+fix bugs in DLTCalibrator, thanks to kutawei[at]163[dot]com
+
+2011-01-04 Simbaforrest
 1.fix bugs in Log.h
 2.Upgrade to OpenCV2.2
 3.modified SparseRec2View project
