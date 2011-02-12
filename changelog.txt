@@ -1,4 +1,7 @@
-﻿2011-02-11 Simbaforrest
+﻿2010-02-12 Simbaforrest
+fix another bug in DLTCalibrator.
+
+2011-02-11 Simbaforrest
 fix bugs in DLTCalibrator, thanks to kutawei[at]163[dot]com
 
 2011-01-04 Simbaforrest
