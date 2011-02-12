@@ -163,6 +163,11 @@ void calibrate(std::ofstream& fout)
 {
 	double P[3][4], KK[3][3], R[3][3], T[3], C[3];
 	helper::DLT(g_num, ipa, wpa, P[0]);
+	double M[3][3];//P<3x4>=[M<3x3>=K<3x3>*R<3x3>|K<3x3>*T<3x1>]
+	for(int i=0; i<3; ++i) for(int j=0; j<3; ++j)
+		M[i][j] = P[i][j];
+	if(helper::det(3, M[0])<0)
+		helper::scale(3,4,P[0],-1,P[0]); //make sure det(M) > 0
 	helper::decompose(P[0], KK[0], R[0], T, C);
 	fout<<"K(alphaX alphaY u0 v0)="<<std::endl;
 	fout<<KK[0][0]/KK[2][2]<<" "<<KK[1][1]/KK[2][2]<<" "
