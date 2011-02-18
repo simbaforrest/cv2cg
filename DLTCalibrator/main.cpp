@@ -30,6 +30,8 @@
 // p npoints*2, image points
 // X npoints*3, world points
 // P 3*4, projection matrix, sp = PX
+// by normalization, meaning Y=SX => X=inv(S)Y => sp = (P*inv(S))Y
+// so if sp = P'Y, then P = P'*S
 namespace helper {
 	bool DLT(int npoints, double const *p, double const *X,
 		double *P)
@@ -42,6 +44,8 @@ namespace helper {
 		//solution matrix A, dim = (2*npoints)*12
 		double *A = new double[2*npoints*12];
 		helper::zeros(2*npoints,12,A);
+		//normalized points
+		double *Y = new double[npoints * 3];
 
 		using helper::FixMat;
 		FixMat<2, double const>::Type _p
@@ -50,29 +54,64 @@ namespace helper {
 			= FixMat<3, double const>::ConvertType(X);
 		FixMat<12, double>::Type _A
 			= FixMat<12, double>::ConvertType(A);
+		FixMat<3, double>::Type _Y
+			= FixMat<3, double>::ConvertType(Y);
+
+		// find mean, i.e. center point
+		double c[3]={0,0,0};
+		for(int i=0; i<npoints; ++i) {
+			c[0]+=_X[i][0];
+			c[1]+=_X[i][1];
+			c[2]+=_X[i][2];
+		}
+		c[0]/=npoints; c[1]/=npoints; c[2]/=npoints;
+		// find scale factor s
+		double dist2 = 0;
+		for(int i=0; i<npoints; ++i) {
+			_Y[i][0]=_X[i][0]-c[0];
+			_Y[i][1]=_X[i][1]-c[1];
+			_Y[i][2]=_X[i][2]-c[2];
+			dist2 += _Y[i][0]*_Y[i][0]+_Y[i][1]*_Y[i][1]+_Y[i][2]*_Y[i][2];
+		}
+		double s = sqrt(2*npoints/dist2);
+		for(int i=0; i<npoints; ++i) {
+			_Y[i][0]*=s; _Y[i][1]*=s; _Y[i][2]*=s;
+		}
 
 		// Form the solution matrix A
 		for(int i=0; i<npoints; ++i) {
-			_A[2*i][0] = -1 * _X[i][0];
-			_A[2*i][1] = -1 * _X[i][1];
-			_A[2*i][2] = -1 * _X[i][2];
+			_A[2*i][0] = -1 * _Y[i][0];
+			_A[2*i][1] = -1 * _Y[i][1];
+			_A[2*i][2] = -1 * _Y[i][2];
 			_A[2*i][3] = -1 * 1;
-			_A[2*i][8] = _p[i][0] * _X[i][0];
-			_A[2*i][9] = _p[i][0] * _X[i][1];
-			_A[2*i][10]= _p[i][0] * _X[i][2];
+			_A[2*i][8] = _p[i][0] * _Y[i][0];
+			_A[2*i][9] = _p[i][0] * _Y[i][1];
+			_A[2*i][10]= _p[i][0] * _Y[i][2];
 			_A[2*i][11]= _p[i][0] * 1;
 
-			_A[2*i+1][4] = -1 * _X[i][0];
-			_A[2*i+1][5] = -1 * _X[i][1];
-			_A[2*i+1][6] = -1 * _X[i][2];
+			_A[2*i+1][4] = -1 * _Y[i][0];
+			_A[2*i+1][5] = -1 * _Y[i][1];
+			_A[2*i+1][6] = -1 * _Y[i][2];
 			_A[2*i+1][7] = -1 * 1;
-			_A[2*i+1][8] = _p[i][1] * _X[i][0];
-			_A[2*i+1][9] = _p[i][1] * _X[i][1];
-			_A[2*i+1][10]= _p[i][1] * _X[i][2];
+			_A[2*i+1][8] = _p[i][1] * _Y[i][0];
+			_A[2*i+1][9] = _p[i][1] * _Y[i][1];
+			_A[2*i+1][10]= _p[i][1] * _Y[i][2];
 			_A[2*i+1][11]= _p[i][1] * 1;
 		}
 
-		helper::nullvector(2*npoints,12,A,P);
+		double Pp[12] ={0}; //P'
+		helper::nullvector(2*npoints,12,A,Pp);
+
+		double S[16]={
+			s,0,0,-s*c[0],
+			0,s,0,-s*c[1],
+			0,0,s,-s*c[2],
+			0,0,0,1
+		};
+
+		helper::mul(3,4,4,4,Pp,S,P); //P = P'*S
+
+		delete [] A;
 		return true;
 	}
 
