@@ -1,0 +1,71 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "App", "App", "{2C91F594-CDA9-43D7-83E5-05E27E55471C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CameraSimulator", "CameraSimulator\CameraSimulator.vcproj", "{86E25EA9-388D-4A6B-8C54-C5E2F1EF38A7}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CameraSwitcher", "CameraSwitcher\CameraSwitcher.vcproj", "{256B06B1-6B9D-4D67-B018-DBA5EB64A05D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C30087B0-673A-4474-8789-41B324C94B44}"
+	ProjectSection(SolutionItems) = preProject
+		changelog.txt = changelog.txt
+		Release\cv2cg.bat = Release\cv2cg.bat
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "include", "include", "{B4B23C46-0B29-4F7B-8A0D-E7269BE6BBA2}"
+	ProjectSection(SolutionItems) = preProject
+		include\CameraHelper.h = include\CameraHelper.h
+		include\CV_CG.h = include\CV_CG.h
+		include\CvMatHelper.h = include\CvMatHelper.h
+		include\DirHelper.h = include\DirHelper.h
+		include\ImageHelper.h = include\ImageHelper.h
+		include\Log.h = include\Log.h
+		include\Log.inc = include\Log.inc
+		include\OpenCVHelper.h = include\OpenCVHelper.h
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DLTCalibrator", "DLTCalibrator\DLTCalibrator.vcproj", "{80309D18-1531-4151-A4B9-5D3EDBEDE444}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SparseRec2View", "SparseRec2View\SparseRec2View.vcproj", "{2FCFFBF0-8A6B-483E-8394-498A579A3515}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SparseRecMultiView", "SparseRecMultiView\SparseRecMultiView.vcproj", "{5776EF75-4E39-4E40-9939-02C2F0622328}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{86E25EA9-388D-4A6B-8C54-C5E2F1EF38A7}.Debug|Win32.ActiveCfg = Debug|Win32
+		{86E25EA9-388D-4A6B-8C54-C5E2F1EF38A7}.Debug|Win32.Build.0 = Debug|Win32
+		{86E25EA9-388D-4A6B-8C54-C5E2F1EF38A7}.Release|Win32.ActiveCfg = Release|Win32
+		{86E25EA9-388D-4A6B-8C54-C5E2F1EF38A7}.Release|Win32.Build.0 = Release|Win32
+		{256B06B1-6B9D-4D67-B018-DBA5EB64A05D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{256B06B1-6B9D-4D67-B018-DBA5EB64A05D}.Debug|Win32.Build.0 = Debug|Win32
+		{256B06B1-6B9D-4D67-B018-DBA5EB64A05D}.Release|Win32.ActiveCfg = Release|Win32
+		{256B06B1-6B9D-4D67-B018-DBA5EB64A05D}.Release|Win32.Build.0 = Release|Win32
+		{80309D18-1531-4151-A4B9-5D3EDBEDE444}.Debug|Win32.ActiveCfg = Debug|Win32
+		{80309D18-1531-4151-A4B9-5D3EDBEDE444}.Debug|Win32.Build.0 = Debug|Win32
+		{80309D18-1531-4151-A4B9-5D3EDBEDE444}.Release|Win32.ActiveCfg = Release|Win32
+		{80309D18-1531-4151-A4B9-5D3EDBEDE444}.Release|Win32.Build.0 = Release|Win32
+		{2FCFFBF0-8A6B-483E-8394-498A579A3515}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2FCFFBF0-8A6B-483E-8394-498A579A3515}.Debug|Win32.Build.0 = Debug|Win32
+		{2FCFFBF0-8A6B-483E-8394-498A579A3515}.Release|Win32.ActiveCfg = Release|Win32
+		{2FCFFBF0-8A6B-483E-8394-498A579A3515}.Release|Win32.Build.0 = Release|Win32
+		{5776EF75-4E39-4E40-9939-02C2F0622328}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5776EF75-4E39-4E40-9939-02C2F0622328}.Debug|Win32.Build.0 = Debug|Win32
+		{5776EF75-4E39-4E40-9939-02C2F0622328}.Release|Win32.ActiveCfg = Release|Win32
+		{5776EF75-4E39-4E40-9939-02C2F0622328}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{86E25EA9-388D-4A6B-8C54-C5E2F1EF38A7} = {2C91F594-CDA9-43D7-83E5-05E27E55471C}
+		{256B06B1-6B9D-4D67-B018-DBA5EB64A05D} = {2C91F594-CDA9-43D7-83E5-05E27E55471C}
+		{80309D18-1531-4151-A4B9-5D3EDBEDE444} = {2C91F594-CDA9-43D7-83E5-05E27E55471C}
+		{2FCFFBF0-8A6B-483E-8394-498A579A3515} = {2C91F594-CDA9-43D7-83E5-05E27E55471C}
+		{5776EF75-4E39-4E40-9939-02C2F0622328} = {2C91F594-CDA9-43D7-83E5-05E27E55471C}
+	EndGlobalSection
+EndGlobal
