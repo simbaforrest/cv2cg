@@ -1,4 +1,7 @@
-﻿2010-02-12 Simbaforrest
+﻿2010-02-18 Simbaforrest
+add normalization for DLTCalibrator
+
+2010-02-12 Simbaforrest
 fix another bug in DLTCalibrator.
 
 2011-02-11 Simbaforrest
