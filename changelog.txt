@@ -1,4 +1,7 @@
-﻿2010-02-18 Simbaforrest
+﻿2010-02-19 Simbaforrest
+fix small bug in DLT, add link to my undergraduate thesis in Chinese
+
+2010-02-18 Simbaforrest
 add normalization for DLTCalibrator
 
 2010-02-12 Simbaforrest

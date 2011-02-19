@@ -112,6 +112,7 @@ namespace helper {
 		helper::mul(3,4,4,4,Pp,S,P); //P = P'*S
 
 		delete [] A;
+		delete [] Y;
 		return true;
 	}
 
