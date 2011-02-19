@@ -33,6 +33,10 @@
 //All notation such as K,R,C,T,P are in standard computer vision system
 //details in <<Multiple View Geometry>> by Richard Hartley and A. Zisserman
 
+//some explanations of formulas in this file could be found on my undergraduate
+//thesis (in Chinese):
+//http://www-personal.umich.edu/~cforrest/upload/ChenFeng.UnderGrad.Thesis.ch.pdf
+
 //this actually use a osg camera to get cv photo coordinate
 inline void CG_Project(const osg::Camera& camera, 
 											 double x, double y, double z, double& u, double& v)
