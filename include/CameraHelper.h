@@ -96,6 +96,13 @@ namespace CameraHelper {
 		}
 	}
 
+	inline void RotationMatrix_PH_CV(double *R)
+	{
+		for(int i=1; i<3; ++i)
+			for(int j=0; j<3; ++j)
+				R[i*3+j] *= -1;
+	}
+
 	inline void triangulate(const double x1, const double y1,
 		const double x2, const double y2,
 		const double P1[12], const double P2[12], double X[3])
