@@ -38,7 +38,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 osg::ref_ptr<osg::MatrixTransform> 
 Make_Photo(const osg::Camera& camera, osg::Image& image);
 
-#if 0
+#if 1
 osg::ref_ptr<osg::Node>
 createSceneFromBundlerResult(std::string filename);
 

@@ -84,12 +84,12 @@ int CameraSwitcher::run()
 
 /////////////////////////////////////////////////////
 ///   API
-#define ENABLE_BUNDLER 0 // currently deprecated
+#define ENABLE_BUNDLER 1 // currently deprecated
 
 osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 {
 #if ENABLE_BUNDLER // currently deprecated
-	if(osgDB::getFileExtension(filename)==std::string("bundler")) {
+	if(helper::getFileExtensionNoDot(filename)==std::string("bundler")) {
 		return createSceneFromBundlerResult(filename);
 	}
 #endif
@@ -358,8 +358,7 @@ Make_Photo(const osg::Camera& camera,
 osg::ref_ptr<osg::Node>
 createSceneFromBundlerResult(std::string filename)
 {
-	std::string filedir = osgDB::getFilePath(filename);
-	filedir+=std::string("\\");
+	std::string filedir = helper::getFileDir(filename);
 	std::ifstream in(filename.c_str());
 
 	std::string bundlerfile;
@@ -409,20 +408,20 @@ readBundlerFile(std::string filename,
 			osg::ref_ptr<osg::Image> img = osgDB::readImageFile(imgfilelist[i]);
 			if( !img.valid() ) continue;
 			osg::ref_ptr<osg::Camera> cam = new osg::Camera;
-			MatrixManip::Zeros(3,3,K[0]);
+			helper::zeros(3,3,K[0]);
 			K[0][0]=K[1][1]=f;
 			K[2][2]=1;
 			K[0][2] = img->s()/2;
 			K[1][2] = img->t()/2;
-			MatrixManip::ProductAtB(3,3,3,1,R[0],t,C);
+			helper::mulAtB(3,3,3,1,R[0],t,C);
 			C[0]*=-1;C[1]*=-1;C[2]*=-1;
-			//CameraAlgebra::RotationMatrix_PH_CV(R[0]);
+			helper::RotationMatrix_PH_CV(R[0]);
 			cam->setViewport(0,0,500,500);
-			cv2cg(K,C,R,1,1000,0,*cam);
-			osg::Vec3 center(C[0],C[1],C[2]);
-			osg::Vec3 lookdir(-R[2][0],-R[2][1],-R[2][2]);
-			osg::Vec3 up(R[1][0],R[1][1],R[1][2]);
-			cam->setViewMatrixAsLookAt(center, center+lookdir*10, up);
+			cv2cg(K,C,R,0.1,100,img->s(),img->t(),*cam);
+			//osg::Vec3 center(C[0],C[1],C[2]);
+			//osg::Vec3 lookdir(-R[2][0],-R[2][1],-R[2][2]);
+			//osg::Vec3 up(R[1][0],R[1][1],R[1][2]);
+			//cam->setViewMatrixAsLookAt(center, center+lookdir*10, up);
 
 			std::stringstream ss;
 			ss << i;
