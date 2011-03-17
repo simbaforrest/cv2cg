@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <time.h>
 //opencv include
-#include "opencv2\opencv.hpp"
+#include "OpenCVHelper.h"
 
 namespace CameraHelper {
 	// s[u,v,1]' = P * [x,y,z,1]'
