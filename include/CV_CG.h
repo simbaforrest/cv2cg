@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "Log.h"
 #include "OpenCVHelper.h"
 
 //Statement:

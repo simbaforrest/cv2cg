@@ -28,16 +28,20 @@
 #include <stdio.h>
 #include <time.h>
 //opencv include
-#include "opencv2\opencv.hpp"
+#include "opencv2/opencv.hpp"
 
 #include "CvMatHelper.h"
 #include "CameraHelper.h"
 #include "ImageHelper.h"
 #include "DirHelper.h"
+#include "IOHelper.h"
+#include "UtilHelper.h"
 
 namespace helper {
 	using namespace CvMatHelper;
 	using namespace CameraHelper;
 	using namespace ImageHelper;
 	using namespace DirHelper;
+	using namespace IOHelper;
+	using namespace UtilHelper;
 }
