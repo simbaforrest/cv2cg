@@ -27,15 +27,23 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "Log.h"
 #include "OpenCVHelper.h"
 
 //Statement:
 //All notation such as K,R,C,T,P are in standard computer vision system
 //details in <<Multiple View Geometry>> by Richard Hartley and A. Zisserman
 
+//some explanations of formulas in this file could be found on my undergraduate
+//thesis (in Chinese):
+//http://www-personal.umich.edu/~cforrest/upload/ChenFeng.UnderGrad.Thesis.ch.pdf
+
 //this actually use a osg camera to get cv photo coordinate
-inline void CG_Project(const osg::Camera& camera, 
-											 double x, double y, double z, double& u, double& v)
+inline void CG_Project(
+	const osg::Camera& camera, //camera
+	double x, double y, double z, //world 3d point
+	double& u, double& v //image 2d point
+	)
 {
 	osg::Vec3 wp(x,y,z);
 	osg::Vec3 ep = wp * camera.getViewMatrix();
@@ -156,7 +164,7 @@ inline std::ostream& operator<<(std::ostream& os, const osg::Camera& camera)
 inline void CG_Report(const osg::Camera& camera, 
 	std::ostream& out=std::cout)
 {
-	out<<"-------------Graphics--------------"<<std::endl;
+	out<<"#------------Graphics--------------"<<std::endl;
 	out<<camera<<std::endl;
 	out<<"Test CG Projection:"<<std::endl;
 	double u,v;
@@ -183,7 +191,7 @@ inline void CV_Report(const osg::Camera& camera,
 		out << "imgW=" << imgW << " imgH=" <<imgH<<std::endl;
 	}
 
-	out<<"-------------Vision----------------"<<std::endl;
+	out<<"#------------Vision----------------"<<std::endl;
 	double K[3][3],C[3],T[3],R[3][3],P[3][4];
 	cg2cv(camera, imgW, imgH, K,C,R);
 	helper::compose(K[0],R[0],C,P[0],true);

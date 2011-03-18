@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <time.h>
 //opencv include
-#include "opencv2\opencv.hpp"
+#include "OpenCVHelper.h"
 
 namespace CvMatHelper {
 #define CreateCvMatHead(h,r,c,p) CvMat h = cvMat(r,c,CV_64FC1, const_cast<double*>(p))
@@ -174,7 +174,7 @@ namespace CvMatHelper {
 	/*********************I/O***********************/
 	/* print the given n x m matrix */
 	template<typename Precision>
-	void print(int m, int n, Precision *A, char* mat_name=0) {
+	void print(int m, int n, Precision *A, const char* mat_name=0) {
 		int i, j;
 
 		if(mat_name) {
@@ -193,15 +193,15 @@ namespace CvMatHelper {
 
 	/* Read a matrix from a file */
 	template<typename Precision>
-	bool ReadFile(int m, int n, Precision *matrix, char *fname) {
+	bool ReadFile(int m, int n, Precision *matrix, const char *fname) {
 		FILE *f = NULL;
-		fopen_s(&f, fname, "r");
+		f = fopen(fname, "r");
 		int i;
 
 		if (f == NULL) {
-			char msg[200];
-			sprintf_s<200>(msg,"In reading matrix %s\n", fname);
-			Log::e(msg, "MatrixManip::ReadFile");
+			char msg[256];
+			sprintf(msg,"In reading matrix %s\n", fname);
+			TagE(msg);
 			return false;
 		}
 
@@ -215,15 +215,15 @@ namespace CvMatHelper {
 
 	/* Write a matrix to a file */
 	template<typename Precision>
-	bool WriteFile(int m, int n, Precision *matrix, char *fname) {
+	bool WriteFile(int m, int n, Precision *matrix, const char *fname) {
 		FILE *f = NULL;
-		fopen_s(&f, fname, "w");
+		f = fopen(fname, "w");
 		int i, j, idx;
 
 		if (f == NULL) {
-			char msg[200];
-			sprintf_s<200>(msg,"In writing matrix to %s\n", fname);
-			Log::e(msg, "MatrixManip::WriteFile");
+			char msg[256];
+			sprintf(msg,"In writing matrix to %s\n", fname);
+			TagE(msg);
 			return false;
 		}
 

@@ -1,4 +1,3 @@
-#pragma once
 /* 
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
@@ -15,33 +14,30 @@
  *
  */
 
-/* OpenCVHelper.h
-   a set of helper functions for easier access to opencv */
+/* main.cpp */
 
-//standard include
 #include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "opencv2/opencv.hpp"
+#include "CameraSimulator.h"
 
-#include "CvMatHelper.h"
-#include "CameraHelper.h"
-#include "ImageHelper.h"
-#include "DirHelper.h"
-#include "IOHelper.h"
-#include "UtilHelper.h"
+#include "Log.hxx"
+#include "Log.h"
 
-namespace helper {
-	using namespace CvMatHelper;
-	using namespace CameraHelper;
-	using namespace ImageHelper;
-	using namespace DirHelper;
-	using namespace IOHelper;
-	using namespace UtilHelper;
+int main( int argc, char **argv )
+{
+#ifdef USE_IN_CHINA
+	setlocale(LC_ALL,"chs");
+#endif
+	if(argc<=1) {
+		LogI("Usage: \n\tCameraSimulator.exe <InputFileName>"
+			" [<OutPutFileName>(Without extention!)]\n");
+		LogI("Example: \n\tCameraSimulator.exe draw.txt D:/Out\n");
+		LogI("Example: \n\tCameraSimulator.exe draw.txt\n");
+		return -1;
+	}
+
+	CameraSimulator cs;
+	cs.inputFileName = std::string(argv[1]);
+	std::string tmp = cs.inputFileName + std::string(".out");
+	cs.outputFileName = argc>2?std::string(argv[2]):tmp;
+	return cs.run();
 }

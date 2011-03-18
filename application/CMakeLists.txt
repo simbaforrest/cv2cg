@@ -1,0 +1,6 @@
+
+ADD_SUBDIRECTORY(DLTCalibrator)
+ADD_SUBDIRECTORY(SparseRec2View)
+ADD_SUBDIRECTORY(SparseRecMultiView)
+ADD_SUBDIRECTORY(CameraSwitcher)
+ADD_SUBDIRECTORY(CameraSimulator)

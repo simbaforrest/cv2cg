@@ -1,0 +1,33 @@
+
+INCLUDE_DIRECTORIES(
+	${CMAKE_SOURCE_DIR}/include
+	${CMAKE_CURRENT_BINARY_DIR}
+	${OPENSCENEGRAPH_INCLUDE_DIRS}
+)
+
+# To use all *.cpp, *.hpp files
+FILE(GLOB ALL_HEADER_FILES
+	*.hpp
+	*.h
+	*.hxx
+)
+FILE(GLOB CPP_FILES
+	*.cpp
+)
+
+SET(APP_NAME CameraSimulator)
+
+SET(lib_SRCS
+	${CPP_FILES}
+	${ALL_HEADER_FILES}
+)
+
+SET(extLinkerOption 
+	${OpenCV_LIBS}
+	${OPENSCENEGRAPH_LIBRARIES}
+)
+
+ADD_EXECUTABLE(${APP_NAME} ${lib_SRCS})
+TARGET_LINK_LIBRARIES(${APP_NAME} ${extLinkerOption})
+
+INSTALL(TARGETS ${APP_NAME} DESTINATION bin)

@@ -1,6 +1,5 @@
-#pragma once
 /* 
- *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
+ *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -15,33 +14,22 @@
  *
  */
 
-/* OpenCVHelper.h
-   a set of helper functions for easier access to opencv */
+/* SparseRecMultiView 
+   main.cpp */
 
 //standard include
 #include <iostream>
-#include <iomanip>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "opencv2/opencv.hpp"
 
-#include "CvMatHelper.h"
-#include "CameraHelper.h"
-#include "ImageHelper.h"
-#include "DirHelper.h"
-#include "IOHelper.h"
-#include "UtilHelper.h"
+#include "Log.hxx" // for log control
+#include "Log.h"
+#include "MultiViewSparseRec.h"
 
-namespace helper {
-	using namespace CvMatHelper;
-	using namespace CameraHelper;
-	using namespace ImageHelper;
-	using namespace DirHelper;
-	using namespace IOHelper;
-	using namespace UtilHelper;
+using namespace std;
+
+int main(int argc, char** argv)
+{
 }
