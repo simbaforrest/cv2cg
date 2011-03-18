@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <time.h>
 //opencv include
-#include "opencv2\opencv.hpp"
+#include "OpenCVHelper.h"
 
 namespace CameraHelper {
 	// s[u,v,1]' = P * [x,y,z,1]'
@@ -94,6 +94,13 @@ namespace CameraHelper {
 			CvMatHelper::mul(3,3,3,4,R,P,PP);
 			CvMatHelper::mul(3,3,3,4,K,PP,P);
 		}
+	}
+
+	inline void RotationMatrix_PH_CV(double *R)
+	{
+		for(int i=1; i<3; ++i)
+			for(int j=0; j<3; ++j)
+				R[i*3+j] *= -1;
 	}
 
 	inline void triangulate(const double x1, const double y1,

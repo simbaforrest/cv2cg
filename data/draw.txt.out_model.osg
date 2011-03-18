@@ -110,21 +110,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 0 0 0
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "0"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -136,21 +138,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 1 0 0
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "1"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -162,21 +166,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 1 1 0
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "2"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -188,21 +194,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 0 1 0
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "3"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -214,21 +222,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 0 0 1
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "4"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -240,21 +250,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 1 0 1
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "5"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -266,21 +278,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 1 1 1
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "6"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -292,21 +306,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 0 1 1
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "7"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -318,21 +334,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 1 1 1
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "8"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -344,21 +362,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 2 1 1
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "9"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -370,21 +390,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 2 2 1
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "10"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -396,21 +418,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 1 2 1
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "11"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -422,21 +446,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 1 1 2
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "12"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -448,21 +474,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 2 1 2
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "13"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -474,21 +502,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 2 2 2
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "14"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1
@@ -500,21 +530,23 @@ Group {
       supportsDisplayList FALSE
       useDisplayList FALSE
       useVertexBufferObjects FALSE
+      color 1 1 1 1
       fontResolution 32 32
-      characterSize 48 1
+      characterSize 24 1
       characterSizeMode SCREEN_COORDS
       alignment LEFT_BASE_LINE
       autoRotateToScreen TRUE
       layout LEFT_TO_RIGHT
       position 1 2 2
       drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
       text "15"
-      color 1 1 1 1
       backdropType NONE
       backdropHorizontalOffset 0.07
       backdropVerticalOffset 0.07
       backdropColor 0 0 0 1
-      backdropImplementation DEPTH_RANGE
+      backdropImplementation 
       colorGradientMode SOLID
       colorGradientTopLeft 1 0 0 1
       colorGradientBottomLeft 0 1 0 1

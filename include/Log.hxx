@@ -15,33 +15,14 @@
  *
  */
 
-/* OpenCVHelper.h
-   a set of helper functions for easier access to opencv */
+/* Log.inc
+   please only include this file in only one of your .cpp files,
+   usually include it in main.cpp */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
 #include <stdio.h>
-#include <time.h>
-//opencv include
-#include "opencv2/opencv.hpp"
 
-#include "CvMatHelper.h"
-#include "CameraHelper.h"
-#include "ImageHelper.h"
-#include "DirHelper.h"
-#include "IOHelper.h"
-#include "UtilHelper.h"
-
-namespace helper {
-	using namespace CvMatHelper;
-	using namespace CameraHelper;
-	using namespace ImageHelper;
-	using namespace DirHelper;
-	using namespace IOHelper;
-	using namespace UtilHelper;
+namespace Log {
+	//switch them
+	bool debug=false, info=true, error=true, warn=true;
+	FILE *logfile = stdout;
 }
