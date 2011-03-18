@@ -43,6 +43,5 @@ osg::ref_ptr<osg::Node>
 createSceneFromBundlerResult(std::string filename);
 
 osg::ref_ptr<osg::Node>
-readBundlerFile(std::string filename,
-								std::vector<std::string> imgfilelist);
+readBundlerFile(std::string filename,std::vector<std::string> imgfilelist);
 #endif
