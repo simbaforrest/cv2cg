@@ -236,17 +236,24 @@ int main( int argc, char **argv )
 		LogI("Usage: \n\tDLTCalibrator.exe <InputFileName>"
 			" [<OutPutFileName>(Without extention!)]\n"
 			"Example: \n\tDLTCalibrator.exe test.cp\n"
-			"\tDLTCalibrator.exe test.cp D:\\Out\n");
+			"\tDLTCalibrator.exe test.cp D:/Out\n");
 		return 1;
 	}
 
 	std::string ifname(argv[1]);
-	std::string fnameNoExt(ifname);
-	int len = fnameNoExt.length();
-	if(len>3 && fnameNoExt[len-1]=='p' &&
-		fnameNoExt[len-2]=='c' &&
-		fnameNoExt[len-3]=='.') fnameNoExt.resize(len-3);
-	std::string ofname = fnameNoExt + std::string(".par");
+	std::string ofname;
+	if(argc<3) {
+		std::string fnameNoExt(ifname);
+		int len = fnameNoExt.length();
+		if(len>3 && fnameNoExt[len-1]=='p' &&
+			fnameNoExt[len-2]=='c' &&
+			fnameNoExt[len-3]=='.')
+			fnameNoExt.resize(len-3);
+		ofname = fnameNoExt + std::string(".par");
+	} else {
+		ofname = std::string(argv[2]);
+		ofname += std::string(".par");
+	}
 	
 	LogI("IN_FILE_NAME=%s\n",ifname.c_str());
 	LogI("OUT_FILE_NAME=%s\n",ofname.c_str());
