@@ -207,7 +207,11 @@ bool SwitchHandler::handle(
 				return true;
 			}
 			if(ea.getKey()=='c') {
+#ifndef WIN32//unix
+				system("clear");
+#else//win32
 				system("cls");
+#endif
 				return true;
 			}
 			if(ea.getKey()=='h') {
