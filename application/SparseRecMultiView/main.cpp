@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -14,7 +14,7 @@
  *
  */
 
-/* SparseRecMultiView 
+/* SparseRecMultiView
    main.cpp */
 
 //standard include
@@ -32,4 +32,38 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
+	if(argc<2) {
+		std::cout<<
+			"Usage: MultiViewSparseRec <input file>\n"
+			"Example:\n"
+			"\tMultiViewSparseRec mvsr.in"<<std::endl;
+		return -1;
+	}
+	std::string ifname(argv[1]);
+	std::ifstream in(ifname.c_str());
+	std::vector<std::string> imgnamelist;
+	std::string outdir, mainname;
+
+	if( !helper::readValidLine(in,outdir) ) {
+		TagE("input file invalid! exit...");
+		return -1;
+	} else {
+		TagI("outdir=%s\n",outdir.c_str());
+	}
+
+	if( !helper::readValidLine(in,mainname) ) {
+		TagE("input file invalid! exit...");
+		return -1;
+	} else {
+		TagI("mainname=%s\n",mainname.c_str());
+	}
+
+	std::string line;
+	while(helper::readValidLine(in,line)) {
+		imgnamelist.push_back(line);
+	}
+
+	MVSR mvsr;
+	mvsr.run(imgnamelist,outdir,mainname);
+	return 0;
 }

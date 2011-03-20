@@ -62,7 +62,13 @@ private:
 	bool estimateRelativePose();
 
 public:
-	SparseRec2View(string ipath1, string ipath2, double k[9], double lamda_=1, bool onlymatch=false);
+	SparseRec2View(
+		string ipath1, //left image path
+		string ipath2, //right image path
+		double k[9], //calibration matrix
+		double lamda_, //controls the reconstructed scene scale
+		bool onlymatch //only perform match, no reconstruction
+	);
 	~SparseRec2View();
 
 	bool run();

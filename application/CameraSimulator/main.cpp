@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -28,10 +28,10 @@ int main( int argc, char **argv )
 	setlocale(LC_ALL,"chs");
 #endif
 	if(argc<=1) {
-		LogI("Usage: \n\tCameraSimulator.exe <InputFileName>"
+		LogI("Usage: \n\tCameraSimulator <InputFileName>"
 			" [<OutPutFileName>(Without extention!)]\n");
-		LogI("Example: \n\tCameraSimulator.exe draw.txt D:/Out\n");
-		LogI("Example: \n\tCameraSimulator.exe draw.txt\n");
+		LogI("Example: \n\tCameraSimulator draw.txt D:/Out\n");
+		LogI("Example: \n\tCameraSimulator draw.txt\n");
 		return -1;
 	}
 

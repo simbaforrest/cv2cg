@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -14,7 +14,7 @@
  *
  */
 
-/* SparseRec2View 
+/* SparseRec2View
    main.cpp */
 
 //standard include
@@ -33,10 +33,10 @@ using namespace std;
 int main(int argc, char** argv)
 {
 	if(argc<4) {
-		LogI("Usage:\n\tSparseRec2View.exe <name of config file>"
+		LogI("Usage:\n\tSparseRec2View <name of config file>"
 			" <name of image file 1> <name of image file 2>\n");
 		LogI("config file is composed of K and lamda\n");
-		LogI("Example:\n\tSparseRec2View.exe cam.txt left.jpg righ.jpg\n");
+		LogI("Example:\n\tSparseRec2View cam.txt left.jpg righ.jpg\n");
 		return -1;
 	}
 
@@ -74,6 +74,6 @@ int main(int argc, char** argv)
 	tvs.run();
 	tvs.save();
 	TagI("Done!\n");
-	
+
 	return 0;
 }

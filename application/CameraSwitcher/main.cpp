@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -28,7 +28,7 @@ int main(int argc, char** argv)
 	setlocale(LC_ALL,"chs");
 #endif
 	if(argc<2) {
-		LogI("Usage: CameraSwitcher.exe <filename>\n");
+		LogI("Usage: CameraSwitcher <filename>\n");
 		return -1;
 	}
 

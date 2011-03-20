@@ -1,5 +1,5 @@
 #pragma once
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -199,9 +199,7 @@ namespace CvMatHelper {
 		int i;
 
 		if (f == NULL) {
-			char msg[256];
-			sprintf(msg,"In reading matrix %s\n", fname);
-			TagE(msg);
+			TagE("In reading matrix %s\n", fname);
 			return false;
 		}
 
@@ -221,9 +219,7 @@ namespace CvMatHelper {
 		int i, j, idx;
 
 		if (f == NULL) {
-			char msg[256];
-			sprintf(msg,"In writing matrix to %s\n", fname);
-			TagE(msg);
+			TagE("In writing matrix to %s\n", fname);
 			return false;
 		}
 

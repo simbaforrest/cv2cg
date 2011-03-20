@@ -1,4 +1,4 @@
-/* 
+/*
 *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
 *    and the University of Michigan
 *
@@ -74,7 +74,7 @@ osg::ref_ptr<osg::Camera> get_camera_from_id(int id, osg::Node* root)
 //////////////////////////////////////////////////////////
 ///   SwitchHandler
 
-osg::ref_ptr<osg::Camera> 
+osg::ref_ptr<osg::Camera>
 SwitchHandler::pick_camera(
 	const osgGA::GUIEventAdapter& ea,
 	osgViewer::View* viewer)
@@ -99,7 +99,7 @@ SwitchHandler::pick_camera(
 		osgUtil::PolytopeIntersector::Intersections::iterator itr =
 			intersections.begin();
 		for(; itr!=intersections.end(); ++itr) {
-			const osgUtil::PolytopeIntersector::Intersection& intersection = 
+			const osgUtil::PolytopeIntersector::Intersection& intersection =
 				(*itr);//picker->getFirstIntersection();
 
 			const osg::NodePath& nodePath =
@@ -107,7 +107,7 @@ SwitchHandler::pick_camera(
 			unsigned int idx = nodePath.size();
 			osg::MatrixTransform* sel=NULL;
 			while (idx--)	{
-				// 查找交集节点路径中的最后一个
+				// find the last one in nodepath of intersection
 				sel =	dynamic_cast<osg::MatrixTransform*>( nodePath[ idx ] );
 				if (sel == NULL)
 					continue;
@@ -115,8 +115,8 @@ SwitchHandler::pick_camera(
 				osg::Camera* storedCam = dynamic_cast<osg::Camera*>(sel->getUserData());
 				if(storedCam==NULL)
 					continue;
-				// 				if(_updator->Get_Last_Dest_Camera()==storedCam)
-				// 					continue;
+				//if(_updator->Get_Last_Dest_Camera()==storedCam)
+				//  continue;
 				if(storedCam->getNodeMask()==PICKED_MASK)
 					continue;
 				return ret = storedCam;
@@ -144,10 +144,11 @@ bool SwitchHandler::handle(
 			if(ea.getKey()=='s') {
 				CameraUpdator* updator = dynamic_cast<CameraUpdator*>(
 					viewer->getCamera()->getUpdateCallback() );
-				osgGA::TrackballManipulator* manip = 
+				osgGA::TrackballManipulator* manip =
 					dynamic_cast<osgGA::TrackballManipulator*>(
 					viewer->getCameraManipulator() );
-				if(_lock || !manip || (updator && updator->IsUpdating()) ) return true;
+				if(_lock || !manip || (updator && updator->IsUpdating()) )
+                    return true;
 				_lock = true;
 				_dist = manip->getDistance();
 				_center = manip->getCenter();
@@ -192,7 +193,7 @@ bool SwitchHandler::handle(
 			if(ea.getKey()=='s') {
 				CameraUpdator* updator = dynamic_cast<CameraUpdator*>(
 					viewer->getCamera()->getUpdateCallback() );
-				osgGA::TrackballManipulator* manip = 
+				osgGA::TrackballManipulator* manip =
 					dynamic_cast<osgGA::TrackballManipulator*>(
 					viewer->getCameraManipulator() );
 				if(!manip || (updator && updator->IsUpdating()) ) return true;

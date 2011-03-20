@@ -1,5 +1,5 @@
 #pragma once
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -30,6 +30,7 @@
 //opencv include
 #include "opencv2/opencv.hpp"
 
+#include "Log.h" // please include "Log.hxx" in and only in your main.cpp
 #include "CvMatHelper.h"
 #include "CameraHelper.h"
 #include "ImageHelper.h"

@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -16,8 +16,8 @@
 
 /* MultiViewSparseRec.cpp */
 
-#include "Log.h"
 #include "MultiViewSparseRec.h"
+#include "Log.h"
 
 MVSR::MVSR(void)
 {
@@ -29,6 +29,9 @@ MVSR::MVSR(void)
 
 	matcher = new cv::FlannBasedMatcher();
 	TagI("matcher = Flann\n");
+
+	misMatchCnt = 0;
+	matchEnhancedCnt = 0;
 }
 
 MVSR::~MVSR(void)
@@ -41,7 +44,7 @@ MVSR::~MVSR(void)
 	matcher = 0;
 }
 
-bool MVSR::run(vector<string> imgnamelist)
+bool MVSR::run(vector<string> imgnamelist, string outdir, string mainname)
 {
 	if( !detector || !descriptor || !matcher ) {
 		TagE("No valid detector or descriptor or matcher\n");
@@ -51,11 +54,13 @@ bool MVSR::run(vector<string> imgnamelist)
 	pictures.clear();
 	clouds.clear();
 	matcher->clear();
+	misMatchCnt = 0;
+	matchEnhancedCnt = 0;
 
-	if(!loadimage(imgnamelist)) return false;
-	if(!detect())								return false;
-	if(!match())								return false;
-	if(!save())									return false;
+	if(!loadimage(imgnamelist))	return false;
+	if(!detect())	return false;
+	if(!pairwise())	return false;
+	if(!save(outdir, mainname))	return false;
 	return true;
 }
 
@@ -67,6 +72,7 @@ bool MVSR::loadimage(vector<string> imgnamelist)
 	for(; in<nimg; ++in) {
 		string& name = imgnamelist[in];
 		MVSRpicture& pic = pictures[im];
+		pic.path = name;
 		pic.img = imread(name);
 		if(pic.img.empty()) {
 			TagW("can't open %s\n", name.c_str());
@@ -78,6 +84,7 @@ bool MVSR::loadimage(vector<string> imgnamelist)
 		++im;
 	}
 	pictures.resize(im);
+	TagI("opened images/total images = %d/%d\n", im, nimg);
 	return im==0?false:true;
 }
 
@@ -88,70 +95,148 @@ bool MVSR::detect()
 		MVSRpicture& pic = pictures[i];
 		detector->detect(pic.grey, pic.key);
 		descriptor->compute(pic.grey, pic.key, pic.des);
-		//init map from image point to object point
-		pic.map.resize(pic.key.size());
-		std::fill(pic.map.begin(), pic.map.end(), -1);
+		//init k2o, from image keypoint to object point
+		pic.k2o.resize(pic.key.size());
+		std::fill(pic.k2o.begin(), pic.k2o.end(), -1);
 	}
 	tt = (double)getTickCount() - tt;
 	TagI("detect+describe time = %lf s\n", tt/getTickFrequency());
 	return true;
 }
 
-bool MVSR::match()
+bool MVSR::pairwise()
 {
 	double tt = (double)getTickCount();
-	vector<Mat> desMat;
-	desMat.reserve(pictures.size());
-	for(int i=0; i<(int)pictures.size(); ++i) {
-		MVSRpicture& pic = pictures[i];
-		desMat.push_back(pic.des);
+	if(pictures.size()<=1) {
+		TagE("need at least 2 images!");
+		return false;
 	}
-	matcher->add(desMat);
+
+	TagI("begin {\n");
+	//init pairwiseFMat
+	int N = (int)pictures.size();
+	pairwiseFMat.resize( (N-2)*(N-1)/2+N-1 );
+	//find matches for each pair of images
 	for(int i=0; i<(int)pictures.size(); ++i) {
-		MVSRpicture& pic = pictures[i];
-		vector<DMatch> matches;
-		matcher->match(pic.des, matches);
-		//parse matches
-		for(int j=0; j<(int)matches.size(); ++j) {
-			const DMatch& m = matches[j];
-			if(m.imgIdx==i) continue; //match to self, ignore
-			addmatchpair(i, m.queryIdx, m.imgIdx, m.trainIdx);
+		for(int j=i+1; j<(int)pictures.size(); ++j) {
+			match(i,j);//process a pair of image
 		}
 	}
 	tt = (double)getTickCount() - tt;
-	TagI("match time = %lf s\n", tt/getTickFrequency());
+	TagI("end} time = %lf s\n", tt/getTickFrequency());
+	TagI("misMatchCnt/matchEnhancedCnt=%d/%d=%lf\n",
+		misMatchCnt, matchEnhancedCnt,
+		(double)misMatchCnt/matchEnhancedCnt);
 	return true;
+}
+
+void MVSR::match(int imgi, int imgj)
+{
+	CV_Assert(imgi!=imgj);
+	if(imgi>imgj) std::swap(imgi,imgj);//make sure imgi<imgj
+
+	MVSRpicture& pici = pictures[imgi];
+	MVSRpicture& picj = pictures[imgj];
+	matcher->clear();//clear last time's
+	vector<DMatch> matches;
+	//pici as query, picj as train
+	matcher->match(pici.des, picj.des, matches);
+	TagI("pic%d.key.size=%d,pic%d.key.size=%d,matches.size=%d\n",
+			imgi, (int)pici.key.size(),
+			imgj, (int)picj.key.size(),
+			(int)matches.size());
+
+	//calc F matrix and remove match outliers
+	vector<Point2f> pi, pj;//matched image points
+	vector<uchar> inliers;//inliers in pi-pj for fmatrix, 0 means outlier
+	pi.reserve(matches.size());
+	pj.reserve(matches.size());
+	for(int i=0; i<(int)matches.size(); ++i) {
+		const DMatch& m = matches[i];
+		pj.push_back(picj.key[m.trainIdx].pt);
+		pi.push_back(pici.key[m.queryIdx].pt);
+	}
+	Mat& fmat = getFMat(imgi,imgj);
+	fmat = cv::findFundamentalMat(Mat(pi), Mat(pj), inliers);
+
+	//parse matches
+	for(int k=0; k<(int)matches.size(); ++k) {
+		if(!inliers[k]) continue;
+		const DMatch& m = matches[k];
+		TagI("addpair: (img%d, key%d)<->(img%d, key%d)\n",
+				imgi, m.queryIdx, imgj, m.trainIdx);
+		addmatchpair(imgi, m.queryIdx, imgj, m.trainIdx);
+	}
 }
 
 //add linkage between object points and image's keypoint
 void MVSR::linkimgobj(int objIdx, int imgi, int keyi)
 {
-	clouds[objIdx].observe(imgi, keyi);
-	pictures[imgi].map[keyi] = objIdx;
+	CV_Assert(0<=objIdx && objIdx<(int)clouds.size());
+
+	clouds[objIdx].observedAt(imgi, keyi);
+	pictures[imgi].k2o[keyi] = objIdx;
 }
 
 void MVSR::addmatchpair(int imgi, int keyi, int imgj, int keyj)
 {
+	CV_Assert(0<=imgi && imgi<(int)pictures.size());
+	CV_Assert(0<=imgj && imgj<(int)pictures.size());
+	CV_Assert(0<=keyi && keyi<(int)pictures[imgi].k2o.size());
+	CV_Assert(0<=keyj && keyj<(int)pictures[imgj].k2o.size());
+
 	MVSRpicture& pici = pictures[imgi];
 	MVSRpicture& picj = pictures[imgj];
-	if( pici.map[keyi]==-1 && picj.map[keyj]==-1 ) {
+	int oiIdx = pici.k2o[keyi];
+	int ojIdx = picj.k2o[keyj];
+	if( oiIdx==-1 && ojIdx==-1 ) {
 		//need a new object point
 		clouds.push_back( MVSRobjpoint() );
 		linkimgobj(clouds.size()-1, imgi, keyi);
 		linkimgobj(clouds.size()-1, imgj, keyj);
-	} else if( pici.map[keyi]==-1 ) {
-		int objIdx = picj.map[keyj];
-		linkimgobj(objIdx, imgi, keyi);
-	} else if( picj.map[keyj]==-1 ) {
-		int objIdx = pici.map[keyi];
-		linkimgobj(objIdx, imgj, keyj);
+	} else if( oiIdx==-1 && ojIdx!=-1 ) {
+		linkimgobj(ojIdx, imgi, keyi);
+	} else if( ojIdx==-1 && oiIdx!=-1 ) {
+		linkimgobj(oiIdx, imgj, keyj);
 	} else {
-		TagE("(img %d, key %d)<->(img %d, key %d) already exist!",
-			imgi, keyi, imgj, keyj);
+		if(oiIdx!=ojIdx) {
+			LogE("%d : mismatch may exist: "
+					"(img%d, key%d)<->(img%d, key%d), ignore!\n",
+				++misMatchCnt, imgi, keyi, imgj, keyj);
+		} else {
+			LogI("%d : (img%d, key%d)<->(img%d, key%d) enhanced!\n",
+				++matchEnhancedCnt, imgi, keyi, imgj, keyj);
+		}
 	}
 }
 
-bool MVSR::save()
+bool MVSR::save(string outdir, string mainname)
 {
+	//tmp
+	std::string dumppicname = outdir + mainname + std::string(".pic");
+	std::ofstream dumppic(dumppicname.c_str());
+	for(int i=0; i<(int)pictures.size(); ++i) {
+		dumppic << pictures[i] << std::endl;
+	}
+	dumppic.close();
+
+	std::string dumpobjname = outdir + mainname + std::string(".xyz");
+	std::ofstream dumpobj(dumpobjname.c_str());
+	for(int i=0; i<(int)clouds.size(); ++i) {
+		dumpobj << clouds[i] << std::endl;
+	}
+	dumpobj.close();
+
+	std::string dumpfmatname = outdir + mainname + std::string(".fmatrices");
+	std::ofstream dumpfmat(dumpfmatname.c_str());
+	for(int i=0; i<(int)pictures.size(); ++i) {
+		for(int j=i+1; j<(int)pictures.size(); ++j) {
+			const Mat& fmat = getFMat(i,j);
+			dumpfmat << "F matrix between image ("
+				<< i << "," << j << ")=" << std::endl;
+			dumpfmat << fmat << std::endl;
+		}
+	}
+	dumpfmat.close();
 	return false;
 }
