@@ -165,20 +165,39 @@ void MVSR::match(int imgi, int imgj)
 		const DMatch& m = matches[k];
 		TagI("addpair: (img%d, key%d)<->(img%d, key%d)\n",
 				imgi, m.queryIdx, imgj, m.trainIdx);
-		addmatchpair(imgi, m.queryIdx, imgj, m.trainIdx);
+		addmatchpair(imgi, m.queryIdx, imgj, m.trainIdx, m.distance);
 	}
 }
 
 //add linkage between object points and image's keypoint
-void MVSR::linkimgobj(int objIdx, int imgi, int keyi)
+void MVSR::linkimgobj(int objIdx, int imgi, int keyi, float dist)
 {
 	CV_Assert(0<=objIdx && objIdx<(int)clouds.size());
 
-	clouds[objIdx].observedAt(imgi, keyi);
+	MVSRobjpoint& obj = clouds[objIdx];
+	int existkey = -1;
+	for(int i=0; i<(int)obj.obs.size(); ++i) {
+		if(obj.obs[i].imgi==imgi && obj.obs[i].keyj!=-1) {
+			if(obj.obs[i].dist>dist) { //modify old
+				existkey = obj.obs[i].keyj;
+				pictures[imgi].k2o[keyi] = objIdx;
+				pictures[imgi].k2o[existkey] = -1;
+				obj.obs[i].keyj = keyi;
+				obj.obs[i].dist = dist;
+				TagI("modify obj%d-<img%d,key%d> to key%d\n",
+						objIdx,imgi,existkey,keyi);
+			} else {
+				TagI("match no strong enough, ignore...\n");
+			}
+			return;
+		}
+	}
+	// old not found, adding new
+	obj.observedAt(imgi, keyi, dist);
 	pictures[imgi].k2o[keyi] = objIdx;
 }
 
-void MVSR::addmatchpair(int imgi, int keyi, int imgj, int keyj)
+void MVSR::addmatchpair(int imgi, int keyi, int imgj, int keyj, float dist)
 {
 	CV_Assert(0<=imgi && imgi<(int)pictures.size());
 	CV_Assert(0<=imgj && imgj<(int)pictures.size());
@@ -192,22 +211,31 @@ void MVSR::addmatchpair(int imgi, int keyi, int imgj, int keyj)
 	if( oiIdx==-1 && ojIdx==-1 ) {
 		//need a new object point
 		clouds.push_back( MVSRobjpoint() );
-		linkimgobj(clouds.size()-1, imgi, keyi);
-		linkimgobj(clouds.size()-1, imgj, keyj);
+		linkimgobj(clouds.size()-1, imgi, keyi, dist);
+		linkimgobj(clouds.size()-1, imgj, keyj, dist);
 	} else if( oiIdx==-1 && ojIdx!=-1 ) {
-		linkimgobj(ojIdx, imgi, keyi);
+		linkimgobj(ojIdx, imgi, keyi, dist);
 	} else if( ojIdx==-1 && oiIdx!=-1 ) {
-		linkimgobj(oiIdx, imgj, keyj);
+		linkimgobj(oiIdx, imgj, keyj, dist);
 	} else {
 		if(oiIdx!=ojIdx) {
+			//temporary ignor, TODO : fix mismatch by dist
 			LogE("%d : mismatch may exist: "
 					"(img%d, key%d)<->(img%d, key%d), ignore!\n",
 				++misMatchCnt, imgi, keyi, imgj, keyj);
 		} else {
+			enhanceLink(oiIdx, dist);
 			LogI("%d : (img%d, key%d)<->(img%d, key%d) enhanced!\n",
 				++matchEnhancedCnt, imgi, keyi, imgj, keyj);
 		}
 	}
+}
+
+void MVSR::enhanceLink(int objIdx, int dist) {
+//	MVSRobjpoint& obj = clouds[objIdx];
+//	for(int i=0; i<(int)obj.obs.size(); ++i) {
+//
+//	}
 }
 
 bool MVSR::save(string outdir, string mainname)
