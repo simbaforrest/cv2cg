@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_layout_file>
+	<ActiveTarget name="Release" />
+	<File name="../../application/SparseRec2View/SparseRec2View.cpp" open="0" top="0" tabpos="4">
+		<Cursor position="5009" topLine="231" />
+	</File>
+	<File name="../../application/SparseRec2View/SparseRec2View.h" open="0" top="0" tabpos="0">
+		<Cursor position="1417" topLine="43" />
+	</File>
+	<File name="../../application/SparseRec2View/main.cpp" open="0" top="0" tabpos="0">
+		<Cursor position="1158" topLine="46" />
+	</File>
+</CodeBlocks_layout_file>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_layout_file>
+	<ActiveTarget name="Debug" />
+	<File name="../../application/CameraSwitcher/CameraSwitcher.cpp" open="0" top="0" tabpos="0">
+		<Cursor position="9134" topLine="419" />
+	</File>
+	<File name="../../application/CameraSwitcher/CameraSwitcher.h" open="0" top="0" tabpos="0">
+		<Cursor position="0" topLine="14" />
+	</File>
+	<File name="../../application/CameraSwitcher/CameraUpdator.cpp" open="0" top="0" tabpos="0">
+		<Cursor position="3303" topLine="120" />
+	</File>
+	<File name="../../application/CameraSwitcher/CameraUpdator.h" open="0" top="0" tabpos="0">
+		<Cursor position="0" topLine="56" />
+	</File>
+	<File name="../../application/CameraSwitcher/SwitchHandler.cpp" open="0" top="0" tabpos="0">
+		<Cursor position="6232" topLine="0" />
+	</File>
+	<File name="../../application/CameraSwitcher/SwitchHandler.h" open="0" top="0" tabpos="0">
+		<Cursor position="0" topLine="26" />
+	</File>
+	<File name="../../application/CameraSwitcher/main.cpp" open="0" top="0" tabpos="0">
+		<Cursor position="882" topLine="10" />
+	</File>
+</CodeBlocks_layout_file>
