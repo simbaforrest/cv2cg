@@ -59,7 +59,8 @@ struct MVSRobjpoint {
 	//<i,j> means this obj point is observed in jth keypoint on picture i
 	struct Record {
 		int imgi, keyj;
-		Record(int i=-1, int j=-1) {imgi=i; keyj=j;}
+		float dist;//confidence of mismatch, less is better
+		Record(int i=-1, int j=-1, float d = DBL_MAX) {imgi=i; keyj=j; dist=d;}
 	};
 	vector<Record> obs;
 	Point3d pos;
@@ -67,13 +68,13 @@ struct MVSRobjpoint {
 
 	MVSRobjpoint() {flag=false;}
 	MVSRobjpoint(double x, double y, double z) : pos(x,y,z) {flag=true;}
-	inline void observedAt(int imgi, int keyj) {
-		obs.push_back(Record(imgi,keyj));
+	inline void observedAt(int imgi, int keyj, float dist) {
+		obs.push_back(Record(imgi,keyj,dist));
 	}
 
 	//output format
 	//pos flag
-	//n img1 key1 img1 key2 ... imgx keyx
+	//n img1 key1 cfd1 img1 key2 cfd1 ... imgx keyx cfdx
 	friend inline std::ostream& operator<<(
 		std::ostream& o,
 		MVSRobjpoint const & obj ) {
@@ -81,7 +82,8 @@ struct MVSRobjpoint {
 		o << (int)obj.obs.size() << ":";
 		for(int i=0; i<(int)obj.obs.size(); ++i) {
 			o << " <" << obj.obs[i].imgi <<
-				"-" << obj.obs[i].keyj << ">";
+				"-" << obj.obs[i].keyj << ">:"
+				<< obj.obs[i].dist;
 		}
 		return o;
 	}
@@ -129,7 +131,10 @@ private:
 
 	//add match pair for
 	//(keypoint[keyi] in img[imgi])<->(keypoint[keyj] in img[imgj])
-	void addmatchpair(int imgi, int keyi, int imgj, int keyj);
+	//with match distance dist indicating the mismatch confidence
+	void addmatchpair(int imgi, int keyi, int imgj, int keyj, float dist);
 	//add linkage between object points and image's keypoint
-	void linkimgobj(int objIdx, int imgi, int keyi);
+	void linkimgobj(int objIdx, int imgi, int keyi, float dist);
+	//match loop will enhance the whole by their average dist
+	void enhanceLink(int objIdx, int dist);
 };
