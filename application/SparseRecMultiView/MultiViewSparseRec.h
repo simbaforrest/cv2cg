@@ -1,5 +1,5 @@
 #pragma once
-/* 
+/*
  *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -30,13 +30,29 @@ using namespace std;
 using namespace cv;
 
 struct MVSRpicture {
+    string path; //path of the image
 	Mat img,grey;
 	vector<KeyPoint> key;//keypoints to be reconstructed
 	Mat des;//descriptors for keypoints
 
-	//map to object point idx, map[i]=j means
-	//key[i]<->the jth object point
-	vector<int> map;
+	//map to object point idx,
+	//key[i]<->the k2o[i]-th object point
+	vector<int> k2o; // k2o.size() should equal to key.size()
+
+	//output format:
+	//path
+	//n pt1 map1 pt2 map2 ... ptn mapn
+	friend inline std::ostream& operator<<(
+		std::ostream& o,
+		MVSRpicture const & pic ) {
+		o << pic.path << std::endl;
+		o << (int) pic.k2o.size() << ":";
+		for(int i=0; i<(int)pic.k2o.size(); ++i) {
+			o << " <" << pic.key[i].pt <<
+				"-" << pic.k2o[i] << ">";
+		}
+		return o;
+	}
 };
 
 struct MVSRobjpoint {
@@ -51,7 +67,24 @@ struct MVSRobjpoint {
 
 	MVSRobjpoint() {flag=false;}
 	MVSRobjpoint(double x, double y, double z) : pos(x,y,z) {flag=true;}
-	inline void observe(int imgi, int keyj) {obs.push_back(Record(imgi,keyj));}
+	inline void observedAt(int imgi, int keyj) {
+		obs.push_back(Record(imgi,keyj));
+	}
+
+	//output format
+	//pos flag
+	//n img1 key1 img1 key2 ... imgx keyx
+	friend inline std::ostream& operator<<(
+		std::ostream& o,
+		MVSRobjpoint const & obj ) {
+		o << obj.pos << " " << obj.flag << std::endl;
+		o << (int)obj.obs.size() << ":";
+		for(int i=0; i<(int)obj.obs.size(); ++i) {
+			o << " <" << obj.obs[i].imgi <<
+				"-" << obj.obs[i].keyj << ">";
+		}
+		return o;
+	}
 };
 
 class MVSR //MultiViewSparseRec
@@ -63,16 +96,36 @@ private:
 
 	vector<MVSRpicture> pictures;
 	vector<MVSRobjpoint> clouds;
+	//F mat for img pair <i,j> (i<j) is at
+	//i*(N-1)+j-1-i*(i+1)/2, where N=pictures.size()
+	//e.g. for N=5, img0,1,2,3,4
+	//(0, 1) : 0 | (0, 2) : 1 | (0, 3) : 2 | (0, 4) : 3 |
+	//(1, 2) : 4 | (1, 3) : 5 | (1, 4) : 6 |
+	//(2, 3) : 7 | (2, 4) : 8 |
+	//(3, 4) : 9 |
+	vector<Mat> pairwiseFMat;
+	inline Mat& getFMat(int imgi, int imgj) {
+		CV_Assert(imgi!=imgj);
+		int N = (int)pictures.size();
+		int i,j;
+		imgi<imgj?(i=imgi,j=imgj):(i=imgj,j=imgi);
+		return pairwiseFMat[i*(N-1)+j-1-i*(i+1)/2];
+	}
+
+	//statistics
+	int matchEnhancedCnt;
+	int misMatchCnt;
 public:
 	MVSR(void);
 	~MVSR(void);
 
-	bool run(vector<string> imgnamelist);
+	bool run(vector<string> imgnamelist, string outdir, string mainname);
 private:
 	bool loadimage(vector<string> imgnamelist);
 	bool detect();
-	bool match();
-	bool save();
+	bool pairwise();
+	void match(int imgi, int imgj);
+	bool save(string outdir, string mainname);
 
 	//add match pair for
 	//(keypoint[keyi] in img[imgi])<->(keypoint[keyj] in img[imgj])

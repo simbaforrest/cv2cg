@@ -26,8 +26,13 @@
 #define CV_BLACK	Scalar(0,0,0)
 #define CV_GRAY		Scalar(128,128,128)
 
-SparseRec2View::SparseRec2View(string ipath1,
-							 string ipath2, double k[9], double lamda_, bool onlymatch)
+SparseRec2View::SparseRec2View(
+	string ipath1, //left image path
+	string ipath2, //right image path
+	double k[9], //calibration matrix
+	double lamda_, //controls the reconstructed scene scale
+	bool onlymatch //only perform match, no reconstruction
+	)
 {
 	memcpy(K, k, sizeof(double)*9);
 	lamda = lamda_;

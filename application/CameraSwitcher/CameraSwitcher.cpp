@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -67,7 +67,7 @@ int CameraSwitcher::run()
 	viewer.addEventHandler(sh);
 	viewer.getCamera()->setComputeNearFarMode(
 		osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
-	
+
 	//disable small feature culling
 	osg::CullSettings::CullingMode cullingMode = viewer.getCamera()->getCullingMode();
 	cullingMode &= ~(osg::CullStack::SMALL_FEATURE_CULLING);
@@ -112,7 +112,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 
 	osg::ref_ptr<osg::Camera> cam;
 	osg::ref_ptr<osg::Image> img;
-	double K[3][3]={0},C[3],R[3][3];
+	double K[3][3]={{0}},C[3],R[3][3];
 	double n=1,f=1000;
 
 	bool atImageLine=true;
@@ -121,7 +121,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 	while(helper::readValidLine(in,line)) {
 		line = helper::getNameWithExtension(line);
 		TagI("parsed line {%s}\n",line.c_str());
-		
+
 		std::string filename = filedir+line;
 
 		if(atImageLine) {
@@ -133,14 +133,14 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 			if(	!(cam = readCameraFile(filename, K, C, R, n, f)) ) {
 				continue;
 			}
-			
+
 			cv2cg(K,C,R,n,f, img->s(), img->t(), *cam);
 
 			std::string strnum;
 			helper::num2str(cnt++,strnum);
 			cam->setName(std::string("cam")+strnum);
 
-			osg::ref_ptr<osg::MatrixTransform> mtf = 
+			osg::ref_ptr<osg::MatrixTransform> mtf =
 				Make_Photo(*cam, *img);
 			mtf->setUserData(cam);
 			cam->setUserData(img);
@@ -299,7 +299,7 @@ Make_Photo(const osg::Camera& camera,
 	geom->setColorBinding( osg::Geometry::BIND_OVERALL );
 
 	GLushort idxLoops0[4] = {0, 1, 2, 3 };
-	geom->addPrimitiveSet( new osg::DrawElementsUShort( 
+	geom->addPrimitiveSet( new osg::DrawElementsUShort(
 		osg::PrimitiveSet::QUADS, 4, idxLoops0 ) );
 
 	osg::StateSet* stateset = geom->getOrCreateStateSet();
@@ -319,7 +319,7 @@ Make_Photo(const osg::Camera& camera,
 	lgeom->setColorArray( c );
 	lgeom->setColorBinding( osg::Geometry::BIND_OVERALL );
 	GLushort idxLines[8] = {0, 4, 1, 4, 2, 4, 3, 4};
-	lgeom->addPrimitiveSet( new osg::DrawElementsUShort( 
+	lgeom->addPrimitiveSet( new osg::DrawElementsUShort(
 		osg::PrimitiveSet::LINES, 8, idxLines ));
 	geode->addDrawable(lgeom);
 
@@ -327,7 +327,7 @@ Make_Photo(const osg::Camera& camera,
 	t->setText(camera.getName());
 	t->setPosition(v->at(4));
 	t->setCharacterSizeMode(osgText::Text::SCREEN_COORDS);
-	t->setCharacterSize(48.0f);
+	t->setCharacterSize(24.0f);
 	t->setColor(osg::Vec4(1,0,0,1));
 	t->getOrCreateStateSet()->setMode(GL_DEPTH_TEST,
 		osg::StateAttribute::OFF); // add this so can always see the name of the cam
@@ -384,7 +384,7 @@ readBundlerFile(std::string filename,
 
 		for(int i=0; i<nCam; ++i) {
 			double f,k1,k2;
-			double R[3][3],t[3],C[3],K[3][3]={0};
+			double R[3][3],t[3],C[3],K[3][3]={{0}};
 			in >> f >> k1 >> k2;
 			for(int a=0; a<3; ++a)
 				for(int b=0; b<3; ++b)
@@ -413,7 +413,7 @@ readBundlerFile(std::string filename,
 			std::string strnum;
 			helper::num2str(i, strnum);
 			cam->setName(std::string("cam")+strnum);
-			osg::ref_ptr<osg::MatrixTransform> mtf = 
+			osg::ref_ptr<osg::MatrixTransform> mtf =
 				Make_Photo(*cam, *img);
 			mtf->setUserData(cam);
 			ret->addChild(mtf);

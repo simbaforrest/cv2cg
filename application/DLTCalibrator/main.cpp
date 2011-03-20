@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -187,8 +187,8 @@ void readCP(std::ifstream& fin)
 		}
 
 		double x,y,z,u,v;
-		sscanf(str.c_str(), 
-			"%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf", 
+		sscanf(str.c_str(),
+			"%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf",
 			&x,&y,&z,&u,&v);
 		ipa[IDX(g_num,0,2)]=u; ipa[IDX(g_num,1,2)]=v;
 		//ipa[g_num][0]=u; ipa[g_num][1]=v;
@@ -226,17 +226,17 @@ void calibrate(std::ofstream& fout)
 		P[0],3,4)<<std::endl;
 	fout.close();
 	double meanErr,maxErr,sumsqErr,sd;
-	helper::reprojectionError(g_num, ipa, wpa, P[0], 
+	helper::reprojectionError(g_num, ipa, wpa, P[0],
 		meanErr, maxErr, sumsqErr, sd);
 }
 
 int main( int argc, char **argv )
 {
 	if(argc<=1) {
-		LogI("Usage: \n\tDLTCalibrator.exe <InputFileName>"
+		LogI("Usage: \n\tDLTCalibrator <InputFileName>"
 			" [<OutPutFileName>(Without extention!)]\n"
-			"Example: \n\tDLTCalibrator.exe test.cp\n"
-			"\tDLTCalibrator.exe test.cp D:/Out\n");
+			"Example: \n\tDLTCalibrator test.cp\n"
+			"\tDLTCalibrator test.cp D:/Out\n");
 		return 1;
 	}
 
@@ -254,7 +254,7 @@ int main( int argc, char **argv )
 		ofname = std::string(argv[2]);
 		ofname += std::string(".par");
 	}
-	
+
 	LogI("IN_FILE_NAME=%s\n",ifname.c_str());
 	LogI("OUT_FILE_NAME=%s\n",ofname.c_str());
 

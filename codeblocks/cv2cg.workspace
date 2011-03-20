@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_workspace_file>
+	<Workspace title="cv2cg">
+		<Project filename="DLTCalibrator/DLTCalibrator.cbp" />
+		<Project filename="SparseRec2View/SparseRec2View.cbp" active="1" />
+		<Project filename="SparseRecMultiView/SparseRecMultiView.cbp" />
+		<Project filename="CameraSwitcher/CameraSwitcher.cbp" />
+		<Project filename="CameraSimulator/CameraSimulator.cbp" />
+	</Workspace>
+</CodeBlocks_workspace_file>

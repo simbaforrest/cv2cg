@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -42,7 +42,7 @@ osg::ref_ptr<osg::Node> createScene(std::string filename)
 	ret->addChild(geode);
 
 	bool addText = true;
-	double textSize = 48.0;
+	double textSize = 24.0;
 
 	v3a = new osg::Vec3Array;//
 	std::string str;
@@ -111,8 +111,10 @@ double kkk=-0.01;
 struct SnapImage : public osg::Camera::DrawCallback
 {
 	std::ofstream& allfile;
-	SnapImage(const std::string& filename, std::ofstream& file): _filename(filename),
-		_snapImage(false), allfile(file)
+	SnapImage(const std::string& filename, std::ofstream& file):
+        _filename(filename),
+		_snapImage(false),
+		allfile(file)
 	{
 		_image = new osg::Image;
 	}
@@ -194,7 +196,7 @@ struct SnapeImageHandler : public osgGA::GUIEventHandler
 		{
 			//hold s and drag : do not change eye position, only change rotation
 			if(ea.getKey()=='s') {
-				osgGA::TrackballManipulator* manip = 
+				osgGA::TrackballManipulator* manip =
 					dynamic_cast<osgGA::TrackballManipulator*>(
 					viewer->getCameraManipulator() );
 				if(/*_lock ||*/ !manip) return true;
@@ -213,7 +215,7 @@ struct SnapeImageHandler : public osgGA::GUIEventHandler
 			{
 				const int tmpKey = ea.getKey();
 				if(tmpKey=='s') {
-					osgGA::TrackballManipulator* manip = 
+					osgGA::TrackballManipulator* manip =
 						dynamic_cast<osgGA::TrackballManipulator*>(
 						viewer->getCameraManipulator() );
 					if(!manip) return true;
