@@ -1,4 +1,4 @@
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -38,7 +38,7 @@ SparseRec2View::SparseRec2View(
 	lamda = lamda_;
 	imgpath1 = ipath1;
 	imgpath2 = ipath2;
-	
+
 	dir = helper::getFileDir(imgpath1);
 	TagI("main dir = %s\n",dir.c_str());
 
@@ -195,11 +195,11 @@ bool SparseRec2View::fmatrix()
 bool SparseRec2View::estimateRelativePose()
 {
 	double U[9], S[9], VT[9];
-	double W[9] = 
+	double W[9] =
 	{  0.0, -1.0, 0.0,
 	1.0, 0.0, 0.0,
 	0.0, 0.0, 1.0 };
-	double WT[9] = 
+	double WT[9] =
 	{  0.0, 1.0, 0.0,
 	-1.0,  0.0, 0.0,
 	0.0,  0.0, 1.0 };
@@ -219,7 +219,7 @@ bool SparseRec2View::estimateRelativePose()
 	CreateCvMatHead(_Rb,3,3,Rb);
 	CreateCvMatHead(_W,3,3,W);
 	CreateCvMatHead(_WT,3,3,WT);
-	
+
 	//get essential matrix
 	cvGEMM(&_K,&_F,1,0,0,&_tmp9, CV_GEMM_A_T);
 	cvMatMul(&_tmp9, &_K, &_E); //E = K2' * F * K1; % K2==K1 currently
@@ -448,8 +448,7 @@ bool SparseRec2View::save()
 	//save F
 	string path6(dir+imgname1+string("-")+imgname2+string(".fmatrix"));
 	std::ofstream o6(path6.c_str());
-	o6.setf(std::ios::scientific);
-	helper::print(o6, F, 3, 3);
+	o6 << helper::PrintMat<>(3,3,F);
 	o6.close();
 	TagI("save fundamental matrix to\n  %s\n",path6.c_str());
 

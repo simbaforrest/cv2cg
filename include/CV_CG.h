@@ -1,5 +1,5 @@
 #pragma once
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -151,9 +151,9 @@ inline std::ostream& operator<<(std::ostream& os, const osg::Camera& camera)
 	os << pmat ;
 	double l,r,b,t,n,f;
 	camera.getProjectionMatrixAsFrustum(l,r,b,t,n,f);
-	os << 
+	os <<
 		"l=" << l << " r=" << r <<
-		" b=" << b << " t=" << t << 
+		" b=" << b << " t=" << t <<
 		" n=" << n << " f=" << f <<std::endl;
 	const osg::Viewport& viewport = *(camera.getViewport());
 	os << "x=" << viewport.x() << " y=" << viewport.y()
@@ -161,7 +161,7 @@ inline std::ostream& operator<<(std::ostream& os, const osg::Camera& camera)
 	return os;
 }
 
-inline void CG_Report(const osg::Camera& camera, 
+inline void CG_Report(const osg::Camera& camera,
 	std::ostream& out=std::cout)
 {
 	out<<"#------------Graphics--------------"<<std::endl;
@@ -200,32 +200,24 @@ inline void CV_Report(const osg::Camera& camera,
 
 	out<<"K(alphaX alphaY u0 v0)="<<std::endl,
 	out<<K[0][0]<<"\n"<<K[1][1]<<"\n"<<K[0][2]<<"\n"<<K[1][2]<<std::endl;
-	helper::print(
-		out<<"R="<<std::endl,
-		R[0],3,3);
-	helper::print(
-		out<<"C="<<std::endl,
-		C,3,1);
-	helper::print(
-		out<<"T="<<std::endl,
-		T,3,1);
-	helper::print(
-		out<<"P="<<std::endl,
-		P[0],3,4)<<std::endl;
+	out<<"R=\n"<<helper::PrintMat<>(3,3,R[0]);
+	out<<"C=\n"<<helper::PrintMat<>(3,1,C);
+	out<<"T=\n"<<helper::PrintMat<>(3,1,T);
+	out<<"P=\n"<<helper::PrintMat<>(3,4,P[0]);
 	double nu,nv;
 	helper::project(P[0],0,0,0,nu,nv);
 	out<<"Test CV Projection:"<<std::endl;
 	out<<"[0,0,0]->["<<nu<<","<<nv<<"]"<<std::endl;
 }
 
-inline void CV_CG_Report(const osg::Camera& camera, 
+inline void CV_CG_Report(const osg::Camera& camera,
 	std::ostream& out=std::cout)
 {
 	CG_Report(camera, out);
 	CV_Report(camera, out);
 }
 
-inline void CG_Project_Report(const osg::Camera& camera, 
+inline void CG_Project_Report(const osg::Camera& camera,
 	const osg::Vec3Array* v3a, std::ostream& out=std::cout)
 {
 	out << std::setiosflags(std::ios::scientific);

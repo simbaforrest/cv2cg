@@ -78,15 +78,16 @@ namespace CvMatHelper {
 		cvGEMM(&_A,&_B,1,0,0,&_R,CV_GEMM_B_T);
 	}
 
-	// R<1x1> = x'<1xn> * A<nxn> * x<nx1>
-	inline double mulxtAx(int n, double const* A, double const* x) {
+	// R<1x1> = x'<1xn> * A<nxn> * y<nx1>
+	inline double mulxtAy(int n,
+		double const* x, double const* A, double const* y) {
 		CreateCvMatHead(_A,n,n,A);
-		CreateCvMatHead(_x,n,1,x);
+		CreateCvMatHead(_y,n,1,y);
 		CreateCvMatHead(_xt,1,n,x);
 		double result;
 		CreateCvMatHead(_R,1,1,&result);
 		CvMat* tmp = cvCreateMat(n,1,CV_64FC1);
-		cvMatMul(&_A,&_x,tmp);
+		cvMatMul(&_A,&_y,tmp);
 		cvMatMul(&_xt,tmp,&_R);
 		cvReleaseMat(&tmp);
 		return result;
@@ -193,7 +194,7 @@ namespace CvMatHelper {
 
 	/* Read a matrix from a file */
 	template<typename Precision>
-	bool ReadFile(int m, int n, Precision *matrix, const char *fname) {
+	bool ReadFile(int m, int n, Precision const *matrix, const char *fname) {
 		FILE *f = NULL;
 		f = fopen(fname, "r");
 		int i;
@@ -213,7 +214,7 @@ namespace CvMatHelper {
 
 	/* Write a matrix to a file */
 	template<typename Precision>
-	bool WriteFile(int m, int n, Precision *matrix, const char *fname) {
+	bool WriteFile(int m, int n, Precision const *matrix, const char *fname) {
 		FILE *f = NULL;
 		f = fopen(fname, "w");
 		int i, j, idx;
@@ -235,18 +236,6 @@ namespace CvMatHelper {
 		return true;
 	}
 
-	template<typename Precision>
-	std::ostream& print(std::ostream& o, Precision* p, int m, int n) {
-		o.setf(std::ios::scientific);
-		for(int i=0; i<m; ++i) {
-			for(int j=0; j<n; ++j) {
-				o << p[IDX(i,j,n)] << " ";
-			}
-			o << std::endl;
-		}
-		return o;
-	}
-
 	////////////////////////////////////////////
 	///  Utils
 	// convert a pointer to a continuous memory block
@@ -259,6 +248,26 @@ namespace CvMatHelper {
 		static Type ConvertType(SrcType src)
 		{
 			return reinterpret_cast<Type>(src);
+		}
+	};
+
+	template<unsigned int iosflag=std::ios::scientific,
+		typename Precision=double>
+	struct PrintMat {
+		int cols,rows;
+		Precision const* p;
+		PrintMat(int r, int c, Precision const* ptr) {cols=c;rows=r;p=ptr;}
+		friend inline std::ostream& operator<<(
+			std::ostream& o, const PrintMat& m) {
+			o.setf((std::ios_base::fmtflags)iosflag);
+			for(int i=0; i<m.rows; ++i) {
+				for(int j=0; j<m.cols; ++j) {
+					o << m.p[IDX(i,j,m.cols)] << " ";
+				}
+				o << std::endl;
+			}
+			o.unsetf((std::ios_base::fmtflags)iosflag);
+			return o;
 		}
 	};
 
