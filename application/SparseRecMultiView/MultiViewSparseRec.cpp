@@ -19,6 +19,8 @@
 #include "MultiViewSparseRec.h"
 #include "Log.h"
 
+#include <algorithm>
+
 MVSR::MVSR(void)
 {
 	detector = new cv::SurfFeatureDetector();
@@ -60,6 +62,7 @@ bool MVSR::run(vector<string> imgnamelist, string outdir, string mainname)
 	if(!loadimage(imgnamelist))	return false;
 	if(!detect())	return false;
 	if(!pairwise())	return false;
+	if(!initbest()) return false;
 	if(!save(outdir, mainname))	return false;
 	return true;
 }
@@ -116,6 +119,7 @@ bool MVSR::pairwise()
 	//init pairwiseFMat
 	int N = (int)pictures.size();
 	pairwiseFMat.resize( (N-2)*(N-1)/2+N-1 );
+	pairwiseQuality.resize( (N-2)*(N-1)/2+N-1, 0 );
 	//find matches for each pair of images
 	for(int i=0; i<(int)pictures.size(); ++i) {
 		for(int j=i+1; j<(int)pictures.size(); ++j) {
@@ -141,7 +145,7 @@ void MVSR::match(int imgi, int imgj)
 	vector<DMatch> matches;
 	//pici as query, picj as train
 	matcher->match(pici.des, picj.des, matches);
-	TagI("pic%d.key.size=%d,pic%d.key.size=%d,matches.size=%d\n",
+	TagD("pic%d.key.size=%d,pic%d.key.size=%d,matches.size=%d\n",
 			imgi, (int)pici.key.size(),
 			imgj, (int)picj.key.size(),
 			(int)matches.size());
@@ -163,7 +167,8 @@ void MVSR::match(int imgi, int imgj)
 	for(int k=0; k<(int)matches.size(); ++k) {
 		if(!inliers[k]) continue;
 		const DMatch& m = matches[k];
-		TagI("addpair: (img%d, key%d)<->(img%d, key%d)\n",
+		helper::mul
+		TagD("addpair: (img%d, key%d)<->(img%d, key%d)\n",
 				imgi, m.queryIdx, imgj, m.trainIdx);
 		addmatchpair(imgi, m.queryIdx, imgj, m.trainIdx, m.distance);
 	}
@@ -184,10 +189,10 @@ void MVSR::linkimgobj(int objIdx, int imgi, int keyi, float dist)
 				pictures[imgi].k2o[existkey] = -1;
 				obj.obs[i].keyj = keyi;
 				obj.obs[i].dist = dist;
-				TagI("modify obj%d-<img%d,key%d> to key%d\n",
+				TagD("modify obj%d-<img%d,key%d> to key%d\n",
 						objIdx,imgi,existkey,keyi);
 			} else {
-				TagI("match no strong enough, ignore...\n");
+				TagD("match no strong enough, ignore...\n");
 			}
 			return;
 		}
@@ -220,13 +225,15 @@ void MVSR::addmatchpair(int imgi, int keyi, int imgj, int keyj, float dist)
 	} else {
 		if(oiIdx!=ojIdx) {
 			//temporary ignor, TODO : fix mismatch by dist
-			LogE("%d : mismatch may exist: "
+			++misMatchCnt;
+			LogD("%d : mismatch may exist: "
 					"(img%d, key%d)<->(img%d, key%d), ignore!\n",
-				++misMatchCnt, imgi, keyi, imgj, keyj);
+				misMatchCnt, imgi, keyi, imgj, keyj);
 		} else {
 			enhanceLink(oiIdx, dist);
-			LogI("%d : (img%d, key%d)<->(img%d, key%d) enhanced!\n",
-				++matchEnhancedCnt, imgi, keyi, imgj, keyj);
+			++matchEnhancedCnt;
+			LogD("%d : (img%d, key%d)<->(img%d, key%d) enhanced!\n",
+				matchEnhancedCnt, imgi, keyi, imgj, keyj);
 		}
 	}
 }
@@ -236,6 +243,28 @@ void MVSR::enhanceLink(int objIdx, int dist) {
 //	for(int i=0; i<(int)obj.obs.size(); ++i) {
 //
 //	}
+}
+
+bool MVSR::initbest()
+{
+	vector<float> picredit(pictures.size(),0);
+	float max1=-DBL_MAX,max2=-DBL_MAX;
+	int idx1,idx2;
+	for(int i=0; i<(int)clouds.size(); ++i) {
+		const MVSRobjpoint& obj = clouds[i];
+		for(int j=0; j<(int)obj.obs.size(); ++j) {
+			const MVSRobjpoint::Record& obs = obj.obs[j];
+			picredit[obs.imgi] += 1.0/(1+obs.dist);
+			float curcredit = picredit[obs.imgi];
+			if(curcredit>=max1) {
+				//TODO
+			} else if(curcredit>=max2) {
+				//TODO
+			}
+		}
+	}
+	TagD("pic%d has max credit=%lf\n", );
+	return true;
 }
 
 bool MVSR::save(string outdir, string mainname)
@@ -266,5 +295,5 @@ bool MVSR::save(string outdir, string mainname)
 		}
 	}
 	dumpfmat.close();
-	return false;
+	return true;
 }

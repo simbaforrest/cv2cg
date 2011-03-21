@@ -32,6 +32,7 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
+	Log::debug = true;
 	if(argc<2) {
 		std::cout<<
 			"Usage: MultiViewSparseRec <input file>\n"

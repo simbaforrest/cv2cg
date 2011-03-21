@@ -60,14 +60,15 @@ struct MVSRobjpoint {
 	struct Record {
 		int imgi, keyj;
 		float dist;//confidence of mismatch, less is better
-		Record(int i=-1, int j=-1, float d = DBL_MAX) {imgi=i; keyj=j; dist=d;}
+		Record(int i=-1, int j=-1, float d=DBL_MAX) {imgi=i; keyj=j; dist=d;}
 	};
 	vector<Record> obs;
 	Point3d pos;
 	bool flag;//true if reconstructed, otherwise false
 
 	MVSRobjpoint() {flag=false;}
-	MVSRobjpoint(double x, double y, double z) : pos(x,y,z) {flag=true;}
+	MVSRobjpoint(double x, double y, double z) : pos(x,y,z)
+	{flag=true;}
 	inline void observedAt(int imgi, int keyj, float dist) {
 		obs.push_back(Record(imgi,keyj,dist));
 	}
@@ -113,6 +114,14 @@ private:
 		imgi<imgj?(i=imgi,j=imgj):(i=imgj,j=imgi);
 		return pairwiseFMat[i*(N-1)+j-1-i*(i+1)/2];
 	}
+	vector<float> pairwiseQuality;
+	inline float& getQuality(int imgi, int imgj) {
+		CV_Assert(imgi!=imgj);
+		int N = (int)pictures.size();
+		int i,j;
+		imgi<imgj?(i=imgi,j=imgj):(i=imgj,j=imgi);
+		return pairwiseQuality[i*(N-1)+j-1-i*(i+1)/2];
+	}
 
 	//statistics
 	int matchEnhancedCnt;
@@ -125,10 +134,11 @@ public:
 private:
 	bool loadimage(vector<string> imgnamelist);
 	bool detect();
-	bool pairwise();
-	void match(int imgi, int imgj);
+	bool pairwise();//pairwise matching and F matrix
+	bool initbest();//find best pair and init reconstruction
 	bool save(string outdir, string mainname);
 
+	void match(int imgi, int imgj);
 	//add match pair for
 	//(keypoint[keyi] in img[imgi])<->(keypoint[keyj] in img[imgj])
 	//with match distance dist indicating the mismatch confidence
