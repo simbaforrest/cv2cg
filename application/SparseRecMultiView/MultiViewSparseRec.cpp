@@ -58,6 +58,7 @@ bool MVSR::run(vector<string> imgnamelist, string outdir, string mainname)
 	matcher->clear();
 	misMatchCnt = 0;
 	matchEnhancedCnt = 0;
+	pwinfo.clear();
 
 	if(!loadimage(imgnamelist))	return false;
 	if(!detect())	return false;
@@ -116,10 +117,10 @@ bool MVSR::pairwise()
 	}
 
 	TagI("begin {\n");
-	//init pairwiseFMat
+	//init pairwiseInfo
 	int N = (int)pictures.size();
-	pairwiseFMat.resize( (N-2)*(N-1)/2+N-1 );
-	pairwiseQuality.resize( (N-2)*(N-1)/2+N-1, 0 );
+	this->pwinfo.resize( (N-2)*(N-1)/2+N-1 );
+
 	//find matches for each pair of images
 	for(int i=0; i<(int)pictures.size(); ++i) {
 		for(int j=i+1; j<(int)pictures.size(); ++j) {
@@ -139,39 +140,52 @@ void MVSR::match(int imgi, int imgj)
 	CV_Assert(imgi!=imgj);
 	if(imgi>imgj) std::swap(imgi,imgj);//make sure imgi<imgj
 
+	PairwiseInfo& ijinfo = this->getPairwiseInfo(imgi,imgj);
+	ijinfo.imgi = imgi;
+	ijinfo.imgj = imgj;
+
 	MVSRpicture& pici = pictures[imgi];
 	MVSRpicture& picj = pictures[imgj];
 	matcher->clear();//clear last time's
-	vector<DMatch> matches;
+
 	//pici as query, picj as train
-	matcher->match(pici.des, picj.des, matches);
+	matcher->match(pici.des, picj.des, ijinfo.matches);
 	TagD("pic%d.key.size=%d,pic%d.key.size=%d,matches.size=%d\n",
 			imgi, (int)pici.key.size(),
 			imgj, (int)picj.key.size(),
-			(int)matches.size());
+			(int)ijinfo.matches.size());
 
 	//calc F matrix and remove match outliers
 	vector<Point2f> pi, pj;//matched image points
-	vector<uchar> inliers;//inliers in pi-pj for fmatrix, 0 means outlier
-	pi.reserve(matches.size());
-	pj.reserve(matches.size());
-	for(int i=0; i<(int)matches.size(); ++i) {
-		const DMatch& m = matches[i];
+	pi.reserve(ijinfo.matches.size());
+	pj.reserve(ijinfo.matches.size());
+	for(int i=0; i<(int)ijinfo.matches.size(); ++i) {
+		const DMatch& m = ijinfo.matches[i];
 		pj.push_back(picj.key[m.trainIdx].pt);
 		pi.push_back(pici.key[m.queryIdx].pt);
 	}
-	Mat& fmat = getFMat(imgi,imgj);
-	fmat = cv::findFundamentalMat(Mat(pi), Mat(pj), inliers);
+	ijinfo.Fij = cv::findFundamentalMat(Mat(pi), Mat(pj), ijinfo.inliers);
+
+	double F[9];
+	std::copy(ijinfo.Fij.begin<double>(), ijinfo.Fij.end<double>(), F);
 
 	//parse matches
-	for(int k=0; k<(int)matches.size(); ++k) {
-		if(!inliers[k]) continue;
-		const DMatch& m = matches[k];
-		helper::mul
+	ijinfo.Frms = 0;
+	for(int k=0; k<(int)ijinfo.matches.size(); ++k) {
+		if(!ijinfo.inliers[k]) continue;
+
+		double y[3] = {pi[k].x,pi[k].y,1};
+		double x[3] = {pj[k].x,pj[k].y,1};
+		double tmp = helper::mulxtAy(3,x,F,y); // pj'*F*pi ~ 0
+		ijinfo.Frms += (float)tmp*tmp;
+
+		const DMatch& m = ijinfo.matches[k];
 		TagD("addpair: (img%d, key%d)<->(img%d, key%d)\n",
 				imgi, m.queryIdx, imgj, m.trainIdx);
 		addmatchpair(imgi, m.queryIdx, imgj, m.trainIdx, m.distance);
 	}
+	ijinfo.Frms /= (float)ijinfo.inliers.size();
+	ijinfo.Frms = sqrt(ijinfo.Frms);
 }
 
 //add linkage between object points and image's keypoint
@@ -247,25 +261,203 @@ void MVSR::enhanceLink(int objIdx, int dist) {
 
 bool MVSR::initbest()
 {
-	vector<float> picredit(pictures.size(),0);
-	float max1=-DBL_MAX,max2=-DBL_MAX;
-	int idx1,idx2;
-	for(int i=0; i<(int)clouds.size(); ++i) {
-		const MVSRobjpoint& obj = clouds[i];
-		for(int j=0; j<(int)obj.obs.size(); ++j) {
-			const MVSRobjpoint::Record& obs = obj.obs[j];
-			picredit[obs.imgi] += 1.0/(1+obs.dist);
-			float curcredit = picredit[obs.imgi];
-			if(curcredit>=max1) {
-				//TODO
-			} else if(curcredit>=max2) {
-				//TODO
+	float min1=DBL_MAX,min2=DBL_MAX;
+	int i1,i2,j1,j2;
+	for(int i=0; i<(int)pictures.size(); ++i) {
+		for(int j=i+1; j<(int)pictures.size(); ++j) {
+			const PairwiseInfo& info = this->getPairwiseInfo(i,j);
+			float rms = info.Frms;
+			if(rms<=min1) {
+				// min1 -> min2
+				min2 = min1;
+				i2 = i1;
+				j2 = j1;
+				// cur -> min1
+				min1 = rms;
+				i1 = i;
+				j1 = j;
+			} else if(rms<=min2) {
+				// cur -> min2
+				min2 = rms;
+				i2 = i;
+				j2 = j;
 			}
 		}
 	}
-	TagD("pic%d has max credit=%lf\n", );
+	TagI("<%d,%d> has min Frms=%lf\n",i1,j1,min1);
+	TagI("<%d,%d> has second min Frms=%lf\n",i2,j2,min2);
 	return true;
 }
+
+//bool estimateRelativePose()
+//{
+//	double U[9], S[9], VT[9];
+//	double W[9] =
+//	{  0.0, -1.0, 0.0,
+//	1.0, 0.0, 0.0,
+//	0.0, 0.0, 1.0 };
+//	double WT[9] =
+//	{  0.0, 1.0, 0.0,
+//	-1.0,  0.0, 0.0,
+//	0.0,  0.0, 1.0 };
+//	double E[9];
+//	double tmp9[9];
+//	double u3[3], Ra[9], Rb[9];
+//
+//	CreateCvMatHead(_U,3,3,U);
+//	CreateCvMatHead(_S,3,3,S);
+//	CreateCvMatHead(_VT,3,3,VT);
+//	CreateCvMatHead(_K,3,3,K);
+//	CreateCvMatHead(_E,3,3,E);
+//	CreateCvMatHead(_F,3,3,F);
+//	CreateCvMatHead(_tmp9,3,3,tmp9);
+//	CreateCvMatHead(_u3,3,1,u3);
+//	CreateCvMatHead(_Ra,3,3,Ra);
+//	CreateCvMatHead(_Rb,3,3,Rb);
+//	CreateCvMatHead(_W,3,3,W);
+//	CreateCvMatHead(_WT,3,3,WT);
+//
+//	//get essential matrix
+//	cvGEMM(&_K,&_F,1,0,0,&_tmp9, CV_GEMM_A_T);
+//	cvMatMul(&_tmp9, &_K, &_E); //E = K2' * F * K1; % K2==K1 currently
+//
+//	cvSVD(&_E, &_S, &_U, &_VT, CV_SVD_V_T);
+//
+//	/* Now find R and t */
+//	u3[0] = U[2];  u3[1] = U[5];  u3[2] = U[8]; //u3 = U*[0;0;1];
+//
+//	//two possible R UDVT, UDTVT
+//	cvMatMul(&_U, &_W, &_tmp9);
+//	cvMatMul(&_tmp9, &_VT, &_Ra); //Ra = U*W*V';
+//	cvMatMul(&_U, &_WT, &_tmp9);
+//	cvMatMul(&_tmp9, &_VT, &_Rb); //Rb = U*W'*V';
+//
+//	if( cvDet(&_Ra) <0 )
+//		cvScale(&_Ra, &_Ra, -1);
+//	if( cvDet(&_Rb) <0 )
+//		cvScale(&_Rb, &_Rb, -1);
+//
+//	double P1[12] = {
+//		K[0],K[1],K[2],0,
+//		K[3],K[4],K[5],0,
+//		K[6],K[7],K[8],0
+//	};
+//	double P2[12];
+//	CreateCvMatHead(_P2,3,4,P2);
+//
+//	// test Ra
+//	P2[0]=Ra[0]; P2[1]=Ra[1]; P2[2]=Ra[2]; P2[3]=u3[0];
+//	P2[4]=Ra[3]; P2[5]=Ra[4]; P2[6]=Ra[5]; P2[7]=u3[1];
+//	P2[8]=Ra[6]; P2[9]=Ra[7]; P2[10]=Ra[8]; P2[11]=u3[2];
+//	cvMatMul(&_K,&_P2,&_P2); //P2 = K*[Ra,u3];
+//
+//	int c1_pos = 0, c1_neg = 0;
+//	int c2_pos = 0, c2_neg = 0;
+//	for(int i=0; i<(int)p1.size(); ++i) {
+//		if(!inliers[i]) continue;
+//
+//		double X[3];
+//		helper::triangulate(p1[i].x, p1[i].y,
+//			p2[i].x, p2[i].y, P1, P2, X);
+//		double X2[3]={X[0],X[1],X[2]};
+//		CreateCvMatHead(_X2,3,1,X2);
+//		cvMatMul(&_Ra, &_X2, &_X2);
+//		cvAdd(&_X2, &_u3, &_X2);
+//
+//		if (X[2] > 0)	c1_pos++;
+//		else	c1_neg++;
+//
+//		if (X2[2] > 0)	c2_pos++;
+//		else	c2_neg++;
+//	}
+//	//cout<<"Test Ra"<<endl;
+//	//cout<<"+c1="<<c1_pos<<"\t-c1="<<c1_neg<<endl;
+//	//cout<<"+c2="<<c2_pos<<"\t-c2="<<c2_neg<<endl;
+//
+//	if (c1_pos > c1_neg && c2_pos > c2_neg) {
+//		memcpy(R, Ra, 9 * sizeof(double));
+//		t[0] = u3[0]; t[1] = u3[1]; t[2] = u3[2];
+//	} else if (c1_pos < c1_neg && c2_pos < c2_neg) {
+//		memcpy(R, Ra, 9 * sizeof(double));
+//		t[0] = -u3[0]; t[1] = -u3[1]; t[2] = -u3[2];
+//	} else {
+//		//test Rb
+//		P2[0]=Rb[0]; P2[1]=Rb[1]; P2[2]=Rb[2]; P2[3]=u3[0];
+//		P2[4]=Rb[3]; P2[5]=Rb[4]; P2[6]=Rb[5]; P2[7]=u3[1];
+//		P2[8]=Rb[6]; P2[9]=Rb[7]; P2[10]=Rb[8]; P2[11]=u3[2];
+//		cvMatMul(&_K,&_P2,&_P2); //P2 = K2*[Rb,u3];
+//		c1_pos = c1_neg = c2_pos = c2_neg = 0;
+//		for(int i=0; i<(int)p1.size(); ++i) {
+//			if(!inliers[i]) continue;
+//
+//			double X[3];
+//			helper::triangulate(p1[i].x, p1[i].y,
+//				p2[i].x, p2[i].y, P1, P2, X);
+//			double X2[3]={X[0],X[1],X[2]};
+//			CreateCvMatHead(_X2,3,1,X2);
+//			cvMatMul(&_Rb, &_X2, &_X2);
+//			cvAdd(&_X2, &_u3, &_X2);
+//
+//			if (X[2] > 0)	c1_pos++;
+//			else c1_neg++;
+//
+//			if (X2[2] > 0) c2_pos++;
+//			else c2_neg++;
+//		}
+//		//cout<<"Test Rb"<<endl;
+//		//cout<<"+c1="<<c1_pos<<"\t-c1="<<c1_neg<<endl;
+//		//cout<<"+c2="<<c2_pos<<"\t-c2="<<c2_neg<<endl;
+//
+//		if (c1_pos > c1_neg && c2_pos > c2_neg) {
+//			memcpy(R, Rb, 9 * sizeof(double));
+//			t[0] = u3[0]; t[1] = u3[1]; t[2] = u3[2];
+//		} else if (c1_pos < c1_neg && c2_pos < c2_neg) {
+//			memcpy(R, Rb, 9 * sizeof(double));
+//			t[0] = -u3[0]; t[1] = -u3[1]; t[2] = -u3[2];
+//		} else {
+//			TagE("no case was found!\n");
+//			return false;
+//		}
+//	};
+//
+//	//final triangulate
+//	double tulen = u3[0]*u3[0]+u3[1]*u3[1]+u3[2]*u3[2];
+//	tulen = sqrt(tulen);
+//	u3[0]*=lamda/tulen; u3[1]*=lamda/tulen; u3[2]*=lamda/tulen;
+//
+//	P2[0]=R[0]; P2[1]=R[1]; P2[2]=R[2]; P2[3]=t[0];
+//	P2[4]=R[3]; P2[5]=R[4]; P2[6]=R[5]; P2[7]=t[1];
+//	P2[8]=R[6]; P2[9]=R[7]; P2[10]=R[8]; P2[11]=t[2];
+//	cvMatMul(&_K,&_P2,&_P2);
+//	if(Log::debug) helper::print(3,4,P2,"Final P2");
+//	double maxu1=-DBL_MAX,minu1=DBL_MAX,maxv1=-DBL_MAX,minv1=DBL_MAX;
+//	double maxu2=-DBL_MAX,minu2=DBL_MAX,maxv2=-DBL_MAX,minv2=DBL_MAX;
+//	for(int i=0; i<(int)p1.size(); ++i) {
+//		if(!inliers[i]) continue;
+//
+//		double X[3];
+//		helper::triangulate(p1[i].x, p1[i].y,
+//			p2[i].x, p2[i].y, P1, P2, X);
+//		if(X[2]>0)
+//			results.push_back(cv::Point3d(X[0],X[1],X[2]));
+//
+//		double u,v;
+//		helper::project(P1,X[0],X[1],X[2], u,v);
+//		double du1=u-p1[i].x, dv1=v-p1[i].y;
+//		LogD(">P1\t%lf\t%lf\n",du1,dv1);
+//		helper::project(P2,X[0],X[1],X[2], u,v);
+//		double du2=u-p2[i].x, dv2=v-p2[i].y;
+//		LogD(">P2\t%lf\t%lf\n",du2,dv2);
+//		maxu1 = std::max(maxu1,du1); minu1 = std::min(minu1,du1);
+//		maxv1 = std::max(maxv1,dv1); minv1 = std::min(minv1,dv1);
+//		maxu2 = std::max(maxu2,du2); minu2 = std::min(minu2,du2);
+//		maxv2 = std::max(maxv2,dv2); minv2 = std::min(minv2,dv2);
+//	}
+//	TagI("reproject error for img1 = (%g ~ %g, %g ~ %g)\n", minu1, maxu1, minv1, maxv1);
+//	TagI("reproject error for img2 = (%g ~ %g, %g ~ %g)\n", minu2, maxu2, minv2, maxv2);
+//
+//	return true;
+//}
 
 bool MVSR::save(string outdir, string mainname)
 {
@@ -288,10 +480,8 @@ bool MVSR::save(string outdir, string mainname)
 	std::ofstream dumpfmat(dumpfmatname.c_str());
 	for(int i=0; i<(int)pictures.size(); ++i) {
 		for(int j=i+1; j<(int)pictures.size(); ++j) {
-			const Mat& fmat = getFMat(i,j);
-			dumpfmat << "F matrix between image ("
-				<< i << "," << j << ")=" << std::endl;
-			dumpfmat << fmat << std::endl;
+			const PairwiseInfo& info = this->getPairwiseInfo(i,j);
+			dumpfmat << info << std::endl;
 		}
 	}
 	dumpfmat.close();

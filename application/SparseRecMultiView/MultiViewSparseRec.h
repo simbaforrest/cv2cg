@@ -35,6 +35,9 @@ struct MVSRpicture {
 	vector<KeyPoint> key;//keypoints to be reconstructed
 	Mat des;//descriptors for keypoints
 
+	double K[9];
+	double R[9],t[3];
+
 	//map to object point idx,
 	//key[i]<->the k2o[i]-th object point
 	vector<int> k2o; // k2o.size() should equal to key.size()
@@ -46,6 +49,9 @@ struct MVSRpicture {
 		std::ostream& o,
 		MVSRpicture const & pic ) {
 		o << pic.path << std::endl;
+		o<<">>K\n"<<helper::PrintMat<std::ios::fixed>(3,3,pic.K);
+		o<<">>R\n"<<helper::PrintMat<std::ios::fixed>(3,3,pic.R);
+		o<<">>T\n"<<helper::PrintMat<std::ios::fixed>(1,3,pic.t);
 		o << (int) pic.k2o.size() << ":";
 		for(int i=0; i<(int)pic.k2o.size(); ++i) {
 			o << " <" << pic.key[i].pt <<
@@ -99,28 +105,39 @@ private:
 
 	vector<MVSRpicture> pictures;
 	vector<MVSRobjpoint> clouds;
-	//F mat for img pair <i,j> (i<j) is at
+
+	//Info for img pair <i,j> (i<j) is at
 	//i*(N-1)+j-1-i*(i+1)/2, where N=pictures.size()
 	//e.g. for N=5, img0,1,2,3,4
 	//(0, 1) : 0 | (0, 2) : 1 | (0, 3) : 2 | (0, 4) : 3 |
 	//(1, 2) : 4 | (1, 3) : 5 | (1, 4) : 6 |
 	//(2, 3) : 7 | (2, 4) : 8 |
 	//(3, 4) : 9 |
-	vector<Mat> pairwiseFMat;
-	inline Mat& getFMat(int imgi, int imgj) {
+	struct PairwiseInfo {
+		int imgi, imgj; //imgi < imgj
+		Mat Fij; // fundamental matrix s.t. xj'*Fij*xi ~ 0
+		float Frms; // root-mean-square error of xj'*Fij*xi
+		vector<DMatch> matches;
+		vector<uchar> inliers;//inliers in matches, 0 means outlier
+
+		PairwiseInfo() {imgi=imgj=-1; Frms=0;}
+		friend inline std::ostream& operator<<(
+			std::ostream& o, PairwiseInfo const & info) {
+			o<<"<"<<info.imgi<<","<<info.imgj<<">"<<std::endl;
+			o<<"Frms="<<info.Frms<<std::endl;
+			o<<"matches.size="<<(int)info.matches.size()<<std::endl;
+			o<<"inliers.size="<<(int)info.inliers.size()<<std::endl;
+			o<<info.Fij;
+			return o;
+		}
+	};
+	vector<PairwiseInfo> pwinfo;
+	inline PairwiseInfo& getPairwiseInfo(int imgi, int imgj) {
 		CV_Assert(imgi!=imgj);
 		int N = (int)pictures.size();
 		int i,j;
 		imgi<imgj?(i=imgi,j=imgj):(i=imgj,j=imgi);
-		return pairwiseFMat[i*(N-1)+j-1-i*(i+1)/2];
-	}
-	vector<float> pairwiseQuality;
-	inline float& getQuality(int imgi, int imgj) {
-		CV_Assert(imgi!=imgj);
-		int N = (int)pictures.size();
-		int i,j;
-		imgi<imgj?(i=imgi,j=imgj):(i=imgj,j=imgi);
-		return pairwiseQuality[i*(N-1)+j-1-i*(i+1)/2];
+		return pwinfo[i*(N-1)+j-1-i*(i+1)/2];
 	}
 
 	//statistics

@@ -212,18 +212,10 @@ void calibrate(std::ofstream& fout)
 	fout<<"K(alphaX alphaY u0 v0)="<<std::endl;
 	fout<<KK[0][0]/KK[2][2]<<" "<<KK[1][1]/KK[2][2]<<" "
 		<<KK[0][2]/KK[2][2]<<" "<<KK[1][2]/KK[2][2]<<std::endl;
-	helper::print(
-		fout<<"R="<<std::endl,
-		R[0],3,3);
-	helper::print(
-		fout<<"C="<<std::endl,
-		C,3,1);
-	helper::print(
-		fout<<"T="<<std::endl,
-		T,3,1);
-	helper::print(
-		fout<<"P="<<std::endl,
-		P[0],3,4)<<std::endl;
+	fout<<"R=\n"<<helper::PrintMat<>(3,3,R[0]);
+	fout<<"C=\n"<<helper::PrintMat<>(3,1,C);
+	fout<<"T=\n"<<helper::PrintMat<>(3,1,T);
+	fout<<"P=\n"<<helper::PrintMat<>(3,4,P[0]);
 	fout.close();
 	double meanErr,maxErr,sumsqErr,sd;
 	helper::reprojectionError(g_num, ipa, wpa, P[0],
