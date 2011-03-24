@@ -2,10 +2,10 @@
 <CodeBlocks_layout_file>
 	<ActiveTarget name="Release" />
 	<File name="../../application/SparseRec2View/SparseRec2View.cpp" open="0" top="0" tabpos="4">
-		<Cursor position="5009" topLine="231" />
+		<Cursor position="13099" topLine="425" />
 	</File>
 	<File name="../../application/SparseRec2View/SparseRec2View.h" open="0" top="0" tabpos="0">
-		<Cursor position="1417" topLine="43" />
+		<Cursor position="1606" topLine="36" />
 	</File>
 	<File name="../../application/SparseRec2View/main.cpp" open="0" top="0" tabpos="0">
 		<Cursor position="1158" topLine="46" />

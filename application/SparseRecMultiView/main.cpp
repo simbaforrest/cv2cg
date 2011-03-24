@@ -40,10 +40,11 @@ int main(int argc, char** argv)
 			"\tMultiViewSparseRec mvsr.in"<<std::endl;
 		return -1;
 	}
-	std::string ifname(argv[1]);
-	std::ifstream in(ifname.c_str());
-	std::vector<std::string> imgnamelist;
-	std::string outdir, mainname;
+	string ifname(argv[1]);
+	ifstream in(ifname.c_str());
+	vector<string> pathlist;
+	vector< vector<double> > caliblist;
+	string outdir, mainname;
 
 	if( !helper::readValidLine(in,outdir) ) {
 		TagE("input file invalid! exit...");
@@ -60,11 +61,27 @@ int main(int argc, char** argv)
 	}
 
 	std::string line;
+	double K[9] = {
+		1, 0, 0,
+		0, 1, 0,
+		0, 0, 1
+	};
 	while(helper::readValidLine(in,line)) {
-		imgnamelist.push_back(line);
+		if(line.find(">>K")!=line.npos) { //change K
+			for(int i=0; i<9; ++i)
+				in >> K[i];
+			std::cout<<"[main] new calibration matrix K =\n"
+				<<helper::PrintMat<>(3,3,K)<<std::endl;
+		} else {
+			std::cout<<"[main] add "<<line<<std::endl;
+			pathlist.push_back(line);
+			vector<double> calib(9,0);
+			std::copy(K,K+9,calib.begin());
+			caliblist.push_back(calib);
+		}
 	}
 
 	MVSR mvsr;
-	mvsr.run(imgnamelist,outdir,mainname);
+	mvsr.run(pathlist,caliblist,outdir,mainname);
 	return 0;
 }
