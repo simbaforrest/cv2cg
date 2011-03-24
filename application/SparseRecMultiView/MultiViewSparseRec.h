@@ -42,6 +42,12 @@ struct MVSRpicture {
 	//key[i]<->the k2o[i]-th object point
 	vector<int> k2o; // k2o.size() should equal to key.size()
 
+	MVSRpicture() {
+		helper::zeros(3,3,K);
+		helper::zeros(3,3,R);
+		helper::zeros(3,1,t);
+	}
+
 	//output format:
 	//path
 	//n pt1 map1 pt2 map2 ... ptn mapn
@@ -119,6 +125,8 @@ private:
 		float Frms; // root-mean-square error of xj'*Fij*xi
 		vector<DMatch> matches;
 		vector<uchar> inliers;//inliers in matches, 0 means outlier
+		double Rj[9]; //rotation of j w.r.t. i, i.e. Ri=I
+		double tj[3]; //translation of j w.r.t. i, i.e. ti = [0,0,0]
 
 		PairwiseInfo() {imgi=imgj=-1; Frms=0;}
 		friend inline std::ostream& operator<<(
@@ -127,7 +135,11 @@ private:
 			o<<"Frms="<<info.Frms<<std::endl;
 			o<<"matches.size="<<(int)info.matches.size()<<std::endl;
 			o<<"inliers.size="<<(int)info.inliers.size()<<std::endl;
-			o<<info.Fij;
+			o<<info.Fij<<std::endl;
+			o<<">>R"<<info.imgj<<"\n"
+				<<helper::PrintMat<>(3,3,info.Rj);
+			o<<">>t"<<info.imgj<<"\n"
+				<<helper::PrintMat<>(1,3,info.tj);
 			return o;
 		}
 	};
@@ -147,9 +159,11 @@ public:
 	MVSR(void);
 	~MVSR(void);
 
-	bool run(vector<string> imgnamelist, string outdir, string mainname);
+	bool run(vector<string>& pathlist, vector< vector<double> >& caliblist,
+			string outdir, string mainname);
 private:
-	bool loadimage(vector<string> imgnamelist);
+	bool loadimage(vector<string>& pathlist,
+			vector< vector<double> >& caliblist);
 	bool detect();
 	bool pairwise();//pairwise matching and F matrix
 	bool initbest();//find best pair and init reconstruction
@@ -164,4 +178,6 @@ private:
 	void linkimgobj(int objIdx, int imgi, int keyi, float dist);
 	//match loop will enhance the whole by their average dist
 	void enhanceLink(int objIdx, int dist);
+	// estimate pairwise relative pose
+	void estimateRelativePose(int imgi, int imgj);
 };
