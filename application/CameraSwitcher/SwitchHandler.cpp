@@ -19,7 +19,7 @@
 #include "CameraUpdator.h"
 
 #include "Log.h"
-#include "CV_CG.h"
+#include "CV2CG.h"
 
 //////////////////////////////////////////////////////////
 /// API
@@ -278,18 +278,6 @@ bool SwitchHandler::handle(
 void SwitchHandler::printHelp()
 {
 	//system("cls");
-#ifdef USE_IN_CHINA
-	printf("\n\t欢迎使用相机浏览器——CameraSwitcher！\n");
-	printf("使用方法：\n");
-	printf("\t鼠标双击：使用鼠标双击相机（cam0,cam1,...）,即可平滑的切换到该相机所代表的视角.\n");
-	printf("\t按住s键不放拖动鼠标：视点位置不变，只改变相机姿态\n");
-	printf("\t按方向键 上下左右：改变像主点位置\n");
-	printf("\t按PageUp，PageDown：放大缩小\n");
-	printf("\t按p键：在控制台打印当前相机的位置与姿态信息\n");
-	printf("\t按c键：控制台清屏\n");
-	printf("\t按h键：在控制台打印帮助信息\n");
-	printf("\t按,或.键：按顺序切换相机\n");
-#else
 	LogI("\n\tWelcome to use CameraSwitcher!\n"
 		"Usage:\n"
 		"\tDOUBLE CLICK : double click on cameras(cam0,cam1,...),"
@@ -301,5 +289,4 @@ void SwitchHandler::printHelp()
 		"\tPress c : clear concole\n"
 		"\tPress h : print help information to console\n"
 		"\tPress , or . : switch between cameras\n");
-#endif
 }

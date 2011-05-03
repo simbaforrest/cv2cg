@@ -22,7 +22,7 @@
 
 #include "Log.h"
 #include "OpenCVHelper.h"
-#include "CV_CG.h"
+#include "CV2CG.h"
 #include "Reader.h"
 
 osg::ref_ptr<osg::Vec3Array> v3a;

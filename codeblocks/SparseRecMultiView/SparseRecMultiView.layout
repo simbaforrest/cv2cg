@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <CodeBlocks_layout_file>
 	<ActiveTarget name="Debug" />
-	<File name="../../application/SparseRecMultiView/MultiViewSparseRec.cpp" open="1" top="1" tabpos="1">
-		<Cursor position="12158" topLine="361" />
+	<File name="../../application/SparseRecMultiView/MultiViewSparseRec.cpp" open="1" top="0" tabpos="1">
+		<Cursor position="10717" topLine="346" />
 	</File>
-	<File name="../../application/SparseRecMultiView/MultiViewSparseRec.h" open="1" top="0" tabpos="2">
-		<Cursor position="5111" topLine="139" />
+	<File name="../../application/SparseRecMultiView/MultiViewSparseRec.h" open="1" top="1" tabpos="2">
+		<Cursor position="2571" topLine="70" />
 	</File>
 	<File name="../../application/SparseRecMultiView/main.cpp" open="1" top="0" tabpos="3">
 		<Cursor position="1922" topLine="54" />

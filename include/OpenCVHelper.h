@@ -1,6 +1,6 @@
 #pragma once
 /*
- *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
+ *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -37,12 +37,17 @@
 #include "DirHelper.h"
 #include "IOHelper.h"
 #include "UtilHelper.h"
+#include "RotationHelper.h"
+#include "FilterHelper.h"
 
-namespace helper {
-	using namespace CvMatHelper;
-	using namespace CameraHelper;
-	using namespace ImageHelper;
-	using namespace DirHelper;
-	using namespace IOHelper;
-	using namespace UtilHelper;
+namespace helper
+{
+using namespace CvMatHelper;
+using namespace CameraHelper;
+using namespace ImageHelper;
+using namespace DirHelper;
+using namespace IOHelper;
+using namespace UtilHelper;
+using namespace RotationHelper;
+using namespace FilterHelper;
 }
