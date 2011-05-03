@@ -44,7 +44,7 @@
 #include <osg/Point>
 
 #include "Log.h"
-#include "CV_CG.h"
+#include "CV2CG.h"
 #include "CameraUpdator.h"
 #include "SwitchHandler.h"
 
@@ -84,7 +84,7 @@ int CameraSwitcher::run()
 
 /////////////////////////////////////////////////////
 ///   API
-#define ENABLE_BUNDLER 1 // currently deprecated
+#define ENABLE_BUNDLER 1
 
 osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 {
@@ -346,7 +346,7 @@ Make_Photo(const osg::Camera& camera,
 	return mt;
 }
 
-#if ENABLE_BUNDLER // currently deprecated
+#if ENABLE_BUNDLER
 osg::ref_ptr<osg::Node>
 createSceneFromBundlerResult(std::string filename)
 {

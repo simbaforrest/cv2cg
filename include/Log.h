@@ -1,5 +1,5 @@
 #pragma once
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -19,16 +19,19 @@
 
 #include <stdio.h>
 
-namespace Log {
-	//switch them
-	extern bool debug, info, error, warn;
-	extern FILE *logfile;
+namespace Log
+{
+//switch them
+extern bool debug, info, error, warn;
+extern FILE *logfile;
 
-	inline static bool tag(const char* tag, const char* level, bool control) {
-		if(control && logfile)
-			fprintf(logfile, "[%s %s] ", tag, level);
-		return true;
+inline static bool tag(const char *tag, const char *level, bool control)
+{
+	if(control && logfile) {
+		fprintf(logfile, "[%s %s] ", tag, level);
 	}
+	return true;
+}
 }//Log
 
 #define LogD(...) if(Log::debug) fprintf(Log::logfile,__VA_ARGS__)

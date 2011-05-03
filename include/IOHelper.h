@@ -1,5 +1,5 @@
 #pragma once
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -27,31 +27,37 @@
 #include <stdio.h>
 #include <time.h>
 
-namespace IOHelper {
-	//read one valid line, i.e. non-empty line
-	//return false if no valid line, i.e. end-of-file
-	inline bool readValidLine(std::istream& in,
-		std::string& line)
-	{
-		line = "";//clear;
-		bool haschar = false;
-		while(in) {
-			std::string str;
-			std::getline(in, str);
-			if(str.length()==0) continue;
-			haschar = true;
-			
-			//take care of CR/LF, see details:
-			// http://www.codeguru.com/forum/showthread.php?t=253826
-			char lastchar = str[str.length()-1];
-			if(lastchar=='\n' || lastchar=='\r') {
-				str.resize(str.length()-1);
-			}
-			if(str.length()==0) continue;
-			
-			line = str;
-			break;
+namespace IOHelper
+{
+//read one valid line, i.e. non-empty line
+//return false if no valid line, i.e. end-of-file
+inline bool readValidLine(std::istream &in,
+                          std::string &line)
+{
+	line = "";//clear;
+	bool haschar = false;
+	while(in) {
+		std::string str;
+		std::getline(in, str);
+		if(str.length()==0) {
+			continue;
 		}
-		return line.length()!=0 || haschar;
+		haschar = true;
+
+		//take care of CR/LF, see details:
+		// http://www.codeguru.com/forum/showthread.php?t=253826
+		char lastchar = str[str.length()-1];
+		if(lastchar=='\n' || lastchar=='\r') {
+			str.resize(str.length()-1);
+		}
+		if(str.length()==0) {
+			continue;
+		}
+
+		line = str;
+		break;
 	}
+	return line.length()!=0 || haschar;
+}
+
 }//end of IOHelper

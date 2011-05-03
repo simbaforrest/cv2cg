@@ -1,6 +1,6 @@
 #pragma once
 /*
- *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
+ *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -15,8 +15,8 @@
  *
  */
 
-/* UtilHelper.h
-   Utility helper functions */
+/* FilterHelper.h
+   some filter functions */
 
 //standard include
 #include <iostream>
@@ -28,13 +28,21 @@
 #include <stdio.h>
 #include <time.h>
 
-namespace UtilHelper
+namespace FilterHelper
 {
-template<typename TYPE>
-void num2str(TYPE num, std::string &str)
+
+template<typename T>
+inline void stablize(int dim,
+                     T const *newObservation, T *filtered,
+                     T bufferLen=1.0f, T amplification=500.0f)
 {
-	std::stringstream ss;
-	ss << num;
-	ss >> str;
+	for(int i=0; i<dim; ++i) {
+		filtered[i] += amplification;
+		double tmp = newObservation[i] + amplification;
+		filtered[i] = (T) (sqrt((filtered[i] * filtered[i] * bufferLen
+		                         + tmp * tmp) / (1 + bufferLen)));
+		filtered[i] -= amplification;
+	}
 }
-}
+
+}//end of namespace FilterHelper

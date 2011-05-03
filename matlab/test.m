@@ -1,16 +1,22 @@
 clear; close all; clc;
-imnames = cell(5,1);
-for i=0:4
-    imnames{i+1} = ['../data/books00',num2str(i),'.png'];
+if exist('tmp.mat','file')
+    load('tmp.mat');
+else
+    imnames = cell(6,1);
+    for i=1:6
+        imnames{i} = ['../../orientation/Dataset/Mar7/',num2str(i),'.jpg'];
+    end
+    tic;
+    try
+        [keys,matches]=cvsurf(imnames);
+    catch ErrMsg
+        disp(ErrMsg);
+        return
+    end
+    toc
+    mask = rgb2gray(imread('../../orientation/Dataset/mask.jpg'));
+    save('tmp.mat');
 end
-tic;
-try
-    [keys,matches]=cvsurf(imnames);
-catch ErrMsg
-    disp(ErrMsg);
-    return
-end
-toc
 
 for i=1:5
     for j=(i+1):5
@@ -49,8 +55,11 @@ for i=1:5
         plot(keys{j}(cmatch(:,2),1)+c0,keys{j}(cmatch(:,2),2),'r*');
 %         disp(num2str(length(cmatch)));
         for k=1:length(cmatch)
-            plot([keys{i}(cmatch(k,1),1),keys{j}(cmatch(k,2),1)+c0],...
-                [keys{i}(cmatch(k,1),2),keys{j}(cmatch(k,2),2)],'g-');
+            if mask(round(keys{i}(cmatch(k,1),2)),round(keys{i}(cmatch(k,1),1)))==255 && ...
+                    mask(round(keys{j}(cmatch(k,2),2)),round(keys{j}(cmatch(k,2),1)))==255
+                plot([keys{i}(cmatch(k,1),1),keys{j}(cmatch(k,2),1)+c0],...
+                    [keys{i}(cmatch(k,1),2),keys{j}(cmatch(k,2),2)],'g-');
+            end
         end
         pause;
         close all;

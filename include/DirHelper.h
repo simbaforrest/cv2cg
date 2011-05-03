@@ -1,5 +1,5 @@
 #pragma once
-/* 
+/*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
@@ -28,57 +28,74 @@
 #include <stdio.h>
 #include <time.h>
 
-namespace DirHelper {
+namespace DirHelper
+{
 
-	//dir
-	inline std::string getFileDir(const std::string& fileName)
-	{
-		std::string::size_type slash1 = fileName.find_last_of('/');
-		std::string::size_type slash2 = fileName.find_last_of('\\');
-		if (slash1==std::string::npos) 
-		{
-			if (slash2==std::string::npos) return std::string();
-			return std::string(fileName,0,slash2+1);
+//dir
+inline std::string getFileDir(const std::string &fileName)
+{
+	std::string::size_type slash1 = fileName.find_last_of('/');
+	std::string::size_type slash2 = fileName.find_last_of('\\');
+	if (slash1==std::string::npos) {
+		if (slash2==std::string::npos) {
+			return std::string();
 		}
-		if (slash2==std::string::npos) return std::string(fileName,0,slash1+1);
-		return std::string(fileName, 0, 1 + slash1>slash2 ?  slash1 : slash2);
+		return std::string(fileName,0,slash2+1);
 	}
-
-	// no ext, pure name
-	inline std::string getNameNoExtension(const std::string& str)
-	{
-		std::string::size_type begin = str.find_last_of('\\');
-		std::string::size_type last = str.find_last_of('.');
-		if(last == str.npos) last = str.length()-1;
-		if( (begin == str.npos) ||
-			(begin > last) ) return str;
-		else return str.substr(begin+1, last-begin-1);
+	if (slash2==std::string::npos) {
+		return std::string(fileName,0,slash1+1);
 	}
+	return std::string(fileName, 0, 1 + slash1>slash2 ?  slash1 : slash2);
+}
 
-	inline std::string getNameWithExtension(const std::string& fileName)
-	{
-		std::string::size_type slash1 = fileName.find_last_of('/');
-		std::string::size_type slash2 = fileName.find_last_of('\\');
-		if (slash1==std::string::npos) 
-		{
-			if (slash2==std::string::npos) return fileName;
-			return std::string(fileName.begin()+slash2+1,fileName.end());
+// no ext, pure name
+inline std::string getNameNoExtension(const std::string &str)
+{
+	std::string::size_type begin = str.find_last_of('\\');
+	std::string::size_type last = str.find_last_of('.');
+	if(last == str.npos) {
+		last = str.length()-1;
+	}
+	if( (begin == str.npos) ||
+	        (begin > last) ) {
+		return str;
+	} else {
+		return str.substr(begin+1, last-begin-1);
+	}
+}
+
+inline std::string getNameWithExtension(const std::string &fileName)
+{
+	std::string::size_type slash1 = fileName.find_last_of('/');
+	std::string::size_type slash2 = fileName.find_last_of('\\');
+	if (slash1==std::string::npos) {
+		if (slash2==std::string::npos) {
+			return fileName;
 		}
-		if (slash2==std::string::npos) return std::string(fileName.begin()+slash1+1,fileName.end());
-		return std::string(fileName.begin()+(slash1>slash2?slash1:slash2)+1,fileName.end());
+		return std::string(fileName.begin()+slash2+1,fileName.end());
 	}
+	if (slash2==std::string::npos) {
+		return std::string(fileName.begin()+slash1+1,fileName.end());
+	}
+	return std::string(fileName.begin()+(slash1>slash2?slash1:slash2)+1,fileName.end());
+}
 
-	inline std::string getFileExtensionNoDot(const std::string& fileName)
-	{
-		std::string::size_type dot = fileName.find_last_of('.');
-		if (dot==std::string::npos) return std::string("");
-		return std::string(fileName.begin()+dot+1,fileName.end());
+inline std::string getFileExtensionNoDot(const std::string &fileName)
+{
+	std::string::size_type dot = fileName.find_last_of('.');
+	if (dot==std::string::npos) {
+		return std::string("");
 	}
+	return std::string(fileName.begin()+dot+1,fileName.end());
+}
 
-	inline std::string getFileExtensionWithDot(const std::string& fileName)
-	{
-		std::string::size_type dot = fileName.find_last_of('.');
-		if (dot==std::string::npos) return std::string("");
-		return std::string(fileName.begin()+dot,fileName.end());
+inline std::string getFileExtensionWithDot(const std::string &fileName)
+{
+	std::string::size_type dot = fileName.find_last_of('.');
+	if (dot==std::string::npos) {
+		return std::string("");
 	}
+	return std::string(fileName.begin()+dot,fileName.end());
+}
+
 }//DirHelper

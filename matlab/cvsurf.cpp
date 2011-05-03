@@ -47,8 +47,6 @@ using namespace cv;
 
 #define IDXMATLAB(m,n,M) ((n)*(M)+(m)) //M rows
 
-//#define NIMG 2
-
 void mexFunction(int nlhs, mxArray* plhs[], 
                  int nrhs, const mxArray* prhs[]) {
     if(nrhs<1)
@@ -94,9 +92,9 @@ void mexFunction(int nlhs, mxArray* plhs[],
         cout<<"read done."<<endl;
     }
     
-    cv::FeatureDetector* detector=new cv::SurfFeatureDetector();
-    DescriptorExtractor* descriptor=new cv::SurfDescriptorExtractor();
-	DescriptorMatcher* matcher= new cv::FlannBasedMatcher();
+    Ptr<FeatureDetector> detector = FeatureDetector::create("SURF");
+    Ptr<DescriptorExtractor> descriptor=DescriptorExtractor::create("SURF");
+	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("FlannBased");
     
     if(nlhs>0) { //detection
         vector< vector<KeyPoint> > key(NIMG);
@@ -188,8 +186,5 @@ void mexFunction(int nlhs, mxArray* plhs[],
         }
     }
     
-    if(detector) delete detector; detector = 0;
-	if(descriptor) delete descriptor; descriptor = 0;
-	if(matcher) delete matcher;	matcher = 0;
     return;
 }
