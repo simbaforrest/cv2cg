@@ -53,9 +53,15 @@ struct LKTracker {
 	vector<Point2f> tpts; //template points, get from recognizer
 	Mat H; //current homography that maps tpts -> npts
 
+	Mat timg;
+
 	vector<unsigned char> match_mask;
 
 	Ptr<FeatureDetector> detector; //FIXME, it should be recognizer's job
+	Ptr<DescriptorExtractor> descriptor;
+	Ptr<DescriptorMatcher> matcher;
+	vector<KeyPoint> tkeys;
+	Mat tdes;
 
 	LKTracker(int winW=10, int winH=10,
 	          int termIter=20, int termEps=0.03,
@@ -65,24 +71,44 @@ struct LKTracker {
 		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
 		ransacThresh(ransacT), drawTresh(drawT) {
 		detector=FeatureDetector::create("SURF");
+		descriptor=DescriptorExtractor::create("SURF");
+		matcher=DescriptorMatcher::create("FlannBased");
+
+		//load template
+		timg = imread("lena.jpg");
+		detector->detect(timg, tkeys);
+		descriptor->compute(timg, tkeys, tdes);
 	}
 
-	inline int init(Mat& nframe) {
+	inline bool init(Mat& nframe) {
 //		goodFeaturesToTrack(nframe, npts, MAX_COUNT, 0.01, 10, Mat(), 3, 0, 0.04);
 		vector<KeyPoint> keys;
+		Mat des;
+		vector<DMatch> matches;
 		detector->detect(nframe, keys);
-		npts.resize(keys.size());
-		for(int i=0; i<keys.size(); ++i) {
-			npts[i] = keys[i].pt;
+		descriptor->compute(nframe, keys, des);
+		matcher->clear();
+		matcher->match(des, tdes, matches);
+
+		npts.resize(matches.size());
+		tpts.resize(matches.size());
+		for(int i=0; i<matches.size(); ++i) {
+			const DMatch& m = matches[i];
+			npts[i] = keys[m.queryIdx].pt;
+			tpts[i] = tkeys[m.trainIdx].pt;
 		}
-		if(npts.size()>0) {
+		H = findHomography(Mat(tpts), Mat(npts),
+		                   match_mask, RANSAC, ransacThresh);
+		if(match_mask.size()>drawTresh) {
 			cornerSubPix(nframe, npts, winSize, Size(-1,-1), termcrit);
-			H = Mat::eye(3,3,CV_64F);
-			tpts.resize(npts.size());
-			std::copy(npts.begin(), npts.end(), tpts.begin());
+			//H = Mat::eye(3,3,CV_64F);
+
+//			tpts.resize(npts.size());
+//			std::copy(npts.begin(), npts.end(), tpts.begin());
 			opts.resize(npts.size());
 			std::copy(npts.begin(), npts.end(), opts.begin());
 		}
+		return match_mask.size()>drawTresh;
 	}
 
 	//tracking, old frame(oframe), new frame(nframe)
@@ -93,6 +119,12 @@ struct LKTracker {
 		calcOpticalFlowPyrLK(oframe, nframe, opts, npts,
 		                     status, err, winSize,
 		                     maxLevel, termcrit, derivedLambda);
+
+		for(int i=0; i<(int)npts.size(); ++i) {
+			if( !status[i] ) {
+				npts[i] = Point2f(0,0); //to make these points rejected by RANSAC
+			}
+		}
 
 		if(update()) {
 			draw(image);
@@ -221,8 +253,7 @@ int main( int argc, char **argv )
 
 		if( needToInit ) {
 			cout<<"initing..."<<endl;
-			tracker.init(gray);
-			needToInit=false;
+			needToInit=!tracker.init(gray);
 			cout<<"...inited"<<endl;
 		} else if( !tracker.opts.empty() ) {
 			cout<<"tracking..."<<endl;
