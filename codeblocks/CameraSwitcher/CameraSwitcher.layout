@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <CodeBlocks_layout_file>
 	<ActiveTarget name="Debug" />
-	<File name="../../application/CameraSwitcher/CameraSwitcher.cpp" open="0" top="0" tabpos="0">
-		<Cursor position="9134" topLine="419" />
+	<File name="../../application/CameraSwitcher/CameraSwitcher.cpp" open="1" top="1" tabpos="0">
+		<Cursor position="1318" topLine="30" />
 	</File>
 	<File name="../../application/CameraSwitcher/CameraSwitcher.h" open="0" top="0" tabpos="0">
 		<Cursor position="0" topLine="14" />

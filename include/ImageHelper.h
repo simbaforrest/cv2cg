@@ -32,6 +32,12 @@
 
 namespace ImageHelper
 {
+#define CV_RED		Scalar(255,0,0)
+#define CV_GREEN	Scalar(0,255,0)
+#define CV_BLUE		Scalar(0,0,255)
+#define CV_WHITE	Scalar(255,255,255)
+#define CV_BLACK	Scalar(0,0,0)
+#define CV_GRAY		Scalar(128,128,128)
 
 // generate pseudocolor look up table
 // maxcolors: required max number of colors

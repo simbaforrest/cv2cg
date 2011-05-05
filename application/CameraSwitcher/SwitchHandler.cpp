@@ -21,6 +21,8 @@
 #include "Log.h"
 #include "CV2CG.h"
 
+using namespace CV2CG;
+
 //////////////////////////////////////////////////////////
 /// API
 int nextCamId = 0;

@@ -14,9 +14,10 @@
  *
  */
 
-/*[keys,matches]=cvsurf(imnames)
+/*[keys,matches]=cvsurf(imnames, DetectorType)
  *INPUT
  *  imnames <cell, string, Kx1>: file paths for each image
+ *  [DetectorType <int, 1x1>]: specify detector type, default is SURF
  *OUTPUT
  *  [keys <cell, Kx1>]: optional, detected keypoints for each image, <Nx3>
  *  [matches <cell, KxK>]: optional, matched idx, <Mx2>
@@ -46,6 +47,16 @@ using namespace std;
 using namespace cv;
 
 #define IDXMATLAB(m,n,M) ((n)*(M)+(m)) //M rows
+
+string DetectorType[] = {
+    string("FAST"), //0
+    string("STAR"), //1
+    string("SIFT"), //2
+    string("SURF"), //3
+    string("MSER"), //4
+    string("GFTT"), //5
+    string("HARRIS") //6
+};
 
 void mexFunction(int nlhs, mxArray* plhs[], 
                  int nrhs, const mxArray* prhs[]) {
@@ -92,7 +103,16 @@ void mexFunction(int nlhs, mxArray* plhs[],
         cout<<"read done."<<endl;
     }
     
-    Ptr<FeatureDetector> detector = FeatureDetector::create("SURF");
+    int dtype = 3;
+    if(nrhs>=2) {
+        dtype = *(int*)mxGetData(prhs[1]);
+        dtype = max(0,dtype);
+        dtype = min(6,dtype);
+    }
+    cout<<"[cvsurf] detector type = "<<DetectorType[dtype]
+            <<" ("<<dtype<<")"<<endl;
+    Ptr<FeatureDetector> detector = 
+            FeatureDetector::create(DetectorType[dtype]);
     Ptr<DescriptorExtractor> descriptor=DescriptorExtractor::create("SURF");
 	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("FlannBased");
     
