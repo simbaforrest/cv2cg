@@ -25,6 +25,8 @@
 #include "CV2CG.h"
 #include "Reader.h"
 
+using namespace CV2CG;
+
 osg::ref_ptr<osg::Vec3Array> v3a;
 osg::ref_ptr<osg::Node> scene;
 

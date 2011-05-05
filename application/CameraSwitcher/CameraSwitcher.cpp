@@ -48,6 +48,8 @@
 #include "CameraUpdator.h"
 #include "SwitchHandler.h"
 
+using namespace CV2CG;
+
 int CameraSwitcher::run()
 {
 	osg::ref_ptr<osg::Node> scene =
