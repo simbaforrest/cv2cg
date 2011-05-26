@@ -111,8 +111,11 @@ void mexFunction(int nlhs, mxArray* plhs[],
     }
     cout<<"[cvsurf] detector type = "<<DetectorType[dtype]
             <<" ("<<dtype<<")"<<endl;
-    Ptr<FeatureDetector> detector = 
-            FeatureDetector::create(DetectorType[dtype]);
+	Ptr<FeatureDetector> detector;
+	if(dtype==0)
+		detector = new FastFeatureDetector(20);
+	else
+		detector = FeatureDetector::create(DetectorType[dtype]);
     Ptr<DescriptorExtractor> descriptor=DescriptorExtractor::create("SURF");
 	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("FlannBased");
     

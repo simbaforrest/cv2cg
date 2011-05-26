@@ -39,6 +39,7 @@
 #include "UtilHelper.h"
 #include "RotationHelper.h"
 #include "FilterHelper.h"
+#include "PerformanceHelper.h"
 
 namespace helper
 {
@@ -50,4 +51,5 @@ using namespace IOHelper;
 using namespace UtilHelper;
 using namespace RotationHelper;
 using namespace FilterHelper;
+using namespace PerformanceHelper;
 }

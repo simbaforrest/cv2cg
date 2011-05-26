@@ -6,280 +6,176 @@
 #include "Log.hxx"
 #include "Log.h"
 #include "OpenCVHelper.h"
+#include "OSGHelper.h"
+#include "OpenCV2OSG.h"
+#include "CV2CG.h"
+
+#include "Tracker.hpp"
 
 using namespace cv;
 using namespace std;
 
-double K[9] = {
-	9.1556072719327040e+02, 0., 3.1659567931197148e+02,
-	0.,	9.2300384975219845e+02, 2.8310067999512370e+02,
-	0., 0., 1.
-};
-//double stableQ[4] = {1,0,0,0};
-//double stableT[3] = {0,0,0};
+bool videoFromWebcam;
+VideoCapture cap;
+Mat frame,gray,prevGray;
+int imgW, imgH;
 
-Scalar colors[3] = {
-	CV_RED,  //x
-	CV_GREEN,//y
-	CV_BLUE, //z
+osg::ref_ptr<helper::ARVideoBackground> arvideo;
+osg::ref_ptr<helper::ARSceneRoot> arscene;
+
+LKTracker tracker("/home/simbaforrest/project/Datasets/lena.jpg");
+
+int BkgModifyCnt=0; //global signal for update osg
+bool OpenCVneedQuit=false;
+bool needToInit = false;
+
+double camR[3][3]={1,0,0,0,1,0,0,0,1},camC[3]={0,-10,0};
+
+struct TrackThread : public OpenThreads::Thread {
+	OpenThreads::Mutex _mutex;
+
+	virtual void run() {
+		for(; videoFromWebcam || 
+				cap.get(CV_CAP_PROP_POS_AVI_RATIO)<=1;) {
+
+			_mutex.lock();
+
+			cap >> frame;
+			cvtColor(frame, gray, CV_BGR2GRAY);
+			if( needToInit ) {
+				cout<<"initing..."<<endl;
+				needToInit=!tracker.init(gray);
+				cout<<"...inited"<<endl;
+			} else if( !tracker.opts.empty() ) {
+				cout<<"tracking..."<<endl;
+				if(prevGray.empty()) {
+					gray.copyTo(prevGray);
+				}
+				needToInit=!tracker(prevGray, gray, frame);
+				cout<<(needToInit?"...track lost!":"...tracked")<<endl;
+				tracker.GetCameraPose(camR,camC);
+			}
+			++BkgModifyCnt;
+
+			if(OpenCVneedQuit) {
+				break;
+			}
+			_mutex.unlock();
+
+			swap(prevGray, gray);
+		}
+
+		OpenThreads::Thread::YieldCurrentThread();
+		cout<<"[TrackThread] OpenCV quited..."<<endl;
+	}
 };
 
-int lines[12][2] = {
-	{0,3},{2,1},{4,7},{6,5},
-	{0,1},{2,3},{4,5},{6,7},
-	{0,4},{3,7},{5,1},{2,6}
+struct QuitHandler : public osgGA::GUIEventHandler {
+	virtual bool handle(const osgGA::GUIEventAdapter &ea, 
+		osgGA::GUIActionAdapter &aa) {
+		if(ea.getEventType()==osgGA::GUIEventAdapter::KEYDOWN) {
+			if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Escape) {
+				OpenCVneedQuit=true;
+				cout<<"[QuitHandler] OSG notify OpenCV to quit..."<<endl;
+			} else if(ea.getKey()==' ') {
+				needToInit=true;
+			} else if(ea.getKey()=='d') {
+				tracker.debug=!tracker.debug;
+			}
+		}
+		return false;
+	}
 };
 
-void help()
+//update captured image as well as transforms for each frame
+struct ARVideoUpdateCallback : public osg::NodeCallback {
+	virtual void operator()(osg::Node* node, osg::NodeVisitor* nv) {
+		if(BkgModifyCnt>0) {
+			arvideo->frame->dirty();
+			CV2CG::cv2cg(camC,camR,*arscene);
+			--BkgModifyCnt;
+		}
+	}
+};
+
+bool InitVideoCapture(int argc, char ** argv)
 {
-	cout << "\nHot keys: \n"
-	     "\tESC - quit the program\n"
-	     "\tr - (re)initialize tracking\n" << endl;
+	if(argc==1) {//default
+		cap.open(0);
+		videoFromWebcam=true;
+	} else {
+		int len = strlen(argv[1]);
+		bool fromDevice=true;
+		for(int i=0; i<len; ++i) {
+			if( !isdigit(argv[1][i]) ) {
+				fromDevice = false;
+				break;
+			}
+		}
+		if(fromDevice) {
+			int idx = atoi(argv[1]);
+			cout<<"[InitVideoCapture] open from device "<<idx<<endl;
+			cap.open(idx);
+			videoFromWebcam = true;
+		} else {
+			cout<<"[InitVideoCapture] open from file "<<argv[1]<<endl;
+			cap.open(argv[1]);
+			videoFromWebcam = false;
+		}
+	}
+	return cap.isOpened();
 }
-
-//LK tracker
-struct LKTracker {
-	vector<uchar> status;
-	vector<float> err;
-	TermCriteria termcrit;
-	Size winSize;
-	int maxLevel;
-	double derivedLambda;
-	double ransacThresh;
-	int drawTresh;
-
-	vector<Point2f> opts; //old pts to track
-	vector<Point2f> npts; //new pts being tracked
-	vector<Point2f> tpts; //template points, get from recognizer
-	Mat H; //current homography that maps tpts -> npts
-
-	Mat timg;
-
-	vector<unsigned char> match_mask;
-
-	Ptr<FeatureDetector> detector; //FIXME, it should be recognizer's job
-	Ptr<DescriptorExtractor> descriptor;
-	Ptr<DescriptorMatcher> matcher;
-	vector<KeyPoint> tkeys;
-	Mat tdes;
-
-	LKTracker(int winW=10, int winH=10,
-	          int termIter=20, int termEps=0.03,
-	          int maxlevel=3, double lambda=0.5,
-	          double ransacT=3, int drawT=15) :
-		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
-		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
-		ransacThresh(ransacT), drawTresh(drawT) {
-		detector=FeatureDetector::create("SURF");
-		descriptor=DescriptorExtractor::create("SURF");
-		matcher=DescriptorMatcher::create("FlannBased");
-
-		//load template
-		timg = imread("lena.jpg");
-		detector->detect(timg, tkeys);
-		descriptor->compute(timg, tkeys, tdes);
-	}
-
-	inline bool init(Mat& nframe) {
-//		goodFeaturesToTrack(nframe, npts, MAX_COUNT, 0.01, 10, Mat(), 3, 0, 0.04);
-		vector<KeyPoint> keys;
-		Mat des;
-		vector<DMatch> matches;
-		detector->detect(nframe, keys);
-		descriptor->compute(nframe, keys, des);
-		matcher->clear();
-		matcher->match(des, tdes, matches);
-
-		npts.resize(matches.size());
-		tpts.resize(matches.size());
-		for(int i=0; i<matches.size(); ++i) {
-			const DMatch& m = matches[i];
-			npts[i] = keys[m.queryIdx].pt;
-			tpts[i] = tkeys[m.trainIdx].pt;
-		}
-		H = findHomography(Mat(tpts), Mat(npts),
-		                   match_mask, RANSAC, ransacThresh);
-		if(match_mask.size()>drawTresh) {
-			cornerSubPix(nframe, npts, winSize, Size(-1,-1), termcrit);
-			//H = Mat::eye(3,3,CV_64F);
-
-//			tpts.resize(npts.size());
-//			std::copy(npts.begin(), npts.end(), tpts.begin());
-			opts.resize(npts.size());
-			std::copy(npts.begin(), npts.end(), opts.begin());
-		}
-		return match_mask.size()>drawTresh;
-	}
-
-	//tracking, old frame(oframe), new frame(nframe)
-	inline int operator()(Mat& oframe, Mat& nframe, Mat& image) {
-		status.clear();
-		err.clear();
-
-		calcOpticalFlowPyrLK(oframe, nframe, opts, npts,
-		                     status, err, winSize,
-		                     maxLevel, termcrit, derivedLambda);
-
-		for(int i=0; i<(int)npts.size(); ++i) {
-			if( !status[i] ) {
-				npts[i] = Point2f(0,0); //to make these points rejected by RANSAC
-			}
-		}
-
-		if(update()) {
-			draw(image);
-		}
-
-		std::swap(npts, opts);
-		return 1;
-	}
-
-	inline bool update() {
-		if(tpts.size()<2*drawTresh) {
-			return false;
-		}
-		match_mask.clear();
-		H = findHomography(Mat(tpts), Mat(npts),
-		                   match_mask, RANSAC, ransacThresh);
-		Mat nptsmat(npts);
-		///////VERY IMPORTANT STEP, STABLIZE!!!!!!!
-		perspectiveTransform(Mat(tpts), nptsmat, H);
-		//this will slow down the fps
-		//cornerSubPix(gray, points[1], winSize, Size(-1,-1), termcrit);
-		return countNonZero(Mat(match_mask)) > drawTresh;
-	}
-
-	inline void draw(Mat& image) {
-		for(int i=0; i<(int)npts.size(); ++i) {
-			if( status[i] ) {
-				circle(image, npts[i], 3, CV_GREEN, -1, 8);
-				line(image, npts[i], opts[i], CV_BLUE );
-			}
-			if(match_mask[i]) {
-				circle( image, npts[i], 2, CV_RED, -1, 7);
-			}
-		}
-
-		double crns[8][3] = {
-			{0, 0, 0},
-			{image.cols, 0, 0},
-			{image.cols, image.rows, 0},
-			{0, image.rows, 0},
-			{image.cols*0.4, image.rows*0.4, image.rows*0.5},
-			{image.cols*0.6, image.rows*0.4, image.rows*0.5},
-			{image.cols*0.6, image.rows*0.6, image.rows*0.5},
-			{image.cols*0.4, image.rows*0.6, image.rows*0.5},
-		};
-		//draw homo
-		const Mat_<double>& mH = H;
-		vector<Point2f> corners(4);
-		for(int i = 0; i < 4; i++ ) {
-			Point2f pt((float)(i == 0 || i == 3 ? 0 : image.cols),
-			           (float)(i <= 1 ? 0 : image.rows));
-			double w = 1./(mH(2,0)*pt.x + mH(2,1)*pt.y + mH(2,2));
-			corners[i] =
-			    Point2f((float)((mH(0,0)*pt.x + mH(0,1)*pt.y + mH(0,2))*w),
-			            (float)((mH(1,0)*pt.x + mH(1,1)*pt.y + mH(1,2))*w));
-		}
-		for(int i = 0; i < 4; ++i) {
-			Point r1 = corners[i%4];
-			Point r2 = corners[(i+1)%4];
-			line( image, r1, r2, CV_GREEN, 3 );
-		}
-		line(image, corners[0], corners[2], CV_BLACK, 3);
-		line(image, corners[1], corners[3], CV_BLACK, 3);
-		//homo to P
-		double Homo[9];
-		std::copy(H.begin<double>(), H.end<double>(), Homo);
-		double R[9],T[3],P[12],tmpQ[4];
-		CameraHelper::RTfromKH(K,Homo,R,T);
-//		RotationHelper::mat2quat(R,tmpQ);
-//		helper::stablize(4,tmpQ,stableQ);
-//		RotationHelper::quat2mat(stableQ,R);
-//		helper::stablize(3,T,stableT);
-		R[2]*=-1, R[5]*=-1, R[8]*=-1;
-		CameraHelper::compose(K,R,T,P,false);
-		double p[8][2];
-		for(int i=0; i<8; ++i) {
-			CameraHelper::project(P,crns[i],p[i]);
-		}
-		for(int i=0; i<3; ++i) {
-			for(int j=i*4; j<4+i*4; ++j) {
-				Point r1(p[lines[j][0]][0],p[lines[j][0]][1]);
-				Point r2(p[lines[j][1]][0],p[lines[j][1]][1]);
-				line( image, r1, r2, colors[i], 3 );
-			}
-		}
-		cout<<"R=\n"<<helper::PrintMat<>(3,3,R)<<endl;
-		cout<<"T=\n"<<helper::PrintMat<>(1,3,T)<<endl;
-		cout<<"norm(T)="<<sqrt(T[0]*T[0]+T[1]*T[1]+T[2]*T[2])<<endl;
-	}
-};
 
 int main( int argc, char **argv )
 {
-	VideoCapture cap;
-
-	if( argc == 1 || (argc == 2 && strlen(argv[1]) == 1 && isdigit(argv[1][0]))) {
-		cap.open(argc == 2 ? argv[1][0] - '0' : 0);
-	} else if( argc == 2 ) {
-		cap.open(argv[1]);
+	if(argc<2) {
+		cout<< "[usage] " <<argv[0]<<" <device number|video file>"
+			" [osg scene file]" <<endl;
+		return 1;
+	}
+	if( !InitVideoCapture(argc,argv) ) {
+		cout << "[main] Could not initialize capturing...\n";
+		return 1;
 	}
 
-	if( !cap.isOpened() ) {
-		cout << "Could not initialize capturing...\n";
-		return 0;
+	cap >> frame;
+	if( frame.empty() ) {
+		cout<<"[main] No valid video!"<<endl;
+		return 1;
 	}
+	imgW = frame.cols;
+	imgH = frame.rows;
 
-	help();
+	osgViewer::Viewer viewer;
+	osg::ref_ptr<osg::Group> root = new osg::Group;
 
-	string winname("LKTracker");
-	namedWindow( winname, 1 );
+	string scenefilename = (argc>2?argv[2]:("cow.osg"));
+	osg::ref_ptr<osg::Node> cow = osgDB::readNodeFile(scenefilename);
+	arscene = new helper::ARSceneRoot;
+	helper::FixMat<3,double>::Type matK = helper::FixMat<3,double>::ConvertType(K);
+	CV2CG::cv2cg(matK,0.01,500,imgW,imgH,*arscene);
+	arscene->addChild(cow);
 
-	Mat gray, prevGray, image;
-	bool needToInit = false;
+	osg::ref_ptr<osg::Image> backgroundImage = new osg::Image;
+	helper::cvmat2osgimage(frame,backgroundImage);
+	arvideo = new helper::ARVideoBackground(backgroundImage);
+	arvideo->setUpdateCallback(new ARVideoUpdateCallback);
 
-	LKTracker tracker;
+	root->addChild(arvideo);
+	root->addChild(arscene);
 
-	for(;;) {
-		Mat frame;
-		cap >> frame;
-		if( frame.empty() ) {
-			break;
-		}
+	viewer.setSceneData(root);
+	viewer.addEventHandler(new osgViewer::StatsHandler);
+	viewer.addEventHandler(new osgViewer::WindowSizeHandler);
+	viewer.addEventHandler(new QuitHandler);
 
-		frame.copyTo(image);
-		cvtColor(image, gray, CV_BGR2GRAY);
+	//start tracking thread
+	OpenThreads::Thread::Init();
+	TrackThread thr;
+	thr.start();
 
-		if( needToInit ) {
-			cout<<"initing..."<<endl;
-			needToInit=!tracker.init(gray);
-			cout<<"...inited"<<endl;
-		} else if( !tracker.opts.empty() ) {
-			cout<<"tracking..."<<endl;
-			if(prevGray.empty()) {
-				gray.copyTo(prevGray);
-			}
-			tracker(prevGray, gray, image);
-			cout<<"...tracked"<<endl;
-		}
+	viewer.run();
 
-		imshow(winname, image);
-
-		char c = (char)waitKey(10);
-		if( c == 27 ) {
-			break;
-		}
-		switch( c ) {
-		case 'r':
-			needToInit = true;
-			break;
-		default:
-			;
-		}
-
-		swap(prevGray, gray);
-	}
-
-	return 0;
+	cout<<"[main] press any key to quit..."<<endl;
+	return getchar();
 }

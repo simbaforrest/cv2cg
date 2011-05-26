@@ -74,7 +74,7 @@ osg::ref_ptr<osg::Node> createScene(std::string filename)
 			geode->addDrawable(geom);
 			geom->setVertexArray(v3a);
 		} else if(type == "MODEL") {
-			osg::ref_ptr<osg::Group> group = ReadModel((int)num, fin);
+			osg::ref_ptr<osg::MatrixTransform> group = ReadModel((int)num, fin);
 			ret->addChild(group);
 		} else if(type == "NOTEXT") {
 			addText = false;

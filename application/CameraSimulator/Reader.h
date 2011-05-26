@@ -59,17 +59,42 @@ inline osg::ref_ptr<osg::Geometry> ReadLine(int num, std::istream& in)
 	return ret;
 }
 
-inline osg::ref_ptr<osg::Group> ReadModel(int num, std::istream& in)
+inline osg::ref_ptr<osg::MatrixTransform> ReadModel(int num, std::istream& in)
 {
-	osg::ref_ptr<osg::Group> ret = new osg::Group;
+	osg::MatrixTransform* ret = new osg::MatrixTransform(osg::Matrix::identity());
 	while(num--) {
 		std::string str;
 		std::getline(in,str,'\n');
 		if(str.length()==0) continue;
 
-		osg::Node* node = osgDB::readNodeFile(str);
-		if(node)
-			ret->addChild(node);
+		double x,y,z,w;
+		if(str[0]=='S' && str[1]==' ') {
+			++num;
+			sscanf(str.c_str(), 
+			"%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf",&x,&y,&z);
+			ret->getOrCreateStateSet()->setMode(GL_NORMALIZE,osg::StateAttribute::ON);
+			ret->postMult(osg::Matrix::scale(x,y,z));
+		} else if(str[0]=='T' && str[1]==' ') {
+			++num;
+			sscanf(str.c_str(), 
+			"%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf",&x,&y,&z);
+			ret->postMult(osg::Matrix::translate(x,y,z));
+		} else if(str[0]=='R' && str[1]==' ') {
+			++num;
+			sscanf(str.c_str(), 
+			"%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf%*[^0-9-+.eE]%lf",&x,&y,&z,&w);
+			ret->postMult(osg::Matrix::rotate(w,x,y,z));
+		} else if(str=="LIGHT OFF") {
+			++num;
+			ret->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
+		} else if(str=="LIGHT ON") {
+			++num;
+			ret->getOrCreateStateSet()->setMode(GL_LIGHTING,osg::StateAttribute::ON);
+		} else {
+			osg::Node* node = osgDB::readNodeFile(str);
+			if(node)
+				ret->addChild(node);
+		}
 	}
 	return ret;
 }
