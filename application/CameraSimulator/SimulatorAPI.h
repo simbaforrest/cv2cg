@@ -47,7 +47,6 @@
 inline void printUsage(bool chinese=true)
 {
 	//system("cls");
-	if(!chinese) {
 		LogI(
 "Usage:\n\
    Mouse:\n\tLEFT_BUTTON,RIGHT_BUTTON can be used to change the \
@@ -66,28 +65,7 @@ also an osg model file.\n\
 By the Way, by changing the size of the window, you can change the \
 size of the image you get, i.e., the size of the window is just that of the output \
 image.\n");
-	} else {
-		LogI(
-"使用方法:\n\
-   鼠标:\n\
-\t左键，右键 用于改变相机位置和姿态, \
-即改变计算机视觉相机模型(KR[I|-C])中的R和C, 亦即\
-改变计算机图形学相机模型中的ViewMatrix.\n\
-\t滚轮 用于改变焦距, 即改变计算机视觉中\
-的alpha_X和alpha_Y, 亦即改变计算机图形学中\
-的近剪裁面.\n\
-   键盘:\n\
-\t上下左右 用于改变像主点位置, 即计算机视\
-觉中的(u0,v0), 亦即计算机图形学中视景体的l,r,b,t.\n\
-\t'p' 用于拍摄一幅照片，同时程序会写出一幅图\
-片，一个参数文件（.par），一个控制点文件（.cp）\
-以及一个osg模型文件.\n\
-\t'h' 打印使用方法.\n\
-\t'g' 打印当前相机的计算机图形学参数.\n\
-\t'v' 打印当前相机的计算机视觉参数.\n\
-\t同时，改变窗口大小可以改变照片的像幅，即：输\
-出影像的大小亦为窗口大小.\n");
-	}
+
 }
 
 inline void Modify_PrinciplePoint(osg::Camera& cam, double dx, double dy)
