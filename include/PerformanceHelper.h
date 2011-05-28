@@ -46,4 +46,11 @@ inline double tic(bool start=true, string outtext="", bool verbose=true) {
 	return t;
 }
 
+inline double fps(bool start=true, bool verbose=true) {
+	double ret = tic(start,"",false);
+	double retfps = -1;
+	if(!start && verbose) cout<<"[fps] "<<(retfps=1.0/ret)<<endl;
+	return retfps;
+}
+
 }
