@@ -202,6 +202,11 @@ inline void cross(double const *A, double const *B, double *R)
 	R[2]=A[0]*B[1]-A[1]*B[0];
 }
 
+inline double cross2D(double const *A, double const *B)
+{
+	return A[0]*B[1]-A[1]*B[0];
+}
+
 inline double dot(int am, int bm, double const *A, double const *B)
 {
 	double ret;
