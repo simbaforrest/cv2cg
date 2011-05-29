@@ -22,6 +22,7 @@ int imgW, imgH;
 
 osg::ref_ptr<helper::ARVideoBackground> arvideo;
 osg::ref_ptr<helper::ARSceneRoot> arscene;
+osg::ref_ptr<osg::MatrixTransform> manipMat;
 
 LKTracker tracker("/home/simbaforrest/project/Datasets/lena.jpg");
 
@@ -75,6 +76,8 @@ struct TrackThread : public OpenThreads::Thread {
 };
 
 struct QuitHandler : public osgGA::GUIEventHandler {
+	double sx,sy,sz;
+	QuitHandler() {sx=sy=sz=1;}
 	virtual bool handle(const osgGA::GUIEventAdapter &ea, 
 		osgGA::GUIActionAdapter &aa) {
 		if(ea.getEventType()==osgGA::GUIEventAdapter::KEYDOWN) {
@@ -85,6 +88,12 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				needToInit=true;
 			} else if(ea.getKey()=='d') {
 				tracker.debug=!tracker.debug;
+			} else if(ea.getKey()=='.') { //>
+				sx+=0.4;sy+=0.4;sz+=0.4;
+				manipMat->setMatrix(osg::Matrix::scale(sx,sy,sz));
+			} else if(ea.getKey()==',') { //<
+				sx-=0.2;sy-=0.2;sz-=0.2;
+				manipMat->setMatrix(osg::Matrix::scale(sx,sy,sz));
 			}
 		}
 		return false;
@@ -163,7 +172,9 @@ int main( int argc, char **argv )
 	arscene = new helper::ARSceneRoot;
 	helper::FixMat<3,double>::Type matK = helper::FixMat<3,double>::ConvertType(K);
 	CV2CG::cv2cg(matK,0.01,500,imgW,imgH,*arscene);
-	arscene->addChild(cow);
+	manipMat = new osg::MatrixTransform(osg::Matrix::identity());
+	manipMat->addChild(cow);
+	arscene->addChild(manipMat);
 
 	osg::ref_ptr<osg::Image> backgroundImage = new osg::Image;
 	helper::cvmat2osgimage(frame,backgroundImage);
