@@ -60,7 +60,7 @@ struct LKTracker {
 
 	LKTracker(string templatename,
 	          int winW=8, int winH=8,
-	          int termIter=20, int termEps=0.03,
+	          int termIter=5, int termEps=0.3,
 	          int maxlevel=3, double lambda=0.5,
 	          double ransacT=2, int drawT=15) :
 		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
@@ -79,7 +79,7 @@ struct LKTracker {
 		//GaussianBlur(timg, timg, Size(5,5), 4);
 
 		// The tracking parameters
-		int miter = 6,  mprec = 5;
+		int miter = 6,  mprec = 4;
 		int posx = 0, posy = 0;
 		int sizx = timg.cols, sizy = timg.rows;
 
