@@ -29,8 +29,11 @@ LKTracker tracker("/home/simbaforrest/project/Datasets/lena.jpg");
 int BkgModifyCnt=0; //global signal for update osg
 bool OpenCVneedQuit=false;
 bool needToInit = false;
+bool needToCapframe = false;
 
-double camR[3][3]={1,0,0,0,1,0,0,0,1},camT[3]={0,-10,0};
+double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0,0,0},lastT[3]={0};
+
+int framecnt = 0;
 
 struct TrackThread : public OpenThreads::Thread {
 	OpenThreads::Mutex _mutex;
@@ -41,7 +44,7 @@ struct TrackThread : public OpenThreads::Thread {
 	virtual void run() {
 		running=true;
 		for(; videoFromWebcam || 
-				cap.get(CV_CAP_PROP_POS_AVI_RATIO)<=1;) {
+				cap.get(CV_CAP_PROP_POS_AVI_RATIO)<=1;++framecnt) {
 
 			_mutex.lock();
 			helper::fps(true);
@@ -57,6 +60,13 @@ struct TrackThread : public OpenThreads::Thread {
 				}
 				needToInit=!tracker(prevGray, gray, frame);
 				tracker.GetCameraPose(camR,camT);
+				double diff[3]={camT[0]-lastT[0],camT[1]-lastT[1],camT[2]-lastT[2]};
+				double dist = helper::normL2(3,1,diff);
+				if(dist>200 && needToCapframe) {
+					//needToCapframe = false;
+					std::copy(camT,camT+3,lastT);
+					tracker.CapKeyFrame(frame, camR, camT);
+				}
 			}
 			++BkgModifyCnt;
 			helper::fps(false);
@@ -94,6 +104,8 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 			} else if(ea.getKey()==',') { //<
 				sx-=0.2;sy-=0.2;sz-=0.2;
 				manipMat->setMatrix(osg::Matrix::scale(sx,sy,sz));
+			} else if(ea.getKey()=='c') {
+				needToCapframe = !needToCapframe;
 			}
 		}
 		return false;
@@ -195,6 +207,8 @@ int main( int argc, char **argv )
 	thr.start();
 
 	viewer.run();
+
+	tracker.SaveKeyFrames("/home/simbaforrest/project/cv2cg/data/");
 
 	cout<<"[main] press any key to quit..."<<endl;
 	return getchar();

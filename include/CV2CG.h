@@ -97,16 +97,33 @@ inline void cv2cg(const double K[3][3], const double n, const double f,
 
 //set up modelview matrix of osg::Camera from CV calibration matrix
 //!!! note the difference of T and C here!!!
-inline void cv2cg(const double T[3], const double R[3][3], osg::Camera &camera)
+inline void cv2cg(const double T[3], const double R[3][3], osg::Camera &camera,
+                  bool TisC=false)
 {
-	//extrinsic
-	osg::Matrix vmat(
-	    R[0][0], -R[1][0], -R[2][0], 0,
-	    R[0][1], -R[1][1], -R[2][1], 0,
-	    R[0][2], -R[1][2], -R[2][2], 0,
-	    T[0], -T[1], -T[2], 1            //ATTENTION! should set as (T0,-T1,-T2)
-	);
-	camera.setViewMatrix(vmat);
+	if(TisC) {
+		double tT[3];
+		helper::mul(3,3,3,1,R[0],T,tT);
+		tT[0]*=-1;
+		tT[1]*=-1;
+		tT[2]*=-1;
+		//extrinsic
+		osg::Matrix vmat(
+		    R[0][0], -R[1][0], -R[2][0], 0,
+		    R[0][1], -R[1][1], -R[2][1], 0,
+		    R[0][2], -R[1][2], -R[2][2], 0,
+		    tT[0], -tT[1], -tT[2], 1            //ATTENTION! should set as (T0,-T1,-T2)
+		);
+		camera.setViewMatrix(vmat);
+	} else {
+		//extrinsic
+		osg::Matrix vmat(
+		    R[0][0], -R[1][0], -R[2][0], 0,
+		    R[0][1], -R[1][1], -R[2][1], 0,
+		    R[0][2], -R[1][2], -R[2][2], 0,
+		    T[0], -T[1], -T[2], 1            //ATTENTION! should set as (T0,-T1,-T2)
+		);
+		camera.setViewMatrix(vmat);
+	}
 }
 
 

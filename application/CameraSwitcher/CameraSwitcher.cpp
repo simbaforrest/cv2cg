@@ -132,11 +132,13 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 			if( !img.valid() ) {
 				TagE("no valid image!\n"); continue;
 			}
-			if(	!(cam = readCameraFile(filename, K, C, R, n, f)) ) {
+			bool CisT=false;
+			if(	!(cam = readCameraFile(filename, K, C, R, n, f, CisT)) ) {
 				continue;
 			}
 
-			cv2cg(K,C,R,n,f, img->s(), img->t(), *cam);
+			cv2cg(K,n,f,img->s(),img->t(), *cam);
+			cv2cg(C,R,*cam,!CisT);
 
 			std::string strnum;
 			helper::num2str(cnt++,strnum);
@@ -161,7 +163,7 @@ osg::ref_ptr<osg::Node> createSceneFromFile(std::string filename)
 
 osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 	double K[3][3], double C[3], double R[3][3],
-	double& n, double& f)
+	double& n, double& f, bool& CisT)
 {
 	using std::cout;
 	using std::endl;
@@ -230,16 +232,14 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 			in >> C[0] >> C[1] >> C[2];
 			//helper::print(3,1,C,"C");
 			readC=true;
+			CisT = false;
 			continue;
 		}
 
 		if(line == std::string("T=")) {
-			double T[3];
-			in >> T[0] >> T[1] >> T[2];
-			//helper::print(3,1,T,"T");
-			helper::mulAtB(3,3,3,1,R[0],T,C);
-			C[0]*=-1;C[1]*=-1;C[2]*=-1;
+			in >> C[0] >> C[1] >> C[2];
 			readC=true;
+			CisT = true;			
 			continue;
 		}
 
@@ -250,6 +250,7 @@ osg::ref_ptr<osg::Camera> readCameraFile(std::string str,
 			//helper::print(3,4,P[0],"P");
 			helper::decompose(P[0],K[0],R[0],T,C);
 			readK = readR = readC = true;
+			CisT = false;
 		}
 	}
 	if( !(readK && readR && readC) ){

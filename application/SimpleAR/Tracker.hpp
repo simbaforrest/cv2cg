@@ -29,6 +29,12 @@ int lines[12][2] = {
 	{0,4},{3,7},{5,1},{2,6}
 };
 
+struct KeyFrame {
+	Mat frame;
+	double R[3][3];
+	double T[3];
+};
+
 struct LKTracker {
 	bool debug;
 	vector<uchar> status;
@@ -58,10 +64,12 @@ struct LKTracker {
 
 	ESMTracker esm; //refiner
 
+	vector<KeyFrame> keyframes;
+
 	LKTracker(string templatename,
 	          int winW=8, int winH=8,
 	          int termIter=5, int termEps=0.3,
-	          int maxlevel=3, double lambda=0.5,
+	          int maxlevel=3, double lambda=0.3,
 	          double ransacT=2, int drawT=15) :
 		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
 		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
@@ -90,7 +98,7 @@ struct LKTracker {
 		detector->detect(timg, tkeys);
 		descriptor->compute(timg, tkeys, tdes);
 
-		debug = true;
+		debug=true;
 	}
 
 	inline bool init(Mat &nframe) {
@@ -98,18 +106,18 @@ struct LKTracker {
 		Mat des;
 		vector<DMatch> matches;
 		detector->detect(nframe, keys);
-		if(keys.size()<drawTresh) {
+		if((int)keys.size()<drawTresh) {
 			return false;
 		}
 		descriptor->compute(nframe, keys, des);
 		matcher->clear();
 		matcher->match(des, tdes, matches);
-		if(matches.size()<drawTresh) {
+		if((int)matches.size()<drawTresh) {
 			return false;
 		}
 		npts.resize(matches.size());
 		tpts.resize(matches.size());
-		for(int i=0; i<matches.size(); ++i) {
+		for(int i=0; i<(int)matches.size(); ++i) {
 			const DMatch &m = matches[i];
 			npts[i] = keys[m.queryIdx].pt;
 			tpts[i] = tkeys[m.trainIdx].pt;
@@ -120,12 +128,12 @@ struct LKTracker {
 
 		Mat nptsmat(npts);
 		perspectiveTransform(Mat(tpts), nptsmat, H);
-		if(match_mask.size()>drawTresh) {
+		if((int)match_mask.size()>drawTresh) {
 			cornerSubPix(nframe, npts, winSize, Size(-1,-1), termcrit);
 			opts.resize(npts.size());
 			std::copy(npts.begin(), npts.end(), opts.begin());
 		}
-		return match_mask.size()>drawTresh;
+		return (int)match_mask.size()>drawTresh;
 	}
 
 	inline bool withinFrame(const Point2f &p, const Mat &frame) {
@@ -147,7 +155,7 @@ struct LKTracker {
 		}
 
 		int ret; //FIXME : more on determining the tracking quality for re-init
-		if(ret=(int)update(nframe)) {
+		if( ( ret=(int)update(nframe) ) ) {
 			int cnt=0;
 			for(int i=0; i<(int)npts.size(); ++i) {
 				cnt+=(int)(status[i] && match_mask[i]
@@ -155,7 +163,10 @@ struct LKTracker {
 			}
 			ret = (int)(cnt>drawTresh);
 			
-			if(debug) draw(image);
+			if(debug) {
+				drawHomo(image);
+				draw3D(image);
+			}
 		}
 
 		std::swap(npts, opts);
@@ -163,7 +174,7 @@ struct LKTracker {
 	}
 
 	inline bool update(Mat &nframe) {
-		if(npts.size()<2*drawTresh || tpts.size()!=npts.size()) {
+		if((int)npts.size()<2*drawTresh || tpts.size()!=npts.size()) {
 			return false;
 		}
 		match_mask.clear();
@@ -171,24 +182,19 @@ struct LKTracker {
 		                   match_mask, RANSAC, ransacThresh);
 
 		//ESM refinement
-		for(int i=0; i<3; i++) {
-			for(int j=0; j<3; j++) {
-				esm.T.homog[i*3+j] = H.at<double>(i,j);
-			}
-		}
+		esm.setH(H.begin<double>());
 		if(esm.run(nframe)) {
-			for(int i=0; i<3; i++) {
-				for(int j=0; j<3; j++) {
-					H.at<double>(i,j) = esm.T.homog[i*3+j]/esm.T.homog[8];
-				}
-			}
+			esm.getH(H.begin<double>());
 		}
 
 		Mat nptsmat(npts);
 		///////VERY IMPORTANT STEP, STABLIZE!!!!!!!
 		perspectiveTransform(Mat(tpts), nptsmat, H);
 
-		//validate the homography
+		return validateH() && countNonZero(Mat(match_mask)) > drawTresh;
+	}
+
+	inline bool validateH() const {
 		vector<Point2f> tmp(4);
 		Mat tmpmat(tmp);
 		perspectiveTransform(Mat(cpts), tmpmat, H);
@@ -201,11 +207,11 @@ struct LKTracker {
 		double d23 = helper::cross2D(tmpdir[1],tmpdir[2]) * 0.5;
 		double area = abs(d12+d23);
 		bool s123 = d12*d23>0;
-
-		return s123 && area>64 && countNonZero(Mat(match_mask)) > drawTresh;
+		return s123 && area>64;
 	}
 
-	inline void draw(Mat &image) {
+	inline void drawHomo(Mat& image) {
+		//draw track trail
 		for(int i=0; i<(int)npts.size(); ++i) {
 			if( status[i] ) {
 				circle(image, npts[i], 2, CV_GREEN, -1);
@@ -215,17 +221,6 @@ struct LKTracker {
 				circle( image, npts[i], 1, CV_RED, -1);
 			}
 		}
-
-		double crns[8][3] = {
-			{0, 0, 0},
-			{timg.cols, 0, 0},
-			{timg.cols, timg.rows, 0},
-			{0, timg.rows, 0},
-			{timg.cols*0.4, timg.rows*0.4, timg.rows*0.5},
-			{timg.cols*0.6, timg.rows*0.4, timg.rows*0.5},
-			{timg.cols*0.6, timg.rows*0.6, timg.rows*0.5},
-			{timg.cols*0.4, timg.rows*0.6, timg.rows*0.5},
-		};
 		//draw homo
 		const Mat_<double>& mH = H;
 		vector<Point2f> corners(4);
@@ -244,6 +239,20 @@ struct LKTracker {
 		}
 		line(image, corners[0], corners[2], CV_BLACK, 2);
 		line(image, corners[1], corners[3], CV_BLACK, 2);
+
+	}
+
+	inline void draw3D(Mat &image) {
+		static double crns[8][3] = {
+			{0, 0, 0},
+			{timg.cols, 0, 0},
+			{timg.cols, timg.rows, 0},
+			{0, timg.rows, 0},
+			{timg.cols*0.4, timg.rows*0.4, timg.rows*0.5},
+			{timg.cols*0.6, timg.rows*0.4, timg.rows*0.5},
+			{timg.cols*0.6, timg.rows*0.6, timg.rows*0.5},
+			{timg.cols*0.4, timg.rows*0.6, timg.rows*0.5},
+		};
 		//homo to P
 		double Homo[9];
 		std::copy(H.begin<double>(), H.end<double>(), Homo);
@@ -268,7 +277,7 @@ struct LKTracker {
 	inline void GetCameraPose(double R[3][3], double T[3]) {
 		double Homo[9];
 		std::copy(H.begin<double>(), H.end<double>(), Homo);
-		double P[12],Rf[9];
+		double Rf[9];
 		CameraHelper::RTfromKH(K,Homo,Rf,T);
 		double R0[9]={0,1,0,1,0,0,0,0,-1};
 		helper::mul(3,3,3,3,Rf,R0,R[0]);
@@ -277,5 +286,47 @@ struct LKTracker {
 			cout<<"T=\n"<<helper::PrintMat<>(1,3,T)<<endl;
 			cout<<"norm(T)="<<sqrt(T[0]*T[0]+T[1]*T[1]+T[2]*T[2])<<endl;
 		}
+	}
+
+	void CapKeyFrame(Mat& frame, double R[3][3], double T[3]) {
+		KeyFrame newkf;
+		newkf.frame = frame.clone();
+		for(int i=0; i<3; ++i) {
+			newkf.T[i] = T[i];
+			for(int j=0; j<3; ++j)
+				newkf.R[i][j]=R[i][j];
+		}
+		keyframes.push_back(newkf);
+	}
+
+	bool SaveKeyFrames(string name) {
+		string swtname = name + string("ar.swt");
+		std::ofstream swt(swtname.c_str());
+		swt << "scene.osg" << endl;
+		for(int i=0; i<(int)keyframes.size(); ++i) {
+			const KeyFrame& kf = keyframes[i];
+			string num;
+			helper::num2str(i,num);
+			string prefix = name + string("frame") + num;
+			
+			string parname = prefix + string(".par");
+			std::ofstream par(parname.c_str());
+			par << "n=0.1\nf=1000000\n" << endl;
+			par << "K(alphaX alphaY u0 v0)=\n"
+				<<K[0]<<"\n"<<K[4]<<"\n"
+				<<K[2]<<"\n"<<K[5]<< endl;
+			par << "R=\n" << helper::PrintMat<>(3,3,kf.R[0]) << endl;
+			par << "T=\n" << helper::PrintMat<>(3,1,kf.T) << endl;
+			par.close();
+			cout<<"[SaveKeyFrames] "<<parname<<" saved."<<endl;
+
+			string imgname = prefix + string(".jpg");
+			imwrite(imgname, kf.frame);
+			cout<<"[SaveKeyFrames] "<<imgname<<" saved."<<endl;
+
+			swt << imgname << endl;
+			swt << parname << endl;
+		}
+		return true;
 	}
 };
