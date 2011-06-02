@@ -164,6 +164,7 @@ struct LKTracker {
 			ret = (int)(cnt>drawTresh);
 			
 			if(debug) {
+				drawTrail(image);
 				drawHomo(image);
 				draw3D(image);
 			}
@@ -210,7 +211,7 @@ struct LKTracker {
 		return s123 && area>64;
 	}
 
-	inline void drawHomo(Mat& image) {
+	inline void drawTrail(Mat& image) {
 		//draw track trail
 		for(int i=0; i<(int)npts.size(); ++i) {
 			if( status[i] ) {
@@ -221,6 +222,9 @@ struct LKTracker {
 				circle( image, npts[i], 1, CV_RED, -1);
 			}
 		}
+	}
+
+	inline void drawHomo(Mat& image) {
 		//draw homo
 		const Mat_<double>& mH = H;
 		vector<Point2f> corners(4);
@@ -239,7 +243,6 @@ struct LKTracker {
 		}
 		line(image, corners[0], corners[2], CV_BLACK, 2);
 		line(image, corners[1], corners[3], CV_BLACK, 2);
-
 	}
 
 	inline void draw3D(Mat &image) {
