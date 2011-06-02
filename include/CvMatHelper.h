@@ -221,73 +221,6 @@ inline double normL2(int am, int an, double const *A)
 	return sqrt( dot(n,n,A,A) );
 }
 
-/*********************I/O***********************/
-/* print the given n x m matrix */
-template<typename Precision>
-void print(int m, int n, Precision *A, const char *mat_name=0)
-{
-	int i, j;
-
-	if(mat_name) {
-		printf("%s = \n\n", mat_name);
-	}
-
-	for (i = 0; i < m; i++) {
-		printf("  ");
-		for (j = 0; j < n; j++) {
-			printf(" % 10f", (float)A[i * n + j]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-}
-
-/* Read a matrix from a file */
-template<typename Precision>
-bool ReadFile(int m, int n, Precision const *matrix, const char *fname)
-{
-	FILE *f = NULL;
-	f = fopen(fname, "r");
-	int i;
-
-	if (f == NULL) {
-		TagE("In reading matrix %s\n", fname);
-		return false;
-	}
-
-	for (i = 0; i < m * n; i++) {
-		fscanf_s(f, "%lf", matrix + i);
-	}
-
-	fclose(f);
-	return true;
-}
-
-/* Write a matrix to a file */
-template<typename Precision>
-bool WriteFile(int m, int n, Precision const *matrix, const char *fname)
-{
-	FILE *f = NULL;
-	f = fopen(fname, "w");
-	int i, j, idx;
-
-	if (f == NULL) {
-		TagE("In writing matrix to %s\n", fname);
-		return false;
-	}
-
-	idx = 0;
-	for (i = 0; i < m; i++) {
-		for (j = 0; j < n; j++, idx++) {
-			fprintf(f, "%0.16e ", matrix[idx]);
-		}
-		fprintf(f, "\n");
-	}
-
-	fclose(f);
-	return true;
-}
-
 ////////////////////////////////////////////
 ///  Utils
 // convert a pointer to a continuous memory block
@@ -299,30 +232,6 @@ struct FixMat {
 	template<typename SrcType>
 	static Type ConvertType(SrcType src) {
 		return reinterpret_cast<Type>(src);
-	}
-};
-
-template<unsigned int iosflag=std::ios::scientific,
-         typename Precision=double>
-struct PrintMat {
-	int cols,rows;
-	Precision const *p;
-	PrintMat(int r, int c, Precision const *ptr) {
-		cols=c;
-		rows=r;
-		p=ptr;
-	}
-	friend inline std::ostream &operator<<(
-	    std::ostream &o, const PrintMat &m) {
-		o.setf((std::ios_base::fmtflags)iosflag);
-		for(int i=0; i<m.rows; ++i) {
-			for(int j=0; j<m.cols; ++j) {
-				o << m.p[IDX(i,j,m.cols)] << " ";
-			}
-			o << std::endl;
-		}
-		o.unsetf((std::ios_base::fmtflags)iosflag);
-		return o;
 	}
 };
 

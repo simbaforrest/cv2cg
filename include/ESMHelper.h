@@ -121,4 +121,30 @@ struct ESMTracker {
 		}
 		return true;
 	}
+
+	inline void setH(double const H[9]) {
+		for(int i=0; i<9; i++) {
+			T.homog[i] = H[i];
+		}
+	}
+
+	inline void getH(double H[9]) const {
+		for(int i=0; i<9; i++) {
+			H[i] = T.homog[i];
+		}
+	}
+
+	template<typename Iterator>
+	void setH(Iterator itr) {
+		for(int i=0; i<9; ++i, ++itr) {
+			T.homog[i] = (*itr);
+		}
+	}
+
+	template<typename Iterator>
+	void getH(Iterator itr) {
+		for(int i=0; i<9; ++i, ++itr) {
+			(*itr) = T.homog[i];
+		}
+	}
 };

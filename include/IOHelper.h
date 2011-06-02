@@ -27,8 +27,12 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "Log.h" // please include "Log.hxx" in and only in your main.cpp
+
 namespace IOHelper
 {
+#define IDX(m,n,N) ((m)*(N)+(n)) //N cols
+
 //read one valid line, i.e. non-empty line
 //return false if no valid line, i.e. end-of-file
 inline bool readValidLine(std::istream &in,
@@ -59,5 +63,113 @@ inline bool readValidLine(std::istream &in,
 	}
 	return line.length()!=0 || haschar;
 }
+
+//read calibration matrix from stream
+//format: (only numbers and white characters, no other stuff)
+//K[0] K[1] K[2]
+//K[3] K[4] K[5]
+//K[6] K[7] K[8]
+template<typename Precision>
+bool readCalibFile(std::istream &in, Precision K[9]) {
+	for(int i=0; i<9; ++i) {
+		double val;
+		in >> val;
+		K[i] = (Precision) val;
+	}
+	return true;
+}
+
+/* print the given n x m matrix */
+template<typename Precision>
+void print(int m, int n, Precision *A, const char *mat_name=0)
+{
+	int i, j;
+
+	if(mat_name) {
+		printf("%s = \n\n", mat_name);
+	}
+
+	for (i = 0; i < m; i++) {
+		printf("  ");
+		for (j = 0; j < n; j++) {
+			printf(" % 10f", (float)A[i * n + j]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
+/* Read a matrix from a file */
+template<typename Precision>
+bool ReadFile(int m, int n, Precision const *matrix, const char *fname)
+{
+	FILE *f = NULL;
+	f = fopen(fname, "r");
+	int i;
+
+	if (f == NULL) {
+		TagE("In reading matrix %s\n", fname);
+		return false;
+	}
+
+	for (i = 0; i < m * n; i++) {
+		fscanf_s(f, "%lf", matrix + i);
+	}
+
+	fclose(f);
+	return true;
+}
+
+/* Write a matrix to a file */
+template<typename Precision>
+bool WriteFile(int m, int n, Precision const *matrix, const char *fname)
+{
+	FILE *f = NULL;
+	f = fopen(fname, "w");
+	int i, j, idx;
+
+	if (f == NULL) {
+		TagE("In writing matrix to %s\n", fname);
+		return false;
+	}
+
+	idx = 0;
+	for (i = 0; i < m; i++) {
+		for (j = 0; j < n; j++, idx++) {
+			fprintf(f, "%0.16e ", matrix[idx]);
+		}
+		fprintf(f, "\n");
+	}
+
+	fclose(f);
+	return true;
+}
+
+//Utils for using c++ stream to print matrix
+//e.g.
+//	cout<<"R=\n"<<PrintMat<>(3,3,R)<<endl;
+template<unsigned int iosflag=std::ios::scientific,
+         typename Precision=double>
+struct PrintMat {
+	int cols,rows;
+	Precision const *p;
+	PrintMat(int r, int c, Precision const *ptr) {
+		cols=c;
+		rows=r;
+		p=ptr;
+	}
+	friend inline std::ostream &operator<<(
+	    std::ostream &o, const PrintMat &m) {
+		o.setf((std::ios_base::fmtflags)iosflag);
+		for(int i=0; i<m.rows; ++i) {
+			for(int j=0; j<m.cols; ++j) {
+				o << m.p[IDX(i,j,m.cols)] << " ";
+			}
+			o << std::endl;
+		}
+		o.unsetf((std::ios_base::fmtflags)iosflag);
+		return o;
+	}
+};
 
 }//end of IOHelper
