@@ -3,6 +3,9 @@ function [R,T]=RTfromKH(K,H)
 % by Chen Feng <simbaforrest@gmail.com>
 
 % H = const * K[r1,r2,T]
+if det(H)<0
+	H = -H;
+end
 A = inv(K) * H;
 A = A/norm(A(:,1)); % get rid of const by apply ||r1||=1
 r1 = A(:,1);

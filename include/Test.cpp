@@ -13,8 +13,6 @@
 using namespace std;
 using namespace cv;
 
-const int DESIRED_FTRS = 500;
-
 double K[9] = {
 	9.1556072719327040e+02, 0., 3.1659567931197148e+02,
 	0.,	9.2300384975219845e+02, 2.8310067999512370e+02,
@@ -36,18 +34,10 @@ int lines[12][2] = {
 struct Detractor {
 	bool debug;
 
-	BriefDescriptorExtractor brief;
-	vector<DMatch> matches;
-
-	BruteForceMatcher<Hamming> desc_matcher;
-
 	vector<Point2f> train_pts, query_pts;
 	vector<KeyPoint> train_kpts, query_kpts;
-	vector<unsigned char> match_mask;
 
-	Mat train_desc, query_desc;
-
-	GridAdaptedFeatureDetector detector;
+	FastFeatureDetector detector;
 
 	Mat H;
 
@@ -55,101 +45,39 @@ struct Detractor {
 
 	ESMTracker esm; //refiner
 
-	bool needInit;
-
-	Detractor() : brief(32),
-		detector(new FastFeatureDetector(10, true), DESIRED_FTRS, 4, 4) {
-		needInit=true;
+	Detractor() : detector(20, true) {
 		debug=true;
 		H = Mat::eye(3, 3, CV_32FC1);
-
-		timg = imread("../data/lena.jpg");
-		detector.detect(timg, train_kpts);
-		brief.compute(timg, train_kpts, train_desc);
-
-		// The tracking parameters
-		int miter = 6,  mprec = 4;
-		int posx = 0, posy = 0;
-		int sizx = timg.cols, sizy = timg.rows;
-
-		if(!esm.init(timg,posx,posy,sizx,sizy,miter,mprec)) {
-			exit(0);
-		}
-	}
-
-	bool init(Mat& frame) {
-		needInit=true;
-		Mat gray;
-		cvtColor(frame, gray, CV_RGB2GRAY);
-		detector.detect(gray, query_kpts);
-		brief.compute(gray, query_kpts, query_desc);
-
-		desc_matcher.match(query_desc, train_desc, matches);
-		matches2points(train_kpts, query_kpts, matches, train_pts, query_pts);
-		if (matches.size() > 7) {
-			H = findHomography(Mat(train_pts), Mat(query_pts), match_mask, RANSAC, 4);
-			if(countNonZero(Mat(match_mask)) > 15) {
-				needInit=false;
-			}
-		}
-		return !needInit;
 	}
 
 	bool runOn(Mat& frame) {
-		if(needInit) {
-			return init(frame);
-		}
-
-		needInit = true;
-
 		Mat gray;
 		cvtColor(frame, gray, CV_RGB2GRAY);
 		detector.detect(gray, query_kpts);
-		brief.compute(gray, query_kpts, query_desc);
 
-		if (!train_kpts.empty()) {
-			vector<KeyPoint> test_kpts;
-			warpKeypoints(H, train_kpts, test_kpts);
-
-			Mat mask = windowedMatchingMask(query_kpts, test_kpts, 50, 50);
-			desc_matcher.match(query_desc, train_desc, matches, mask);
-
-			matches2points(train_kpts, query_kpts, matches, train_pts, query_pts);
-
-			if (matches.size() > 5) {
-				H = findHomography(Mat(train_pts), Mat(query_pts), match_mask, RANSAC, 4);
-
-				if(countNonZero(Mat(match_mask)) > 15) {
-					//ESM refinement
-					for(int i=0; i<3; i++) {
-						for(int j=0; j<3; j++) {
-							esm.T.homog[i*3+j] = H.at<double>(i,j);
-						}
-					}
-					if(esm.run(frame)) {
-						for(int i=0; i<3; i++) {
-							for(int j=0; j<3; j++) {
-								H.at<double>(i,j) = esm.T.homog[i*3+j]/esm.T.homog[8];
-							}
-						}
-					}
-					//drawHomo(frame);
-					drawPyramid(frame);
-					if(debug) {
-						drawMatchesRelative(train_kpts, query_kpts, matches, frame, match_mask);
-					}
-					needInit = false;
-				}
-			}
-		} else {
-			Mat out;
-			drawKeypoints(gray, query_kpts, out);
-			frame = out;
+		//ESM refinement
+		if(!esm.run(gray)) {
+			randomInit(gray);
 		}
+		esm.getH(H.begin<double>());
 
-//		train_kpts = query_kpts;
-//		query_desc.copyTo(train_desc);
-		return !needInit;
+		drawHomo(frame);
+//					drawPyramid(frame);
+		drawKey(frame);
+
+		return true;
+	}
+
+	void randomInit(Mat& gray) {
+		int id = rand() % (int)query_kpts.size();
+		int miter = 3,  mprec = 2;
+		int posx = query_kpts[id].pt.x, posy = query_kpts[id].pt.y;
+		int sizx = 100, sizy = 100;
+		if( posx<105 || posx>gray.cols-105 || posy<105 || posy>gray.rows-105) return;
+		cout<<gray.cols<<"x"<<gray.rows<<":"<<posx<<" "<<posy<<" "<<sizx<<" "<<sizy<<endl;
+		esm.init(gray,posx,posy,sizx,sizy,miter,mprec);
+		double H[]={1,0,0,0,1,0,0,0,1};
+		esm.setH(H);
 	}
 
 	void drawPyramid(Mat& image) {
@@ -186,11 +114,15 @@ struct Detractor {
 
 	void drawHomo(Mat& image) {
 		//draw homo
+//		for(int k=0; k<(int)esm.kArr.size(); ++k) {
+//			ESMKernel& kernel = esm.kArr[k];
+//			kernel.getH(H.begin<double>());
+
 		const Mat_<double>& mH = H;
 		vector<Point2f> corners(4);
 		for(int i = 0; i < 4; i++ ) {
-			Point2f pt((float)(i == 0 || i == 3 ? 0 : timg.cols),
-			           (float)(i <= 1 ? 0 : timg.rows));
+			Point2f pt((float)(i == 0 || i == 3 ? esm.kernel.px : esm.kernel.px+esm.kernel.sx),
+			           (float)(i <= 1 ? esm.kernel.py : esm.kernel.py+esm.kernel.sy));
 			double w = 1./(mH(2,0)*pt.x + mH(2,1)*pt.y + mH(2,2));
 			corners[i] =
 			    Point2f((float)((mH(0,0)*pt.x + mH(0,1)*pt.y + mH(0,2))*w),
@@ -203,71 +135,13 @@ struct Detractor {
 		}
 		line(image, corners[0], corners[2], CV_BLACK, 2);
 		line(image, corners[1], corners[3], CV_BLACK, 2);
+//		}
 	}
 
-	//Converts matching indices to xy points
-	void matches2points(const vector<KeyPoint>& train, const vector<KeyPoint>& query,
-	                    const std::vector<cv::DMatch>& matches, std::vector<cv::Point2f>& pts_train,
-	                    std::vector<Point2f>& pts_query) {
-		pts_train.clear();
-		pts_query.clear();
-		pts_train.reserve(matches.size());
-		pts_query.reserve(matches.size());
-
-		size_t i = 0;
-
-		for (; i < matches.size(); i++) {
-
-			const DMatch & dmatch = matches[i];
-
-			pts_query.push_back(query[dmatch.queryIdx].pt);
-			pts_train.push_back(train[dmatch.trainIdx].pt);
-
+	void drawKey(Mat& image) {
+		for(int i=0; i<(int)query_kpts.size(); ++i) {
+			circle(image, query_kpts[i].pt, 2, CV_BLUE, -1);
 		}
-	}
-
-	void drawMatchesRelative(const vector<KeyPoint>& train, const vector<KeyPoint>& query,
-	                         std::vector<cv::DMatch>& matches, Mat& img, const vector<unsigned char>& mask = vector<
-	                                 unsigned char> ()) {
-		for (int i = 0; i < (int)matches.size(); i++) {
-			if (mask.empty() || mask[i]) {
-				Point2f pt_new = query[matches[i].queryIdx].pt;
-				Point2f pt_old = train[matches[i].trainIdx].pt;
-				Point2f dist = pt_new - pt_old;
-
-				cv::line(img, pt_new, pt_old, Scalar(125, 255, 125), 1);
-				cv::circle(img, pt_new, 2, Scalar(255, 0, 125), 1);
-
-			}
-		}
-	}
-
-	//Takes a descriptor and turns it into an xy point
-	void keypoints2points(const vector<KeyPoint>& in, vector<Point2f>& out) {
-		out.clear();
-		out.reserve(in.size());
-		for (size_t i = 0; i < in.size(); ++i) {
-			out.push_back(in[i].pt);
-		}
-	}
-
-	//Takes an xy point and appends that to a keypoint structure
-	void points2keypoints(const vector<Point2f>& in, vector<KeyPoint>& out) {
-		out.clear();
-		out.reserve(in.size());
-		for (size_t i = 0; i < in.size(); ++i) {
-			out.push_back(KeyPoint(in[i], 1));
-		}
-	}
-
-	//Uses computed homography H to warp original input points to new planar position
-	void warpKeypoints(const Mat& H, const vector<KeyPoint>& in, vector<KeyPoint>& out) {
-		vector<Point2f> pts;
-		keypoints2points(in, pts);
-		vector<Point2f> pts_w(pts.size());
-		Mat m_pts_w(pts_w);
-		perspectiveTransform(Mat(pts), m_pts_w, H);
-		points2keypoints(pts_w, out);
 	}
 };
 
@@ -297,19 +171,22 @@ int main(int ac, char ** av)
 
 	Detractor detractor;
 	for (;;) {
+		helper::fps(true);
 		capture >> frame;
 		if (frame.empty()) {
+			helper::fps(false);
 			continue;
 		}
 
 		detractor.runOn(frame);
+		helper::fps(false);
 
 		imshow("frame", frame);
 
-		char key = (char)waitKey(2);
+		char key = (char)waitKey(8);
 		switch (key) {
 		case 'd':
-			detractor.debug=!detractor.debug;
+			detractor.randomInit(frame);
 			break;
 		case 27:
 		case 'q':

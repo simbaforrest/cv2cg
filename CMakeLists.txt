@@ -24,7 +24,7 @@ ELSE()
 ENDIF()
 
 ########### Find packages ###########
-#SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/Modules/)
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/)
 FIND_PACKAGE(OpenCV REQUIRED)
 FIND_PACKAGE(OpenSceneGraph 2.0.0 REQUIRED
 	osg
@@ -34,6 +34,7 @@ FIND_PACKAGE(OpenSceneGraph 2.0.0 REQUIRED
 	osgText
 	osgViewer
 	OpenThreads
+	Eigen3
 )
 
 ########### uninstall files ###############

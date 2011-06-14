@@ -59,20 +59,78 @@ inline void imageStruct2Mat(imageStruct& I, Mat& m)
 	m.convertTo(m,CV_8U);
 }
 
-struct ESMTracker {
+struct ESMKernel {
 	trackStruct T;
-	Mat RefImg; //internally hold the reference/template image
-	Mat CurImg; //internally hold the image being tracked
+	Mat RefImg;   //internally hold the reference/template image
 	bool inited;
+	int px,py,sx,sy;
 
-	ESMTracker() {
-		inited=false;
-	}
-	~ESMTracker() {
+	ESMKernel() {inited=false;}
+	~ESMKernel() {
 		if(inited) {
 			FreeTrack(&T);
 		}
 	}
+
+	inline bool init(const Mat& refimg,
+	                 int posx, int posy,
+	                 int sizex, int sizey,
+	                 int maxIter=5, int maxPrec=2) {
+		px=posx; py=posy;
+		sx=sizex; sy=sizey;
+
+		if(inited) {
+			FreeTrack(&T);
+		}
+		refimg.copyTo(RefImg);
+		imageStruct I;
+		Mat2imageStruct(RefImg, I);
+		// Memory allocation for the tracking
+		if (MallTrack (&T, &I, posx, posy, sizex, sizey, maxIter, maxPrec)) {
+			return inited = false;
+		}
+		return inited = true;
+	}
+
+	inline bool run(imageStruct& I) {
+		if(!inited) {
+			cout<<"[ESMKernel::run] please init the ESMKernel first!"<<endl;
+			return false;
+		}
+
+		// Perform the tracking
+		if (MakeTrack (&T, &I)) {
+			return false;
+		}
+		return true;
+	}
+
+	inline void setH(double const H[9]) {
+		for(int i=0; i<9; i++)
+			T.homog[i] = H[i];
+	}
+
+	inline void getH(double H[9]) const {
+		for(int i=0; i<9; i++)
+			H[i] = T.homog[i];
+	}
+
+	template<typename Iterator>
+	void setH(Iterator itr) {
+		for(int i=0; i<9; ++i, ++itr)
+			T.homog[i] = (*itr);
+	}
+
+	template<typename Iterator>
+	void getH(Iterator itr) const {
+		for(int i=0; i<9; ++i, ++itr)
+			(*itr) = T.homog[i];
+	}
+};
+
+struct ESMTracker {
+	ESMKernel kernel;
+	Mat CurImg; //internally hold the image being tracked
 
 	// miter: the number of iterations of the ESM algorithm (>= 1);
 	// mprec: the precision of the ESM algorithm (1..10)
@@ -87,27 +145,15 @@ struct ESMTracker {
 	                 int posx, int posy,
 	                 int sizex, int sizey,
 	                 int maxIter=5, int maxPrec=2) {
-		if(inited) {
-			FreeTrack(&T);
-		}
-		refimg.copyTo(RefImg);
-		imageStruct I;
-		Mat2imageStruct(RefImg, I);
-		// Memory allocation for the tracking
-		if (MallTrack (&T, &I, posx, posy, sizex, sizey, maxIter, maxPrec)) {
+		if (!kernel.init(refimg,posx,posy,sizex,sizey,maxIter,maxPrec)) {
 			cout<<"[ESMTracker] failed to inited."<<endl;
-			return inited = false;
+			return false;
 		}
 		cout<<"[ESMTracker] inited."<<endl;
-		return inited = true;
+		return true;
 	}
 
 	inline bool run(Mat& curimg, bool keepCurrent=true) {
-		if(!inited) {
-			cout<<"[ESMTracker::run] please init the ESMTracker first!"<<endl;
-			return false;
-		}
-
 		imageStruct I;
 		if(keepCurrent) {
 			curimg.copyTo(CurImg);
@@ -115,36 +161,72 @@ struct ESMTracker {
 		} else {
 			Mat2imageStruct(curimg, I);
 		}
-		// Perform the tracking
-		if (MakeTrack (&T, &I)) {
-			return false;
-		}
-		return true;
+		return kernel.run(I);
 	}
 
 	inline void setH(double const H[9]) {
-		for(int i=0; i<9; i++) {
-			T.homog[i] = H[i];
-		}
+		kernel.setH(H);
 	}
 
 	inline void getH(double H[9]) const {
-		for(int i=0; i<9; i++) {
-			H[i] = T.homog[i];
-		}
+		kernel.getH(H);
 	}
 
 	template<typename Iterator>
 	void setH(Iterator itr) {
-		for(int i=0; i<9; ++i, ++itr) {
-			T.homog[i] = (*itr);
-		}
+		kernel.setH(itr);
 	}
 
 	template<typename Iterator>
-	void getH(Iterator itr) {
-		for(int i=0; i<9; ++i, ++itr) {
-			(*itr) = T.homog[i];
+	void getH(Iterator itr) const {
+		kernel.getH(itr);
+	}
+};
+
+struct ESMMultipleTracker {
+	vector<ESMKernel> kArr;
+	Mat CurImg; //internally hold the image being tracked
+
+	inline bool init(const Mat& refimg,
+	                 int posx, int posy,
+	                 int sizex, int sizey,
+	                 int maxIter=5, int maxPrec=2) {
+		kArr.push_back(ESMKernel());
+		ESMKernel& kernel = kArr[kArr.size()-1];
+		if (!kernel.init(refimg,posx,posy,sizex,sizey,maxIter,maxPrec)) {
+			cout<<"[ESMMultipleTracker] new("<<kArr.size()-1<<") kernel failed to inited."<<endl;
+			kArr.resize(kArr.size()-1);
+			return false;
 		}
+		cout<<"[ESMMultipleTracker] new("<<kArr.size()-1<<") kernel inited."<<endl;
+		return true;
+	}
+
+	inline bool run(Mat& curimg, bool keepCurrent=true) {
+		imageStruct I;
+		if(keepCurrent) {
+			curimg.copyTo(CurImg);
+			Mat2imageStruct(CurImg, I);
+		} else {
+			Mat2imageStruct(curimg, I);
+		}
+
+		int cnt=(int)kArr.size();
+		int oi=0;
+		for(int i=0; i<cnt;++oi) {
+			ESMKernel& kernel = kArr[i];
+			if(!kernel.run(I)) {
+				swap(kArr[i],kArr[cnt-1]);
+				--cnt;
+				cout<<"[ESMMultipleTracker] kernel("
+					<<oi<<") lost track, deleted."<<endl;
+			} else {
+				++i;
+			}
+		}
+		bool ret = cnt==(int)kArr.size();
+		if(cnt==0) kArr.clear();
+		else kArr.resize(cnt);
+		return ret;
 	}
 };
