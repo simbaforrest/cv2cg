@@ -26,12 +26,16 @@ struct HomoESMState
 class HomoESM
 {
 public:
+  HomoESM() {delatRMSLimit=1;}
+  //set this value smaller will give more iterations, but also more accurate
+  inline void setDeltaRMSLimit(double val) {delatRMSLimit=val;}
   void setTemplateImage(const cv::Mat &image);
   void track(cv::Mat &testImage, int nIters, cv::Mat &H, double &rmsError, cv::Ptr<LieAlgebra> lieAlgebra = new LieAlgebraHomography(),
              bool saveComputations = false, std::vector<HomoESMState> *computations = 0) const;
   void visualizeTracking(const cv::Mat &H, cv::Mat &visualization) const;
 
 private:
+  double delatRMSLimit;
   cv::Mat templateImage, templateImageRowDouble;
   cv::Mat templateDxRow, templateDyRow;
   cv::Mat xx, yy;

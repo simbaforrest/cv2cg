@@ -1,5 +1,6 @@
 #include "esm.hpp"
 #include <iostream>
+using namespace std;
 using namespace cv;
 
 inline void rect2vertices(const Rect &rect, vector<Point2f> &vertices)
@@ -56,7 +57,8 @@ void HomoESM::track(Mat &testImage, int nIters, Mat &H, double &rmsError, Ptr<Li
     computations->clear();
   }
 
-  double nelem = 0.00072*templateImage.rows*templateImage.cols;
+  double oldrms=1000000;
+  cout<<"[HomoESM] delta rms";
   for (int iter = 0; iter < nIters; iter++)
   {
     Mat warpedTemplateDouble;
@@ -66,6 +68,9 @@ void HomoESM::track(Mat &testImage, int nIters, Mat &H, double &rmsError, Ptr<Li
     Mat errorRow = warpedTemplateDouble.reshape(0, 1) - templateImageRowDouble;
 
 	double rms=computeRMSError(errorRow);
+	double deltarms = oldrms-rms;
+	oldrms=rms;
+	cout<<"->"<<deltarms;
 
     if (saveComputations)
     {
@@ -75,7 +80,7 @@ void HomoESM::track(Mat &testImage, int nIters, Mat &H, double &rmsError, Ptr<Li
       computations->push_back(state);
     }
 
-    if (iter == nIters - 1 || rms<nelem)
+    if (iter == nIters - 1 || deltarms<delatRMSLimit)
     {
       rmsError = rms;
       break;
@@ -96,6 +101,7 @@ void HomoESM::track(Mat &testImage, int nIters, Mat &H, double &rmsError, Ptr<Li
     Mat delta = lieAlgebra->algebra2group(d);
     H = H * delta;
   }
+  cout<<endl;
 }
 
 void HomoESM::projectVertices(const cv::Mat &H, std::vector<cv::Point2f> &vertices) const
