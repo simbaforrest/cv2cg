@@ -98,7 +98,7 @@ struct LKTracker {
 
 		//load template
 		Mat tmp = imread(templatename, 0);
-		pyrDown(tmp, timg);
+		pyrDown(tmp, timg);//scale the template to 256x256, faster
 		cpts.push_back(Point2f(0,0));
 		cpts.push_back(Point2f(timg.cols,0));
 		cpts.push_back(Point2f(timg.cols,timg.rows));
@@ -111,6 +111,7 @@ struct LKTracker {
 //		int sizx = timg.cols, sizy = timg.rows;
 
 		esm.setTemplateImage(timg);
+		esm.setDeltaRMSLimit(0.5);
 //		if(!esm.init(timg,posx,posy,sizx,sizy,miter,mprec)) {
 //			exit(0);
 //		}
@@ -147,7 +148,7 @@ struct LKTracker {
 		//!!! notice, do not refine at init stage, not enough data to refine
 		double rms;
 		esm.track(nframe, miter, H, rms);
-		cout<<"[ESM] rms="<<rms<<endl;
+		cout<<"[HomoESM] rms="<<rms<<endl;
 
 		Mat nptsmat(npts);
 		perspectiveTransform(Mat(tpts), nptsmat, H);
