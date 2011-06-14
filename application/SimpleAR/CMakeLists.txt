@@ -3,6 +3,8 @@ INCLUDE_DIRECTORIES(
 	${CMAKE_SOURCE_DIR}/include
 	${CMAKE_CURRENT_BINARY_DIR}
 	${OPENSCENEGRAPH_INCLUDE_DIRS}
+	${EIGEN3_INCLUDE_DIR}
+	${EIGEN3_INCLUDE_DIR}/unsupported/
 )
 
 # To use all *.cpp, *.hpp files
@@ -28,6 +30,7 @@ SET(extLinkerOption
 )
 
 ADD_EXECUTABLE(${APP_NAME} ${lib_SRCS})
-TARGET_LINK_LIBRARIES(${APP_NAME} ${extLinkerOption} ${CMAKE_SOURCE_DIR}/include/ESMlib.a)
+#TARGET_LINK_LIBRARIES(${APP_NAME} ${extLinkerOption} ${CMAKE_SOURCE_DIR}/include/ESMlib.a)
+TARGET_LINK_LIBRARIES(${APP_NAME} ${extLinkerOption})
 
 INSTALL(TARGETS ${APP_NAME} DESTINATION bin)

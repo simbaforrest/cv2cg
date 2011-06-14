@@ -1,3 +1,19 @@
+/*
+ *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
+ *    and the University of Michigan
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ */
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -6,7 +22,7 @@
 #include "Log.h"
 #include "OpenCVHelper.h"
 
-#include "ESMHelper.h"
+#include "esm.hpp"
 
 using namespace cv;
 using namespace std;
@@ -62,9 +78,11 @@ struct LKTracker {
 	vector<KeyPoint> tkeys;
 	Mat tdes;
 
-	ESMTracker esm; //refiner
+	HomoESM esm; //refiner
 
 	vector<KeyFrame> keyframes;
+	
+	int miter;
 
 	LKTracker(string templatename,
 	          int winW=8, int winH=8,
@@ -74,12 +92,13 @@ struct LKTracker {
 		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
 		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
 		ransacThresh(ransacT), drawTresh(drawT) {
-		detector=FeatureDetector::create("SURF");
+		detector=new DynamicAdaptedFeatureDetector(new SurfAdjuster, 10, 20, 10);
 		descriptor=DescriptorExtractor::create("SURF");
 		matcher=DescriptorMatcher::create("FlannBased");
 
 		//load template
-		timg = imread(templatename);
+		Mat tmp = imread(templatename, 0);
+		pyrDown(tmp, timg);
 		cpts.push_back(Point2f(0,0));
 		cpts.push_back(Point2f(timg.cols,0));
 		cpts.push_back(Point2f(timg.cols,timg.rows));
@@ -87,13 +106,14 @@ struct LKTracker {
 		//GaussianBlur(timg, timg, Size(5,5), 4);
 
 		// The tracking parameters
-		int miter = 6,  mprec = 4;
-		int posx = 0, posy = 0;
-		int sizx = timg.cols, sizy = timg.rows;
+		miter = 5;//  mprec = 4;
+//		int posx = 0, posy = 0;
+//		int sizx = timg.cols, sizy = timg.rows;
 
-		if(!esm.init(timg,posx,posy,sizx,sizy,miter,mprec)) {
-			exit(0);
-		}
+		esm.setTemplateImage(timg);
+//		if(!esm.init(timg,posx,posy,sizx,sizy,miter,mprec)) {
+//			exit(0);
+//		}
 
 		detector->detect(timg, tkeys);
 		descriptor->compute(timg, tkeys, tdes);
@@ -125,6 +145,9 @@ struct LKTracker {
 		H = findHomography(Mat(tpts), Mat(npts),
 		                   match_mask, RANSAC, ransacThresh);
 		//!!! notice, do not refine at init stage, not enough data to refine
+		double rms;
+		esm.track(nframe, miter, H, rms);
+		cout<<"[ESM] rms="<<rms<<endl;
 
 		Mat nptsmat(npts);
 		perspectiveTransform(Mat(tpts), nptsmat, H);
@@ -183,10 +206,9 @@ struct LKTracker {
 		                   match_mask, RANSAC, ransacThresh);
 
 		//ESM refinement
-		esm.setH(H.begin<double>());
-		if(esm.run(nframe)) {
-			esm.getH(H.begin<double>());
-		}
+		double rms;
+		esm.track(nframe, miter, H, rms);
+		cout<<"[ESM] rms="<<rms<<endl;
 
 		Mat nptsmat(npts);
 		///////VERY IMPORTANT STEP, STABLIZE!!!!!!!
