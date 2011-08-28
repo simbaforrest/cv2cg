@@ -40,7 +40,7 @@ osg::ref_ptr<helper::ARVideoBackground> arvideo;
 osg::ref_ptr<helper::ARSceneRoot> arscene;
 osg::ref_ptr<osg::MatrixTransform> manipMat;
 
-LKTracker tracker("/home/simbaforrest/project/Datasets/lena.jpg");
+LKTracker tracker;
 
 int BkgModifyCnt=0; //global signal for update osg
 bool OpenCVneedQuit=false;
@@ -114,6 +114,8 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				needToInit=true;
 			} else if(ea.getKey()=='d') {
 				tracker.debug=!tracker.debug;
+				if(tracker.debug) cout<<"[Debug Mode] ON."<<endl;
+				else cout<<"[Debug Mode] OFF."<<endl;
 			} else if(ea.getKey()=='.') { //>
 				sx+=0.4;sy+=0.4;sz+=0.4;
 				manipMat->setMatrix(osg::Matrix::scale(sx,sy,sz));
@@ -122,9 +124,25 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				manipMat->setMatrix(osg::Matrix::scale(sx,sy,sz));
 			} else if(ea.getKey()=='c') {
 				needToCapframe = !needToCapframe;
+				if(needToCapframe) cout<<"[Capture Frame] Begin."<<endl;
+				else cout<<"[Capture Frame] End."<<endl;
+			} else if(ea.getKey()=='h') {
+				QuitHandler::usage();
 			}
 		}
 		return false;
+	}
+
+	static void usage() {
+		cout<<
+		"Handler Usage\n"
+		"  \' \': reset/redetect template\n"
+		"  \'d\': switch debug mode ON/OFF\n"
+		"  \'.\': increase scene scale\n"
+		"  \',\': decreate scene scale\n"
+		"  \'c\': switch scene capture ON/OFF\n"
+		"  \'h\': print HELP information"
+		<<endl;
 	}
 };
 
@@ -169,15 +187,18 @@ bool InitVideoCapture(int argc, char ** argv)
 
 int main( int argc, char **argv )
 {
-	if(argc<2) {
+	if(argc<4) {
 		cout<< "[usage] " <<argv[0]<<" <device number|video file>"
-			" [osg scene file]" <<endl;
+			" <K matrix file> <template file> [osg scene file]" <<endl;
+		QuitHandler::usage();
 		return 1;
 	}
 	if( !InitVideoCapture(argc,argv) ) {
 		cout << "[main] Could not initialize capturing...\n";
 		return 1;
 	}
+	cout<<"[main] Video Captured."<<endl;
+	QuitHandler::usage();
 
 	if(cap.set(CV_CAP_PROP_FRAME_WIDTH, 640))
 		cout<<"[main] video width=640"<<endl;
@@ -192,10 +213,21 @@ int main( int argc, char **argv )
 	imgW = frame.cols;
 	imgH = frame.rows;
 
+	cout<<"[main] loading K matrix from: "<<argv[2]<<endl;
+	double K[9];
+	std::ifstream kfile(argv[2]);
+	for(int i=0; i<9; ++i) kfile >> K[i];
+	tracker.loadK(K);
+	cout<<"[main] K matrix loaded:"<<endl;
+	cout<<helper::PrintMat<>(3,3,K)<<endl;
+
+	cout<<"[main] load template image from: "<<argv[3]<<endl;
+	tracker.loadTemplate(argv[3]);
+
 	osgViewer::Viewer viewer;
 	osg::ref_ptr<osg::Group> root = new osg::Group;
 
-	string scenefilename = (argc>2?argv[2]:("cow.osg"));
+	string scenefilename = (argc>4?argv[4]:("cow.osg"));
 	osg::ref_ptr<osg::Node> cow = osgDB::readNodeFile(scenefilename);
 	arscene = new helper::ARSceneRoot;
 	helper::FixMat<3,double>::Type matK = helper::FixMat<3,double>::ConvertType(K);

@@ -27,7 +27,7 @@
 using namespace cv;
 using namespace std;
 
-double K[9] = {
+double defaultK[9] = {
 	9.1556072719327040e+02, 0., 3.1659567931197148e+02,
 	0.,	9.2300384975219845e+02, 2.8310067999512370e+02,
 	0., 0., 1.
@@ -84,15 +84,18 @@ struct LKTracker {
 	
 	int miter;
 
-	LKTracker(string templatename,
-	          int winW=8, int winH=8,
+	double K[9];
+
+	LKTracker(int winW=8, int winH=8,
 	          int termIter=5, int termEps=0.3,
 	          int maxlevel=3, double lambda=0.3,
 	          double ransacT=2, int drawT=15) :
 		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
 		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
-		ransacThresh(ransacT), drawTresh(drawT) {
-		detector=new DynamicAdaptedFeatureDetector(new SurfAdjuster, 10, 20, 10);
+		ransacThresh(ransacT), drawTresh(drawT) {}
+
+	void loadTemplate(string templatename) {
+		detector=new DynamicAdaptedFeatureDetector(new SurfAdjuster, 40, 80, 20);
 		descriptor=DescriptorExtractor::create("SURF");
 		matcher=DescriptorMatcher::create("FlannBased");
 
@@ -120,6 +123,11 @@ struct LKTracker {
 		descriptor->compute(timg, tkeys, tdes);
 
 		debug=true;
+	}
+
+	//load calibration matrix
+	inline void loadK(double Kmat[9]) {
+		for(int i=0; i<9; ++i) K[i]=Kmat[i];
 	}
 
 	inline bool init(Mat &nframe) {
@@ -355,4 +363,4 @@ struct LKTracker {
 		}
 		return true;
 	}
-};
+};//end of struct LKTracker
