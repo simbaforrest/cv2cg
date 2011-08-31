@@ -46,6 +46,7 @@ int BkgModifyCnt=0; //global signal for update osg
 bool OpenCVneedQuit=false;
 bool needToInit = false;
 bool needToCapframe = false;
+double videoFrameCnt = -1;
 
 double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0,0,0},lastT[3]={0};
 
@@ -59,8 +60,7 @@ struct TrackThread : public OpenThreads::Thread {
 
 	virtual void run() {
 		running=true;
-		for(; videoFromWebcam || 
-				cap.get(CV_CAP_PROP_POS_AVI_RATIO)<=1;++framecnt) {
+		for(; videoFromWebcam || framecnt<videoFrameCnt; ++framecnt) {
 
 			_mutex.lock();
 			helper::fps(true);
@@ -180,6 +180,12 @@ bool InitVideoCapture(int argc, char ** argv)
 			cout<<"[InitVideoCapture] open from file "<<argv[1]<<endl;
 			cap.open(argv[1]);
 			videoFromWebcam = false;
+
+			videoFrameCnt=cap.get(CV_CAP_PROP_FRAME_COUNT)-2;
+			cout<<"[InitVideoCapture] number of frames: "
+				<<videoFrameCnt<<endl;
+
+			needToInit=true;
 		}
 	}
 	return cap.isOpened();
@@ -189,7 +195,8 @@ int main( int argc, char **argv )
 {
 	if(argc<4) {
 		cout<< "[usage] " <<argv[0]<<" <device number|video file>"
-			" <K matrix file> <template file> [osg scene file]" <<endl;
+			" <K matrix file> <template file>"
+			" [osg scene file] [keyframe saving path]" <<endl;
 		QuitHandler::usage();
 		return 1;
 	}
@@ -249,6 +256,9 @@ int main( int argc, char **argv )
 	viewer.addEventHandler(new osgViewer::WindowSizeHandler);
 	viewer.addEventHandler(new QuitHandler);
 
+	cout<<"[main] press any key to start..."<<endl;
+	getchar();
+
 	//start tracking thread
 	OpenThreads::Thread::Init();
 	TrackThread thr;
@@ -256,8 +266,11 @@ int main( int argc, char **argv )
 
 	viewer.run();
 
-	tracker.SaveKeyFrames("/home/simbaforrest/project/cv2cg/data/");
+	if(argc>5) {
+		cout<<"[main] saving keyframes to: "<<argv[5]<<endl;
+		tracker.SaveKeyFrames(argv[5]);
+	}
 
-	cout<<"[main] press any key to quit..."<<endl;
+	cout<<"[main] press any key to quit!"<<endl;
 	return getchar();
 }

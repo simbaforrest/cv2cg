@@ -334,6 +334,7 @@ struct LKTracker {
 	}
 
 	bool SaveKeyFrames(string name) {
+		name = DirHelper::getFileDir(name);
 		string swtname = name + string("ar.swt");
 		std::ofstream swt(swtname.c_str());
 		swt << "scene.osg" << endl;
