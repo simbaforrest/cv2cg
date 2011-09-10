@@ -46,12 +46,15 @@ int lines[12][2] = {
 };
 
 struct KeyFrame {
+	int id;
 	Mat frame;
 	double R[3][3];
 	double T[3];
+	double rms,ncc;
 };
 
-struct LKTracker {
+//KLT+ESM+Geometric Enhancement Tracking framework
+struct KEGTracker {
 	bool debug;
 	vector<uchar> status;
 	vector<float> err;
@@ -81,15 +84,15 @@ struct LKTracker {
 	HomoESM esm; //refiner
 
 	vector<KeyFrame> keyframes;
-	
+
 	int miter;
 
 	double K[9];
 
-	LKTracker(int winW=8, int winH=8,
-	          int termIter=5, int termEps=0.3,
-	          int maxlevel=3, double lambda=0.3,
-	          double ransacT=2, int drawT=15) :
+	KEGTracker(int winW=8, int winH=8,
+	           int termIter=5, int termEps=0.3,
+	           int maxlevel=3, double lambda=0.3,
+	           double ransacT=2, int drawT=15) :
 		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
 		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
 		ransacThresh(ransacT), drawTresh(drawT) {}
@@ -127,10 +130,12 @@ struct LKTracker {
 
 	//load calibration matrix
 	inline void loadK(double Kmat[9]) {
-		for(int i=0; i<9; ++i) K[i]=Kmat[i];
+		for(int i=0; i<9; ++i) {
+			K[i]=Kmat[i];
+		}
 	}
 
-	inline bool init(Mat &nframe) {
+	inline bool init(Mat &nframe, double& rms, double& ncc) {
 		vector<KeyPoint> keys;
 		Mat des;
 		vector<DMatch> matches;
@@ -154,9 +159,8 @@ struct LKTracker {
 		H = findHomography(Mat(tpts), Mat(npts),
 		                   match_mask, RANSAC, ransacThresh);
 		//!!! notice, do not refine at init stage, not enough data to refine
-		double rms;
-		esm.track(nframe, miter, H, rms);
-		cout<<"[HomoESM] rms="<<rms<<endl;
+		esm.track(nframe, miter, H, rms, ncc);
+		if(cvIsNaN(ncc) || ncc<=0) return false;
 
 		Mat nptsmat(npts);
 		perspectiveTransform(Mat(tpts), nptsmat, H);
@@ -168,12 +172,15 @@ struct LKTracker {
 		return (int)match_mask.size()>drawTresh;
 	}
 
-	inline bool withinFrame(const Point2f &p, const Mat &frame) {
+	inline bool withinFrame(const Point2f &p, const Mat &frame) const {
 		return p.x>=0 && p.x<frame.cols && p.y>=0 && p.y<frame.rows;
 	}
 
 	//tracking, old frame(oframe), new frame(nframe)
-	inline int operator()(Mat &oframe, Mat &nframe, Mat &image) {
+	//return 0 if loss-of-track
+	inline int operator()(Mat &oframe, Mat &nframe, Mat &image,
+                          double& rms, double& ncc) {
+		int ret;
 		status.clear();
 		err.clear();
 
@@ -186,18 +193,29 @@ struct LKTracker {
 			npts[i] = status[i]?npts[i]:Point2f(0,0);
 		}
 
-		int ret; //FIXME : more on determining the tracking quality for re-init
-		if( ( ret=(int)update(nframe) ) ) {
-			int cnt=0;
-			for(int i=0; i<(int)npts.size(); ++i) {
-				cnt+=(int)(status[i] && match_mask[i]
-				           && withinFrame(npts[i],nframe));
-			}
-			ret = (int)(cnt>drawTresh);
-			
-			if(debug) {
+		if((int)npts.size()<2*drawTresh || tpts.size()!=npts.size()) {
+			return false;
+		}
+
+		//RANSAC
+		match_mask.clear();
+		H = findHomography(Mat(tpts), Mat(npts),
+		                   match_mask, RANSAC, ransacThresh);
+
+		//ESM refinement
+		esm.track(nframe, miter, H, rms, ncc);
+		ret = !cvIsNaN(ncc) && ncc>0;
+
+		if(ret) {//image similarity check passed
+			//Geometric Enhancement, VERY IMPORTANT STEP, STABLIZE!!!
+			Mat nptsmat(npts);
+			perspectiveTransform(Mat(tpts), nptsmat, H);
+
+			//validation
+			ret=validateH(nframe); //TODO do we still need this?
+			if(ret && debug) {
 				drawTrail(image);
-				drawHomo(image);
+				//drawHomo(image);
 				draw3D(image);
 			}
 		}
@@ -206,31 +224,12 @@ struct LKTracker {
 		return ret;
 	}
 
-	inline bool update(Mat &nframe) {
-		if((int)npts.size()<2*drawTresh || tpts.size()!=npts.size()) {
-			return false;
-		}
-		match_mask.clear();
-		H = findHomography(Mat(tpts), Mat(npts),
-		                   match_mask, RANSAC, ransacThresh);
-
-		//ESM refinement
-		double rms;
-		esm.track(nframe, miter, H, rms);
-		cout<<"[ESM] rms="<<rms<<endl;
-
-		Mat nptsmat(npts);
-		///////VERY IMPORTANT STEP, STABLIZE!!!!!!!
-		perspectiveTransform(Mat(tpts), nptsmat, H);
-
-		return validateH() && countNonZero(Mat(match_mask)) > drawTresh;
-	}
-
-	inline bool validateH() const {
+	//FIXME : more on determining the tracking quality for re-init
+	inline bool validateH(const Mat& nframe) const {
 		vector<Point2f> tmp(4);
 		Mat tmpmat(tmp);
 		perspectiveTransform(Mat(cpts), tmpmat, H);
-		double tmpdir[3][2]={
+		double tmpdir[3][2]= {
 			{tmp[1].x-tmp[0].x, tmp[1].y-tmp[0].y},
 			{tmp[2].x-tmp[0].x, tmp[2].y-tmp[0].y},
 			{tmp[3].x-tmp[0].x, tmp[3].y-tmp[0].y}
@@ -239,7 +238,16 @@ struct LKTracker {
 		double d23 = helper::cross2D(tmpdir[1],tmpdir[2]) * 0.5;
 		double area = abs(d12+d23);
 		bool s123 = d12*d23>0;
-		return s123 && area>64;
+		bool ret = s123 && area>64 && countNonZero(Mat(match_mask)) > drawTresh;
+		if(ret) {
+			int cnt=0;
+			for(int i=0; i<(int)npts.size(); ++i) {
+				cnt+=(int)(status[i] && match_mask[i]
+				           && withinFrame(npts[i],nframe));
+			}
+			ret = (int)(cnt>drawTresh);
+		}
+		return ret;
 	}
 
 	inline void drawTrail(Mat& image) {
@@ -292,7 +300,7 @@ struct LKTracker {
 		std::copy(H.begin<double>(), H.end<double>(), Homo);
 		double R[9],T[3],P[12],Rf[9];
 		CameraHelper::RTfromKH(K,Homo,R,T);
-		double R0[9]={0,1,0,1,0,0,0,0,-1};
+		double R0[9]= {0,1,0,1,0,0,0,0,-1};
 		helper::mul(3,3,3,3,R,R0,Rf);
 		CameraHelper::compose(K,Rf,T,P,false);
 		double p[8][2];
@@ -313,43 +321,56 @@ struct LKTracker {
 		std::copy(H.begin<double>(), H.end<double>(), Homo);
 		double Rf[9];
 		CameraHelper::RTfromKH(K,Homo,Rf,T);
-		double R0[9]={0,1,0,1,0,0,0,0,-1};
+		double R0[9]= {0,1,0,1,0,0,0,0,-1};
 		helper::mul(3,3,3,3,Rf,R0,R[0]);
 		if(debug) {
 			cout<<"R=\n"<<helper::PrintMat<>(3,3,R[0])<<endl;
 			cout<<"T=\n"<<helper::PrintMat<>(1,3,T)<<endl;
-			cout<<"norm(T)="<<sqrt(T[0]*T[0]+T[1]*T[1]+T[2]*T[2])<<endl;
+			//cout<<"norm(T)="<<sqrt(T[0]*T[0]+T[1]*T[1]+T[2]*T[2])<<endl;
 		}
 	}
 
-	void CapKeyFrame(Mat& frame, double R[3][3], double T[3]) {
+	void CapKeyFrame(int id, Mat& frame, double R[3][3], double T[3],
+                     double rms=-1, double ncc=-1) {
 		KeyFrame newkf;
+		newkf.id = id;
 		newkf.frame = frame.clone();
 		for(int i=0; i<3; ++i) {
 			newkf.T[i] = T[i];
-			for(int j=0; j<3; ++j)
+			for(int j=0; j<3; ++j) {
 				newkf.R[i][j]=R[i][j];
+			}
 		}
+		newkf.rms = rms;
+		newkf.ncc = ncc;
 		keyframes.push_back(newkf);
 	}
 
 	bool SaveKeyFrames(string name) {
 		name = DirHelper::getFileDir(name);
 		string swtname = name + string("ar.swt");
+		string rmsnccname = name + string("rmsncc.txt");
 		std::ofstream swt(swtname.c_str());
 		swt << "scene.osg" << endl;
+		cerr<<"[SaveKeyFrames] "<<(int)keyframes.size()<<" frame(s) total!"<<endl;
+		std::ofstream rmsncc(rmsnccname.c_str());
+		rmsncc <<"#format: frame_id rms ncc"<<endl;
 		for(int i=0; i<(int)keyframes.size(); ++i) {
 			const KeyFrame& kf = keyframes[i];
+			if(kf.frame.empty()) {
+				continue;
+			}
 			string num;
-			helper::num2str(i,num);
+			helper::num2str(kf.id,num);
 			string prefix = name + string("frame") + num;
-			
+			string relativePrefix = string("frame") + num;
+
 			string parname = prefix + string(".par");
 			std::ofstream par(parname.c_str());
 			par << "n=0.1\nf=1000000\n" << endl;
 			par << "K(alphaX alphaY u0 v0)=\n"
-				<<K[0]<<"\n"<<K[4]<<"\n"
-				<<K[2]<<"\n"<<K[5]<< endl;
+			    <<K[0]<<"\n"<<K[4]<<"\n"
+			    <<K[2]<<"\n"<<K[5]<< endl;
 			par << "R=\n" << helper::PrintMat<>(3,3,kf.R[0]) << endl;
 			par << "T=\n" << helper::PrintMat<>(3,1,kf.T) << endl;
 			par.close();
@@ -359,9 +380,14 @@ struct LKTracker {
 			imwrite(imgname, kf.frame);
 			cout<<"[SaveKeyFrames] "<<imgname<<" saved."<<endl;
 
-			swt << imgname << endl;
-			swt << parname << endl;
+			string relativeParname = relativePrefix + string(".par");
+			string relativeImgname = relativePrefix + string(".jpg");
+			swt << relativeImgname << endl;
+			swt << relativeParname << endl;
+
+			rmsncc <<kf.id<<" "<<kf.rms<<" "<<kf.ncc<<endl;
 		}
+		cerr<<"[SaveKeyFrames] DONE!"<<endl;
 		return true;
 	}
-};//end of struct LKTracker
+};//end of struct KEGTracker

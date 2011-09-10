@@ -28,6 +28,10 @@
 
 #include "Tracker.hpp"
 
+//#ifdef _WIN32
+//#include "Windows.h"
+//#endif
+
 using namespace cv;
 using namespace std;
 
@@ -36,17 +40,19 @@ VideoCapture cap;
 Mat frame,gray,prevGray;
 int imgW, imgH;
 
+osgViewer::Viewer viewer;
 osg::ref_ptr<helper::ARVideoBackground> arvideo;
 osg::ref_ptr<helper::ARSceneRoot> arscene;
 osg::ref_ptr<osg::MatrixTransform> manipMat;
 
-LKTracker tracker;
+KEGTracker tracker;
 
 int BkgModifyCnt=0; //global signal for update osg
 bool OpenCVneedQuit=false;
 bool needToInit = false;
 bool needToCapframe = false;
 double videoFrameCnt = -1;
+double threshKeydistance = 200;
 
 double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0,0,0},lastT[3]={0};
 
@@ -54,38 +60,52 @@ int framecnt = 0;
 
 struct TrackThread : public OpenThreads::Thread {
 	OpenThreads::Mutex _mutex;
-	bool running;
 
-	TrackThread() {running=false;}
+	TrackThread() {}
 
 	virtual void run() {
-		running=true;
 		for(; videoFromWebcam || framecnt<videoFrameCnt; ++framecnt) {
 
 			_mutex.lock();
+
+			if(!videoFromWebcam) {
+				cout<<"[TrackThread] framecnt="<<framecnt<<endl;
+			}
 			helper::fps(true);
+
 			cap >> frame;
+			if(frame.empty()) {
+				cout<<"[TrackThread] no valid frame, exit!!!"<<endl;
+				OpenCVneedQuit = true;
+				_mutex.unlock();
+				break;
+			}
+
 			cvtColor(frame, gray, CV_BGR2GRAY);
+			double rms, ncc;
 			if( needToInit ) {
-				cout<<"[TrackThread] initing..."<<endl;
-				needToInit=!tracker.init(gray);
-				cout<<"[TrackThread] ...inited"<<endl;
+				cout<<"[TrackThread] INITing..."<<endl;
+				needToInit=!tracker.init(gray,rms,ncc);
+				cout<<"[TrackThread] ...INITed"<<endl;
 			} else if( !tracker.opts.empty() ) {
 				if(prevGray.empty()) {
 					gray.copyTo(prevGray);
 				}
-				needToInit=!tracker(prevGray, gray, frame);
+				needToInit=!tracker(prevGray, gray, frame, rms, ncc);
 				tracker.GetCameraPose(camR,camT);
 				double diff[3]={camT[0]-lastT[0],camT[1]-lastT[1],camT[2]-lastT[2]};
 				double dist = helper::normL2(3,1,diff);
-				if(dist>200 && needToCapframe) {
+				if(!needToInit && (!videoFromWebcam || //if from file, then save each frame
+					(dist>=threshKeydistance && needToCapframe)) ) {
 					//needToCapframe = false;
 					std::copy(camT,camT+3,lastT);
-					tracker.CapKeyFrame(frame, camR, camT);
+					tracker.CapKeyFrame(framecnt, frame, camR, camT, rms, ncc);
 				}
 			}
 			++BkgModifyCnt;
 			helper::fps(false);
+			if(tracker.debug)
+				cout<<"[TrackThread] frame end -------------------------"<<endl;
 
 			_mutex.unlock();
 			if(OpenCVneedQuit) {
@@ -97,19 +117,36 @@ struct TrackThread : public OpenThreads::Thread {
 
 		OpenThreads::Thread::YieldCurrentThread();
 		cout<<"[TrackThread] OpenCV quited..."<<endl;
-		running=false;
+		if(!videoFromWebcam) {
+			cerr<<"[TrackThread] OpenCV notify OSG to quit..."<<endl;
+			viewer.setDone(true);
+		}
+//		cerr<<"[TrackThread] testCancel="<<testCancel()<<endl;
 	}
 };
 
 struct QuitHandler : public osgGA::GUIEventHandler {
 	double sx,sy,sz;
 	QuitHandler() {sx=sy=sz=1;}
+
+	inline void switchARVideo() {
+		static bool showvideo=false;
+		showvideo=!showvideo;
+		arvideo->setNodeMask(showvideo);
+	}
+
+	inline void switchARScene() {
+		static bool showscene=true;
+		showscene=!showscene;
+		arscene->setNodeMask(showscene);
+	}
+
 	virtual bool handle(const osgGA::GUIEventAdapter &ea, 
 		osgGA::GUIActionAdapter &aa) {
 		if(ea.getEventType()==osgGA::GUIEventAdapter::KEYDOWN) {
 			if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Escape) {
 				OpenCVneedQuit=true;
-				cout<<"[QuitHandler] OSG notify OpenCV to quit..."<<endl;
+				cerr<<"[QuitHandler] OSG notify OpenCV to quit..."<<endl;
 			} else if(ea.getKey()==' ') {
 				needToInit=true;
 			} else if(ea.getKey()=='d') {
@@ -128,14 +165,20 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				else cout<<"[Capture Frame] End."<<endl;
 			} else if(ea.getKey()=='h') {
 				QuitHandler::usage();
+			} else if(ea.getKey()=='1') {
+				switchARVideo();
+			} else if(ea.getKey()=='2') {
+				switchARScene();
 			}
 		}
 		return false;
 	}
 
 	static void usage() {
-		cout<<
+		cerr<<
 		"Handler Usage\n"
+		"  \'1\': show background video ON/OFF\n"
+		"  \'2\': show scene object ON/OFF\n"
 		"  \' \': reset/redetect template\n"
 		"  \'d\': switch debug mode ON/OFF\n"
 		"  \'.\': increase scene scale\n"
@@ -231,7 +274,6 @@ int main( int argc, char **argv )
 	cout<<"[main] load template image from: "<<argv[3]<<endl;
 	tracker.loadTemplate(argv[3]);
 
-	osgViewer::Viewer viewer;
 	osg::ref_ptr<osg::Group> root = new osg::Group;
 
 	string scenefilename = (argc>4?argv[4]:("cow.osg"));
@@ -246,7 +288,7 @@ int main( int argc, char **argv )
 	osg::ref_ptr<osg::Image> backgroundImage = new osg::Image;
 	helper::cvmat2osgimage(frame,backgroundImage);
 	arvideo = new helper::ARVideoBackground(backgroundImage);
-	arvideo->setUpdateCallback(new ARUpdateCallback);
+	root->setUpdateCallback(new ARUpdateCallback);
 
 	root->addChild(arvideo);
 	root->addChild(arscene);
@@ -256,21 +298,30 @@ int main( int argc, char **argv )
 	viewer.addEventHandler(new osgViewer::WindowSizeHandler);
 	viewer.addEventHandler(new QuitHandler);
 
-	cout<<"[main] press any key to start..."<<endl;
+	cerr<<"[main] press any key to start..."<<endl;
 	getchar();
 
 	//start tracking thread
 	OpenThreads::Thread::Init();
-	TrackThread thr;
-	thr.start();
+	TrackThread* thr = new TrackThread;
+	thr->start();
 
 	viewer.run();
 
 	if(argc>5) {
-		cout<<"[main] saving keyframes to: "<<argv[5]<<endl;
+		cerr<<"[main] saving keyframes to: "<<argv[5]<<endl;
 		tracker.SaveKeyFrames(argv[5]);
 	}
 
-	cout<<"[main] press any key to quit!"<<endl;
-	return getchar();
+//	cerr<<"[main] cancel="<<thr->cancel()<<endl;
+//	cerr<<"[main] thr still running="<<thr->isRunning()<<endl;
+	delete thr;
+	cerr<<"[main] DONE...exit!"<<endl;
+	//sleep to wait all threads end
+//#ifdef _WIN32
+//	Sleep(3000);
+//#else
+//	sleep(3);
+//#endif
+	return 0;
 }
