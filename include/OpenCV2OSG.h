@@ -21,49 +21,51 @@
 #include "OpenCVHelper.h"
 #include "OSGHelper.h"
 
-namespace helper {
+namespace helper
+{
 
 using namespace cv;
 using namespace std;
 
-inline bool cvmat2osgimage(Mat& cvImg, osg::Image* osgImg, bool bflip=false)
+inline bool cvmat2osgimage(Mat &cvImg, osg::Image *osgImg, bool bflip=false)
 {
 	if(!osgImg) {
 		cout<<"[cvmat2osgimage] no valid osg::Image!"<<endl;
 		return false;
 	}
 	// Flip image from top-left to bottom-left origin
-	if(bflip) flip(cvImg,cvImg,0);
+	if(bflip) {
+		flip(cvImg,cvImg,0);
+	}
 	osgImg->setWriteHint(osg::Image::NO_PREFERENCE);
 
-	if(cvImg.channels() == 3)
-	{
+	if(cvImg.channels() == 3) {
 		// Convert from BGR to RGB color format
 		// cvtColor( cvImg, cvImg, CV_BGR2RGB );
 
 		osgImg->setImage(
-			cvImg.cols, //s
-			cvImg.rows, //t
-			3, //r
-			GL_LINE_STRIP, //GLint internalTextureformat, (, 0x0003)
-			GL_BGR, // GLenum pixelFormat, (GL_RGB, 0x1907)
-			GL_UNSIGNED_BYTE, // GLenum type, (GL_UNSIGNED_BYTE, 0x1401)
-			cvImg.data, // unsigned char* data
-			osg::Image::NO_DELETE // AllocationMode mode (shallow copy)
-			);//int packing=1); (???)
+		    cvImg.cols, //s
+		    cvImg.rows, //t
+		    3, //r
+		    GL_LINE_STRIP, //GLint internalTextureformat, (, 0x0003)
+		    GL_BGR, // GLenum pixelFormat, (GL_RGB, 0x1907)
+		    GL_UNSIGNED_BYTE, // GLenum type, (GL_UNSIGNED_BYTE, 0x1401)
+		    cvImg.data, // unsigned char* data
+		    osg::Image::NO_DELETE // AllocationMode mode (shallow copy)
+		);//int packing=1); (???)
 
 		return true;
 	} else if(cvImg.channels() == 1) {
 		osgImg->setImage(
-			cvImg.cols, //s
-			cvImg.rows, //t
-			1, //r
-			GL_LINE_STRIP, //GLint internalTextureformat, (GL_LINE_STRIP, 0x0003)
-			GL_LUMINANCE, // GLenum pixelFormat
-			GL_UNSIGNED_BYTE, // GLenum type
-			cvImg.data, // unsigned char* data
-			osg::Image::NO_DELETE // AllocationMode mode (shallow copy)
-			);//int packing=1); (???)
+		    cvImg.cols, //s
+		    cvImg.rows, //t
+		    1, //r
+		    GL_LINE_STRIP, //GLint internalTextureformat, (GL_LINE_STRIP, 0x0003)
+		    GL_LUMINANCE, // GLenum pixelFormat
+		    GL_UNSIGNED_BYTE, // GLenum type
+		    cvImg.data, // unsigned char* data
+		    osg::Image::NO_DELETE // AllocationMode mode (shallow copy)
+		);//int packing=1); (???)
 		return true;
 	}
 

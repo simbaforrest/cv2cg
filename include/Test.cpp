@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "OpenCVHelper.h"
+#include "Log.h"
 
 #include "ESMHelper.h"
 
@@ -50,7 +51,7 @@ struct Detractor {
 		H = Mat::eye(3, 3, CV_32FC1);
 	}
 
-	bool runOn(Mat& frame) {
+	bool runOn(Mat &frame) {
 		Mat gray;
 		cvtColor(frame, gray, CV_RGB2GRAY);
 		detector.detect(gray, query_kpts);
@@ -68,19 +69,21 @@ struct Detractor {
 		return true;
 	}
 
-	void randomInit(Mat& gray) {
+	void randomInit(Mat &gray) {
 		int id = rand() % (int)query_kpts.size();
 		int miter = 3,  mprec = 2;
 		int posx = query_kpts[id].pt.x, posy = query_kpts[id].pt.y;
 		int sizx = 100, sizy = 100;
-		if( posx<105 || posx>gray.cols-105 || posy<105 || posy>gray.rows-105) return;
+		if( posx<105 || posx>gray.cols-105 || posy<105 || posy>gray.rows-105) {
+			return;
+		}
 		cout<<gray.cols<<"x"<<gray.rows<<":"<<posx<<" "<<posy<<" "<<sizx<<" "<<sizy<<endl;
 		esm.init(gray,posx,posy,sizx,sizy,miter,mprec);
-		double H[]={1,0,0,0,1,0,0,0,1};
+		double H[]= {1,0,0,0,1,0,0,0,1};
 		esm.setH(H);
 	}
 
-	void drawPyramid(Mat& image) {
+	void drawPyramid(Mat &image) {
 		double crns[8][3] = {
 			{0, 0, 0},
 			{timg.cols, 0, 0},
@@ -96,7 +99,7 @@ struct Detractor {
 		std::copy(H.begin<double>(), H.end<double>(), Homo);
 		double R[9],T[3],P[12],Rf[9];
 		CameraHelper::RTfromKH(K,Homo,R,T);
-		double R0[9]={0,1,0,1,0,0,0,0,-1};
+		double R0[9]= {0,1,0,1,0,0,0,0,-1};
 		helper::mul(3,3,3,3,R,R0,Rf);
 		CameraHelper::compose(K,Rf,T,P,false);
 		double p[8][2];
@@ -112,7 +115,7 @@ struct Detractor {
 		}
 	}
 
-	void drawHomo(Mat& image) {
+	void drawHomo(Mat &image) {
 		//draw homo
 //		for(int k=0; k<(int)esm.kArr.size(); ++k) {
 //			ESMKernel& kernel = esm.kArr[k];
@@ -138,14 +141,14 @@ struct Detractor {
 //		}
 	}
 
-	void drawKey(Mat& image) {
+	void drawKey(Mat &image) {
 		for(int i=0; i<(int)query_kpts.size(); ++i) {
 			circle(image, query_kpts[i].pt, 2, CV_BLUE, -1);
 		}
 	}
 };
 
-int main(int ac, char ** av)
+int main(int ac, char **av)
 {
 	if (ac != 2) {
 		return 1;
@@ -168,18 +171,19 @@ int main(int ac, char ** av)
 	cout << "q or escape: quit" << endl;
 
 	Mat frame;
+	helper::PerformanceMeasurer PM;
 
 	Detractor detractor;
 	for (;;) {
-		helper::fps(true);
+		PM.tic();
 		capture >> frame;
 		if (frame.empty()) {
-			helper::fps(false);
+			clogI("[main] fps="<<(1.0f/PM.toc())<<endl);
 			continue;
 		}
 
 		detractor.runOn(frame);
-		helper::fps(false);
+		clogI("[main] fps="<<(1.0f/PM.toc())<<endl);
 
 		imshow("frame", frame);
 

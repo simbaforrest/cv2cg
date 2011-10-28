@@ -15,35 +15,9 @@
  *
  */
 
-/* PerformanceHelper.h
-   measure performance */
+/* apriltag.hpp
+	main header for apriltag
+*/
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "OpenCVHelper.h"
-
-namespace PerformanceHelper
-{
-using namespace cv;
-using namespace std;
-
-struct PerformanceMeasurer {
-	double startTick;
-	inline double tic() {
-		return startTick = (double)getTickCount();
-	}
-	//return duration from last tic, in second
-	inline double toc() {
-		return ((double)getTickCount()-startTick)/getTickFrequency();
-	}
-};
-
-}
+#include "TagDetection.hpp"
+#include "TagFamily.hpp"

@@ -34,7 +34,7 @@ using namespace cv;
 using namespace std;
 
 //!!! data still stored in m, and m will be changed to CV_32F if it is not
-inline void Mat2imageStruct(Mat& m, imageStruct& I)
+inline void Mat2imageStruct(Mat &m, imageStruct &I)
 {
 	if(m.type()!=CV_32FC1) {
 		if(m.channels()>1) {
@@ -52,7 +52,7 @@ inline void Mat2imageStruct(Mat& m, imageStruct& I)
 }
 
 //!!! data will be copied to m
-inline void imageStruct2Mat(imageStruct& I, Mat& m)
+inline void imageStruct2Mat(imageStruct &I, Mat &m)
 {
 	Mat mI(I.rows,I.cols,CV_32FC1,I.data);
 	mI.copyTo(m);
@@ -65,19 +65,23 @@ struct ESMKernel {
 	bool inited;
 	int px,py,sx,sy;
 
-	ESMKernel() {inited=false;}
+	ESMKernel() {
+		inited=false;
+	}
 	~ESMKernel() {
 		if(inited) {
 			FreeTrack(&T);
 		}
 	}
 
-	inline bool init(const Mat& refimg,
+	inline bool init(const Mat &refimg,
 	                 int posx, int posy,
 	                 int sizex, int sizey,
 	                 int maxIter=5, int maxPrec=2) {
-		px=posx; py=posy;
-		sx=sizex; sy=sizey;
+		px=posx;
+		py=posy;
+		sx=sizex;
+		sy=sizey;
 
 		if(inited) {
 			FreeTrack(&T);
@@ -92,7 +96,7 @@ struct ESMKernel {
 		return inited = true;
 	}
 
-	inline bool run(imageStruct& I) {
+	inline bool run(imageStruct &I) {
 		if(!inited) {
 			cout<<"[ESMKernel::run] please init the ESMKernel first!"<<endl;
 			return false;
@@ -106,25 +110,29 @@ struct ESMKernel {
 	}
 
 	inline void setH(double const H[9]) {
-		for(int i=0; i<9; i++)
+		for(int i=0; i<9; i++) {
 			T.homog[i] = H[i];
+		}
 	}
 
 	inline void getH(double H[9]) const {
-		for(int i=0; i<9; i++)
+		for(int i=0; i<9; i++) {
 			H[i] = T.homog[i];
+		}
 	}
 
 	template<typename Iterator>
 	void setH(Iterator itr) {
-		for(int i=0; i<9; ++i, ++itr)
+		for(int i=0; i<9; ++i, ++itr) {
 			T.homog[i] = (*itr);
+		}
 	}
 
 	template<typename Iterator>
 	void getH(Iterator itr) const {
-		for(int i=0; i<9; ++i, ++itr)
+		for(int i=0; i<9; ++i, ++itr) {
 			(*itr) = T.homog[i];
+		}
 	}
 };
 
@@ -141,7 +149,7 @@ struct ESMTracker {
 	// (posx,posy) The window position (upper left corner)
 	// The image coordinates start from (0,0)
 	// The window size sizex,sizey
-	inline bool init(const Mat& refimg,
+	inline bool init(const Mat &refimg,
 	                 int posx, int posy,
 	                 int sizex, int sizey,
 	                 int maxIter=5, int maxPrec=2) {
@@ -153,7 +161,7 @@ struct ESMTracker {
 		return true;
 	}
 
-	inline bool run(Mat& curimg, bool keepCurrent=true) {
+	inline bool run(Mat &curimg, bool keepCurrent=true) {
 		imageStruct I;
 		if(keepCurrent) {
 			curimg.copyTo(CurImg);
@@ -187,12 +195,12 @@ struct ESMMultipleTracker {
 	vector<ESMKernel> kArr;
 	Mat CurImg; //internally hold the image being tracked
 
-	inline bool init(const Mat& refimg,
+	inline bool init(const Mat &refimg,
 	                 int posx, int posy,
 	                 int sizex, int sizey,
 	                 int maxIter=5, int maxPrec=2) {
 		kArr.push_back(ESMKernel());
-		ESMKernel& kernel = kArr[kArr.size()-1];
+		ESMKernel &kernel = kArr[kArr.size()-1];
 		if (!kernel.init(refimg,posx,posy,sizex,sizey,maxIter,maxPrec)) {
 			cout<<"[ESMMultipleTracker] new("<<kArr.size()-1<<") kernel failed to inited."<<endl;
 			kArr.resize(kArr.size()-1);
@@ -202,7 +210,7 @@ struct ESMMultipleTracker {
 		return true;
 	}
 
-	inline bool run(Mat& curimg, bool keepCurrent=true) {
+	inline bool run(Mat &curimg, bool keepCurrent=true) {
 		imageStruct I;
 		if(keepCurrent) {
 			curimg.copyTo(CurImg);
@@ -213,20 +221,23 @@ struct ESMMultipleTracker {
 
 		int cnt=(int)kArr.size();
 		int oi=0;
-		for(int i=0; i<cnt;++oi) {
-			ESMKernel& kernel = kArr[i];
+		for(int i=0; i<cnt; ++oi) {
+			ESMKernel &kernel = kArr[i];
 			if(!kernel.run(I)) {
 				swap(kArr[i],kArr[cnt-1]);
 				--cnt;
 				cout<<"[ESMMultipleTracker] kernel("
-					<<oi<<") lost track, deleted."<<endl;
+				    <<oi<<") lost track, deleted."<<endl;
 			} else {
 				++i;
 			}
 		}
 		bool ret = cnt==(int)kArr.size();
-		if(cnt==0) kArr.clear();
-		else kArr.resize(cnt);
+		if(cnt==0) {
+			kArr.clear();
+		} else {
+			kArr.resize(cnt);
+		}
 		return ret;
 	}
 };

@@ -30,7 +30,6 @@
 //opencv include
 #include "opencv2/opencv.hpp"
 
-#include "Log.h" // please include "Log.hxx" in and only in your main.cpp
 #include "CvMatHelper.h"
 #include "CameraHelper.h"
 #include "ImageHelper.h"
@@ -40,6 +39,7 @@
 #include "RotationHelper.h"
 #include "FilterHelper.h"
 #include "PerformanceHelper.h"
+#include "DetectorHelper.h"
 
 namespace helper
 {
@@ -52,4 +52,5 @@ using namespace UtilHelper;
 using namespace RotationHelper;
 using namespace FilterHelper;
 using namespace PerformanceHelper;
+using namespace DetectorHelper;
 }

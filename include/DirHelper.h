@@ -98,4 +98,20 @@ inline std::string getFileExtensionWithDot(const std::string &fileName)
 	return std::string(fileName.begin()+dot,fileName.end());
 }
 
+//make sure dir ends with '/' or '\\', if not, modify it. e.g.:
+//string dir = "./data";
+//legalDir(dir) returns "./data/"
+inline std::string &legalDir(std::string &dir)
+{
+#ifdef _WIN32
+	char sep = '\\';
+#else
+	char sep = '/';
+#endif
+	if(*dir.rbegin()!=sep) {
+		dir.push_back(sep);    //ensure last char==sep
+	}
+	return dir;
+}
+
 }//DirHelper
