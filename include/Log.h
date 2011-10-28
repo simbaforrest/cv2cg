@@ -1,6 +1,6 @@
 #pragma once
 /*
- *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
+ *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
  *    and the University of Michigan
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -15,34 +15,40 @@
  *
  */
 
-/* Log.h */
+/* Log.h
+	after include this, reset the following variable for log control:
+	Log::level = LOG_DEBUG; //log everything
+*/
 
 #include <stdio.h>
 
+enum LogLevel { LOG_QUIET, LOG_ERROR, LOG_INFO, LOG_DEBUG };
+
 namespace Log
 {
-//switch them
-extern bool debug, info, error, warn;
-extern FILE *logfile;
-
-inline static bool tag(const char *tag, const char *level, bool control)
-{
-	if(control && logfile) {
-		fprintf(logfile, "[%s %s] ", tag, level);
-	}
-	return true;
+LogLevel level = LOG_DEBUG;
 }
-}//Log
 
-#define LogD(...) if(Log::debug) fprintf(Log::logfile,__VA_ARGS__)
-#define LogI(...) if(Log::info) fprintf(Log::logfile,__VA_ARGS__)
-#define LogE(...) if(Log::error) fprintf(Log::logfile,__VA_ARGS__)
-#define LogW(...) if(Log::warn) fprintf(Log::logfile,__VA_ARGS__)
-#define TagD(...) Log::tag(__FUNCTION__, "debug", Log::debug),\
-	Log::debug?fprintf(Log::logfile,__VA_ARGS__):0
-#define TagI(...) Log::tag(__FUNCTION__, "info", Log::info),\
-    Log::info?fprintf(Log::logfile,__VA_ARGS__):0
-#define TagE(...) Log::tag(__FUNCTION__, "error", Log::error),\
-	Log::error?fprintf(Log::logfile,__VA_ARGS__):0
-#define TagW(...) Log::tag(__FUNCTION__, "warn", Log::warn),\
-	Log::warn?fprintf(Log::logfile,__VA_ARGS__):0
+// c++ style log, output to cerr
+// e.g.
+// loglne("[error] in function xxx!");
+#define loglne(A) ((Log::level >= LOG_ERROR)?(std::cerr<<A<<std::endl,0):(0))
+#define loglni(A) ((Log::level >= LOG_INFO)?(std::cerr<<A<<std::endl,0):(0))
+#define loglnd(A) ((Log::level >= LOG_DEBUG)?(std::cerr<<A<<std::endl,0):(0))
+
+#define loge(A) ((Log::level >= LOG_ERROR)?(std::cerr<<A,0):(0))
+#define logi(A) ((Log::level >= LOG_INFO)?(std::cerr<<A,0):(0))
+#define logd(A) ((Log::level >= LOG_DEBUG)?(std::cerr<<A,0):(0))
+
+// c style log
+#define LOG_FILE stderr
+
+#define LogD(A) (Log::level >= LOG_DEBUG ? fprintf(LOG_FILE,A) : 0)
+#define TagD(A) (Log::level >= LOG_DEBUG ? fprintf(LOG_FILE, "[__FUNCTION__ debug]"),fprintf(LOG_FILE,A) : 0)
+
+#define LogI(A) (Log::level >= LOG_INFO ? fprintf(LOG_FILE,A) : 0)
+#define TagI(A) (Log::level >= LOG_INFO ? fprintf(LOG_FILE, "[__FUNCTION__ info]"),fprintf(LOG_FILE,A) : 0)
+
+#define LogE(A) (Log::level >= LOG_ERROR ? fprintf(LOG_FILE,A) : 0)
+#define TagE(A) (Log::level >= LOG_ERROR ? fprintf(LOG_FILE, "[__FUNCTION__ error]"),fprintf(LOG_FILE,A) : 0)
+

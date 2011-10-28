@@ -27,8 +27,6 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "Log.h" // please include "Log.hxx" in and only in your main.cpp
-
 namespace IOHelper
 {
 #define IDX(m,n,N) ((m)*(N)+(n)) //N cols
@@ -70,7 +68,8 @@ inline bool readValidLine(std::istream &in,
 //K[3] K[4] K[5]
 //K[6] K[7] K[8]
 template<typename Precision>
-bool readCalibFile(std::istream &in, Precision K[9]) {
+bool readCalibFile(std::istream &in, Precision K[9])
+{
 	for(int i=0; i<9; ++i) {
 		double val;
 		in >> val;
@@ -108,7 +107,7 @@ bool ReadFile(int m, int n, Precision const *matrix, const char *fname)
 	int i;
 
 	if (f == NULL) {
-		TagE("In reading matrix %s\n", fname);
+		printf("[ReadFile error] In reading matrix %s\n", fname);
 		return false;
 	}
 
@@ -129,7 +128,7 @@ bool WriteFile(int m, int n, Precision const *matrix, const char *fname)
 	int i, j, idx;
 
 	if (f == NULL) {
-		TagE("In writing matrix to %s\n", fname);
+		printf("[WriteFile error] In writing matrix to %s\n", fname);
 		return false;
 	}
 

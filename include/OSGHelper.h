@@ -41,7 +41,7 @@
 namespace OSGHelper
 {
 
-inline osg::Geode* createGeodeFromImage(osg::Image* image, bool flip=false)
+inline osg::Geode *createGeodeFromImage(osg::Image *image, bool flip=false)
 {
 	if (image) {
 		float s = image->s();
@@ -54,42 +54,42 @@ inline osg::Geode* createGeodeFromImage(osg::Image* image, bool flip=false)
 			float texcoord_y_t = flip ? 1.0f : 0.0f;
 
 			// set up the texture.
-			osg::Texture2D* texture = new osg::Texture2D;
+			osg::Texture2D *texture = new osg::Texture2D;
 			texture->setResizeNonPowerOfTwoHint(false);
 			texture->setImage(image);
 
 			// set up the geoset.
-			osg::Geometry* geom = new osg::Geometry;
-			osg::StateSet* dstate = geom->getOrCreateStateSet();
+			osg::Geometry *geom = new osg::Geometry;
+			osg::StateSet *dstate = geom->getOrCreateStateSet();
 			dstate->setMode(GL_CULL_FACE,osg::StateAttribute::OFF);
 			dstate->setMode(GL_LIGHTING,osg::StateAttribute::OFF);
-			dstate->setTextureAttributeAndModes(0, 
-				texture,osg::StateAttribute::ON);
+			dstate->setTextureAttributeAndModes(0,
+			                                    texture,osg::StateAttribute::ON);
 
-			osg::Vec3Array* coords = new osg::Vec3Array(4);
+			osg::Vec3Array *coords = new osg::Vec3Array(4);
 			(*coords)[0].set(0,y,0);
 			(*coords)[1].set(0,0,0);
 			(*coords)[2].set(x,0,0);
 			(*coords)[3].set(x,y,0);
 			geom->setVertexArray(coords);
 
-			osg::Vec2Array* tcoords = new osg::Vec2Array(4);
+			osg::Vec2Array *tcoords = new osg::Vec2Array(4);
 			(*tcoords)[0].set(0.0f,texcoord_y_t);
 			(*tcoords)[1].set(0.0f,texcoord_y_b);
 			(*tcoords)[2].set(1.0f,texcoord_y_b);
 			(*tcoords)[3].set(1.0f,texcoord_y_t);
 			geom->setTexCoordArray(0,tcoords);
 
-			osg::Vec4Array* colours = new osg::Vec4Array(1);
+			osg::Vec4Array *colours = new osg::Vec4Array(1);
 			(*colours)[0].set(1.0f,1.0f,1.0,1.0f);
 			geom->setColorArray(colours);
 			geom->setColorBinding(osg::Geometry::BIND_OVERALL);
 
 			geom->addPrimitiveSet(new osg::DrawArrays(
-				osg::PrimitiveSet::QUADS,0,4));
+			                          osg::PrimitiveSet::QUADS,0,4));
 
 			// set up the geode.
-			osg::Geode* geode = new osg::Geode;
+			osg::Geode *geode = new osg::Geode;
 			geode->addDrawable(geom);
 
 			return geode;
@@ -104,7 +104,7 @@ struct ARVideoBackground : public osg::Camera {
 	osg::ref_ptr<osg::Image> frame;
 	int width,height; //image width and height
 
-	ARVideoBackground(osg::Image* img, bool flip=false) {
+	ARVideoBackground(osg::Image *img, bool flip=false) {
 		frame = img;
 		width = img?img->s():1;
 		height = img?img->t():1;
@@ -124,7 +124,7 @@ struct ARVideoBackground : public osg::Camera {
 		setAllowEventFocus(false);
 
 		//add geometry
-		osg::Geode* geode = createGeodeFromImage(img,flip);
+		osg::Geode *geode = createGeodeFromImage(img,flip);
 		if(geode) {
 			addChild(geode);
 		} else {
@@ -145,6 +145,7 @@ struct ARSceneRoot : public osg::Camera {
 
 }
 
-namespace helper {
+namespace helper
+{
 using namespace OSGHelper;
 }

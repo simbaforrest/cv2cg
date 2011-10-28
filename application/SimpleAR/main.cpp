@@ -127,7 +127,8 @@ struct TrackThread : public OpenThreads::Thread {
 
 struct QuitHandler : public osgGA::GUIEventHandler {
 	double sx,sy,sz;
-	QuitHandler() {sx=sy=sz=1;}
+	double mx,my,mz;
+	QuitHandler() {sx=sy=sz=1;mx=my=mz=0;}
 
 	inline void switchARVideo() {
 		static bool showvideo=false;
@@ -155,10 +156,10 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				else cout<<"[Debug Mode] OFF."<<endl;
 			} else if(ea.getKey()=='.') { //>
 				sx+=0.4;sy+=0.4;sz+=0.4;
-				manipMat->setMatrix(osg::Matrix::scale(sx,sy,sz));
+				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
 			} else if(ea.getKey()==',') { //<
 				sx-=0.2;sy-=0.2;sz-=0.2;
-				manipMat->setMatrix(osg::Matrix::scale(sx,sy,sz));
+				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
 			} else if(ea.getKey()=='c') {
 				needToCapframe = !needToCapframe;
 				if(needToCapframe) cout<<"[Capture Frame] Begin."<<endl;
@@ -169,6 +170,24 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				switchARVideo();
 			} else if(ea.getKey()=='2') {
 				switchARScene();
+			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_KP_Up) {
+				my+=10;
+				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
+			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_KP_Down) {
+				my-=5;
+				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
+			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_KP_Left) {
+				mx-=5;
+				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
+			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_KP_Right) {
+				mx+=10;
+				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
+			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Page_Up) {
+				mz+=10;
+				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
+			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Page_Down) {
+				mz-=5;
+				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
 			}
 		}
 		return false;
@@ -283,6 +302,7 @@ int main( int argc, char **argv )
 	CV2CG::cv2cg(matK,0.01,500,imgW,imgH,*arscene);
 	manipMat = new osg::MatrixTransform(osg::Matrix::identity());
 	manipMat->addChild(cow);
+	manipMat->getOrCreateStateSet()->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 	arscene->addChild(manipMat);
 
 	osg::ref_ptr<osg::Image> backgroundImage = new osg::Image;

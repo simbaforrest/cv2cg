@@ -146,7 +146,10 @@ inline void RTfromKH(const double K[9], double H[9],
 	double A[9];
 	CvMatHelper::inv(3,K,invK);
 	CvMatHelper::mul(3,3,3,3,invK,H,A);
-	double s = 1.0/sqrt(A[0]*A[0]+A[3]*A[3]+A[6]*A[6]);
+	//as suggested by AprilTag, use geometric average to scale
+	double s1 = sqrt(A[0]*A[0]+A[3]*A[3]+A[6]*A[6]);
+	double s2 = sqrt(A[1]*A[1]+A[4]*A[4]+A[7]*A[7]);
+	double s = 1.0/sqrt(s1*s2);
 	CvMatHelper::scale(3,3,A,s,A);
 	double r1[3]= {A[0],A[3],A[6]};
 	double r2[3]= {A[1],A[4],A[7]};
@@ -156,6 +159,12 @@ inline void RTfromKH(const double K[9], double H[9],
 	R[3]=r1[1], R[4]=r2[1], R[5]=r3[1];
 	R[6]=r1[2], R[7]=r2[2], R[8]=r3[2];
 	T[0]=A[2],  T[1]=A[5],  T[2]=A[8]; //translation
+
+	//as suggested by AprilTag, do polar decomposition so R is orthogonal
+	//R = (UV')(VSV')
+	double U[9],S[9],VT[9];
+	CvMatHelper::svd(3,3,R,U,S,VT);
+	CvMatHelper::mul(3,3,3,3,U,VT,R);
 }
 
 }//CameraHelper
