@@ -30,8 +30,25 @@
 #include <time.h>
 #include <bitset>
 
+#include "OpenCVHelper.h"
+
 namespace UtilHelper
 {
+
+//rgb image -> float gray image range in [0,1], use green channel
+inline void green2float(const cv::Mat &rgb, cv::Mat &fim)
+{
+	fim.create(rgb.size(), CV_32FC1);
+	float scale = 1.0f/255.0f;
+	for(int i=0; i<rgb.rows; ++i) {
+		for(int j=0; j<rgb.cols; ++j) {
+			fim.at<float>(i,j) = (float) rgb.at<cv::Vec3b>(i,j)[1]*scale;
+//			const cv::Vec3b& pix = rgb.at<cv::Vec3b>(i,j);
+//			fim.at<float>(i,j) = ( ((int)77*pix[2]+151*pix[1]+28*pix[0])>>8 ) * scale;
+		}
+	}
+}
+
 template<typename TYPE>
 void num2str(TYPE num, std::string &str)
 {
@@ -75,19 +92,46 @@ std::string num2bits(T val)
 	return std::string(rret.rbegin(), rret.rend());
 }
 
-//ensure val lies within (-PI,PI]
-template<typename T>
-T mod2pi(T val) {
 #define CV_2_PI (CV_PI*2)
-	int n = std::max((int)ceil(-0.5-val/CV_2_PI),(int)floor(0.5-val/CV_2_PI));
-	return val+n*CV_2_PI;
+//ensure val lies within (-PI,PI]
+inline double mod2pi_pos(double vin)
+{
+	double q = vin * 0.5/CV_PI + 0.5;
+	int qi = (int) q;
+	return vin - qi*CV_2_PI;
 }
 
-inline double deg2rad(double deg) {
+inline double mod2pi(double vin)
+{
+	double v;
+
+	if (vin < 0) {
+		v = -mod2pi_pos(-vin);
+	} else {
+		v = mod2pi_pos(vin);
+	}
+
+	return v;
+}
+//T mod2pi(T val)
+//{
+//	int n = std::max((int)ceil(-0.5-val/CV_2_PI),(int)floor(0.5-val/CV_2_PI));
+//	return val+n*CV_2_PI;
+//}
+
+//Returns a value of v wrapped such that ref and v differ by no more +/-PI
+double mod2pi(double ref, double v)
+{
+	return ref + mod2pi(v-ref);
+}
+
+inline double deg2rad(double deg)
+{
 	return deg*CV_PI/180;
 }
 
-inline double rad2deg(double rad) {
+inline double rad2deg(double rad)
+{
 	return rad*180/CV_PI;
 }
 

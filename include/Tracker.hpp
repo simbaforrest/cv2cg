@@ -154,8 +154,10 @@ struct LKTracker {
 				           && withinFrame(npts[i],nframe));
 			}
 			ret = (int)(cnt>drawTresh);
-			
-			if(debug) draw(image);
+
+			if(debug) {
+				draw(image);
+			}
 		}
 
 		std::swap(npts, opts);
@@ -192,7 +194,7 @@ struct LKTracker {
 		vector<Point2f> tmp(4);
 		Mat tmpmat(tmp);
 		perspectiveTransform(Mat(cpts), tmpmat, H);
-		double tmpdir[3][2]={
+		double tmpdir[3][2]= {
 			{tmp[1].x-tmp[0].x, tmp[1].y-tmp[0].y},
 			{tmp[2].x-tmp[0].x, tmp[2].y-tmp[0].y},
 			{tmp[3].x-tmp[0].x, tmp[3].y-tmp[0].y}
@@ -249,7 +251,7 @@ struct LKTracker {
 		std::copy(H.begin<double>(), H.end<double>(), Homo);
 		double R[9],T[3],P[12],Rf[9];
 		CameraHelper::RTfromKH(K,Homo,R,T);
-		double R0[9]={0,1,0,1,0,0,0,0,-1};
+		double R0[9]= {0,1,0,1,0,0,0,0,-1};
 		helper::mul(3,3,3,3,R,R0,Rf);
 		CameraHelper::compose(K,Rf,T,P,false);
 		double p[8][2];
@@ -270,7 +272,7 @@ struct LKTracker {
 		std::copy(H.begin<double>(), H.end<double>(), Homo);
 		double P[12],Rf[9];
 		CameraHelper::RTfromKH(K,Homo,Rf,T);
-		double R0[9]={0,1,0,1,0,0,0,0,-1};
+		double R0[9]= {0,1,0,1,0,0,0,0,-1};
 		helper::mul(3,3,3,3,Rf,R0,R[0]);
 		if(debug) {
 			cout<<"R=\n"<<helper::PrintMat<>(3,3,R[0])<<endl;

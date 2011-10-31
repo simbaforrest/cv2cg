@@ -40,6 +40,7 @@
 #include "FilterHelper.h"
 #include "PerformanceHelper.h"
 #include "DetectorHelper.h"
+#include "ClusterHelper.h"
 
 namespace helper
 {
@@ -53,4 +54,5 @@ using namespace RotationHelper;
 using namespace FilterHelper;
 using namespace PerformanceHelper;
 using namespace DetectorHelper;
+using namespace ClusterHelper;
 }
