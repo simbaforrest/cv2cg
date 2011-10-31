@@ -19,5 +19,7 @@
 	main header for apriltag
 */
 
+#include "TagTypes.hpp"
 #include "TagDetection.hpp"
 #include "TagFamily.hpp"
+#include "TagDetector.hpp"

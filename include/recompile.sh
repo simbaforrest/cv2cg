@@ -15,7 +15,7 @@ OTHER_LIBS="ESMlib.a -lm"
 #g++ -E test.i ${SOURCE} ${INCLUDE_DIR} ${LIB_DIR} ${OPENCV_LIBS} ${OSG_LIBS} ${OTHER_LIBS} >>test.i
 
 ##debug
-g++ -g -o test ${SOURCE} ${INCLUDE_DIR} ${LIB_DIR} ${OPENCV_LIBS} ${OSG_LIBS} ${OTHER_LIBS}
+#g++ -g -o test ${SOURCE} ${INCLUDE_DIR} ${LIB_DIR} ${OPENCV_LIBS} ${OSG_LIBS} ${OTHER_LIBS}
 
 ##release
-#g++ -O3 -funroll-loops -o test ${SOURCE} ${INCLUDE_DIR} ${LIB_DIR} ${OPENCV_LIBS} ${OSG_LIBS} ${OTHER_LIBS}
+g++ -O3 -funroll-loops -o test ${SOURCE} ${INCLUDE_DIR} ${LIB_DIR} ${OPENCV_LIBS} ${OSG_LIBS} ${OTHER_LIBS}

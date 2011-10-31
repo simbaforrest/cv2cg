@@ -1,0 +1,6 @@
+Questions:
+
+step 3:
+build graph: why use 4-connectivity as [x+1,y], [x,y+1], [x+1,y+1], [x-1,y+1] ? rather than the [x+1,y], [x,y+1], [x-1,y], [x,y-1]?
+
+Answer: this is 8 connectivity, think about it.

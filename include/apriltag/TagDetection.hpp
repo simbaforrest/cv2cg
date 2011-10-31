@@ -66,6 +66,13 @@ struct TagDetection {
 	 **/
 	double hxy[2];
 
+	TagDetection() {
+		helper::zeros(4,2,p[0]);
+		cxy[0]=cxy[1]=0;
+		helper::zeros(3,3,homography[0]);
+		hxy[0]=hxy[1]=0;
+	}
+
 	/** interpolate point given (x,y) is in tag coordinate space from (-1,-1) to (1,1) **/
 	inline void interpolate(double x, double y, double ret[2]) {
 		double z = homography[2][0]*x + homography[2][1]*y + homography[2][2];

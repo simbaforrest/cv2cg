@@ -36,13 +36,27 @@ using namespace cv;
 using namespace std;
 
 struct PerformanceMeasurer {
+	int scale;
 	double startTick;
+
+	PerformanceMeasurer() {
+		scale = 1;
+		startTick=0;
+	}
+
 	inline double tic() {
 		return startTick = (double)getTickCount();
 	}
-	//return duration from last tic, in second
+	//return duration from last tic, in (second * scale)
 	inline double toc() {
-		return ((double)getTickCount()-startTick)/getTickFrequency();
+		return ((double)getTickCount()-startTick)/getTickFrequency() * scale;
+	}
+
+	//equivalent to { toc(); tic(); }
+	inline double toctic() {
+		double ret = ((double)getTickCount()-startTick)/getTickFrequency() * scale;
+		tic();
+		return ret;
 	}
 };
 

@@ -22,8 +22,10 @@
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+#include <iterator>
 #include <string>
 #include <vector>
+#include <set>
 #include <stdio.h>
 #include <time.h>
 
@@ -170,5 +172,17 @@ struct PrintMat {
 		return o;
 	}
 };
+
+template<typename T>
+void print(std::ostream &o, const std::vector<T> &array, const char *sep)
+{
+	std::copy(array.begin(), array.end(), std::ostream_iterator<T>(o, sep));
+}
+
+template<typename T>
+void print(std::ostream &o, const std::set<T> &s, const char *sep)
+{
+	std::copy(s.begin(), s.end(), std::ostream_iterator<T>(o, sep));
+}
 
 }//end of IOHelper
