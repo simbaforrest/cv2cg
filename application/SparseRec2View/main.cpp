@@ -24,14 +24,16 @@
 #include <string>
 #include <vector>
 
-#include "Log.hxx" // for log control
 #include "Log.h"
 #include "SparseRec2View.h"
 
 using namespace std;
 
+Log::Level Log::level = Log::INFO;
+
 int main(int argc, char** argv)
 {
+	
 	if(argc<4) {
 		LogI("Usage:\n\tSparseRec2View <name of config file>"
 			" <name of image file 1> <name of image file 2>\n");
@@ -39,8 +41,6 @@ int main(int argc, char** argv)
 		LogI("Example:\n\tSparseRec2View cam.txt left.jpg righ.jpg\n");
 		return -1;
 	}
-
-	Log::debug = false;
 
 	double K[9]={0}, lamda=1;
 	std::ifstream in(argv[1]);

@@ -24,15 +24,15 @@
 #include <string>
 #include <vector>
 
-#include "Log.hxx" // for log control
 #include "Log.h"
 #include "MultiViewSparseRec.h"
 
 using namespace std;
 
+Log::Level Log::level = Log::INFO;
+
 int main(int argc, char** argv)
 {
-	Log::debug = true;
 	if(argc<2) {
 		std::cout<<
 			"Usage: MultiViewSparseRec <input file>\n"

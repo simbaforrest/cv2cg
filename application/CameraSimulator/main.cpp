@@ -17,16 +17,13 @@
 /* main.cpp */
 
 #include <iostream>
+#include "Log.h"
 #include "CameraSimulator.h"
 
-#include "Log.hxx"
-#include "Log.h"
+Log::Level Log::level = Log::INFO;
 
 int main( int argc, char **argv )
 {
-#ifdef USE_IN_CHINA
-	setlocale(LC_ALL,"chs");
-#endif
 	if(argc<=1) {
 		LogI("Usage: \n\tCameraSimulator <InputFileName>"
 			" [<OutPutFileName>(Without extention!)]\n");

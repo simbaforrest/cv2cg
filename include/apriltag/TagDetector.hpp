@@ -106,11 +106,11 @@ struct TagDetector {
 	/** Early pruning of quads which have insane aspect ratios. **/
 	double maxQuadAspectRatio;
 
+#if TAG_DEBUG_DRAW
 	/** Produce debugging output. If the debugging code annoys you (or
 	 * makes porting harder) you can delete all of the code in an
 	 * if(debug) block.
 	 **/
-#if TAG_DEBUG_DRAW
 	Mat debugSegmentation;  // segmented image
 	Mat debugTheta, debugMag;
 #endif
@@ -302,7 +302,6 @@ struct TagDetector {
 				fimTheta.at<float>(y,x) = fast_atan2(Iy, Ix);
 			}
 		}
-
 #if TAG_DEBUG_PERFORMANCE
 		loglnd("[process] step 2 takes "<<PM.toctic()<<" ms.");
 #endif
@@ -387,7 +386,6 @@ struct TagDetector {
 					// hasn't been disabled.)
 				}
 			}
-
 #if TAG_DEBUG_PERFORMANCE
 			loglnd("\t[process] step 3.1-BuildGraph takes "<<PM.toctic()<<" ms.");
 #endif
@@ -460,7 +458,6 @@ struct TagDetector {
 #if TAG_DEBUG_DRAW
 		debugSegmentation = Mat::zeros(fimseg.size(), CV_8UC3);
 #endif
-
 		typedef cv::Vec3d Pixel;
 		typedef vector<Pixel> PixelList;
 		typedef map<int, PixelList> PixelCluster;
@@ -479,7 +476,6 @@ struct TagDetector {
 				pix[1]=(char)(rep&0x00FF00)>>8;
 				pix[0]=(char)rep&0x0000FF;
 #endif
-
 				PixelCluster::iterator itr = clusters.find(rep);
 				if (itr == clusters.end()) {
 					std::pair<PixelCluster::iterator,bool> tmp =

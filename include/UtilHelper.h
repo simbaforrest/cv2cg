@@ -115,14 +115,14 @@ std::string num2bits(T val)
 //}
 
 #define INV_2_PI (0.5/CV_PI)
-double mod2pi(double val)
+inline double mod2pi(double val)
 {
 	int n = (int)floor(0.5-val*INV_2_PI);
 	return val+n*CV_2_PI;
 }
 
 //Returns a value of v wrapped such that ref and v differ by no more +/-PI
-double mod2pi(double ref, double v)
+inline double mod2pi(double ref, double v)
 {
 	return ref + mod2pi(v-ref);
 }

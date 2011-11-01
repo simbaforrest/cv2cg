@@ -47,8 +47,8 @@ using std::list;
 template<typename T>
 struct Gridder {
 	typedef T* Tptr;
-	typedef list<Tptr> Cell;
-	typedef typename list<Tptr>::iterator CellIterator;
+	typedef vector<Tptr> Cell;
+	typedef int CellIterator;
 
 	vector<vector<Cell> > cells;
 	double x0, y0, x1, y1;
@@ -81,21 +81,11 @@ struct Gridder {
 		}
 	}
 
-	inline void remove(double x, double y, Tptr o) {
-		int ix = (int) ((x - x0)/metersPerCell);
-		int iy = (int) ((y - y0)/metersPerCell);
-
-		if (ix >=0 && iy >=0 && ix < width && iy < height) {
-			cells[iy][ix].remove(o);
-		}
-	}
-
 	struct Iterator {
 		int ix0, ix1, iy0, iy1;
 
 		int ix, iy;
 		Gridder *g;
-		Cell *c;
 		CellIterator citr;
 
 		Iterator(int ix0=0, int ix1=0, int iy0=0, int iy1=0, Gridder *g=0) {
@@ -106,11 +96,10 @@ struct Gridder {
 			this->g = g;
 			ix = ix0;
 			iy = iy0;
-			c = 0;
 			if(g) {
-				c = &(g->cells[iy][ix]);
-				citr = c->begin();
-				if (c->empty()) next(); //first cell empty, so move to next non-empty cell
+				Cell& c = g->cells[iy][ix];
+				citr = 0;
+				if (c.empty()) next(); //first cell empty, so move to next non-empty cell
 			}
 		}
 
@@ -119,7 +108,7 @@ struct Gridder {
 		}
 
 		inline Tptr get() {
-			return done() ? 0 : (*citr);
+			return g ? g->cells[iy][ix][citr] : 0;
 		}
 
 		//after next() finished, either citr moved to next valid position,
@@ -128,30 +117,30 @@ struct Gridder {
 			if(!g) {
 				return;
 			}
+			const Cell& c = g->cells[iy][ix];
 
-			if(citr != c->end()) {//current cell not finished yet, move on list
-				++citr;
+			++citr;
+			if(citr < (int)c.size()) {//current cell not finished yet, ok to move on list
 				return;
 			}
 			//current cell finished, find next non-empty cell
-			ix++;
-			while (true) {
+			do {
+				++ix;
 				if (ix > ix1) {
 					iy++;
 					ix = ix0;
 				}
-				if (iy > iy1) {
-					g = 0; //no more valid position
+				if (iy > iy1) { //no more valid position
+					g = 0;
 					return;
 				}
 
-				c = &(g->cells[iy][ix]);
-				if (!c->empty()) {
-					citr = c->begin();
+				const Cell& nc = g->cells[iy][ix];
+				if (!nc.empty()) {
+					citr = 0;
 					return;
 				}
-				ix++;
-			}
+			} while(true);
 		}
 	};
 

@@ -16,39 +16,39 @@
  */
 
 /* Log.h
-	after include this, reset the following variable for log control:
-	Log::level = LOG_DEBUG; //log everything
+	after include this, define the global extern variable for log control:
+	Log::Level Log::level = Log::DEBUG; //log everything
 */
 
 #include <stdio.h>
 
-enum LogLevel { LOG_QUIET, LOG_ERROR, LOG_INFO, LOG_DEBUG };
-
 namespace Log
 {
-LogLevel level = LOG_DEBUG;
+enum Level { QUIET, ERROR, INFO, DEBUG };
+
+extern Level level;// = DEBUG;
 }
 
 // c++ style log, output to cerr
 // e.g.
 // loglne("[error] in function xxx!");
-#define loglne(A) ((Log::level >= LOG_ERROR)?(std::cerr<<A<<std::endl,0):(0))
-#define loglni(A) ((Log::level >= LOG_INFO)?(std::cerr<<A<<std::endl,0):(0))
-#define loglnd(A) ((Log::level >= LOG_DEBUG)?(std::cerr<<A<<std::endl,0):(0))
+#define loglne(A) ((Log::level >= Log::ERROR)?(std::cerr<<A<<std::endl,0):(0))
+#define loglni(A) ((Log::level >= Log::INFO)?(std::cerr<<A<<std::endl,0):(0))
+#define loglnd(A) ((Log::level >= Log::DEBUG)?(std::cerr<<A<<std::endl,0):(0))
 
-#define loge(A) ((Log::level >= LOG_ERROR)?(std::cerr<<A,0):(0))
-#define logi(A) ((Log::level >= LOG_INFO)?(std::cerr<<A,0):(0))
-#define logd(A) ((Log::level >= LOG_DEBUG)?(std::cerr<<A,0):(0))
+#define loge(A) ((Log::level >= Log::ERROR)?(std::cerr<<A,0):(0))
+#define logi(A) ((Log::level >= Log::INFO)?(std::cerr<<A,0):(0))
+#define logd(A) ((Log::level >= Log::DEBUG)?(std::cerr<<A,0):(0))
 
 // c style log
 #define LOG_FILE stderr
 
-#define LogD(A) (Log::level >= LOG_DEBUG ? fprintf(LOG_FILE,A) : 0)
-#define TagD(A) (Log::level >= LOG_DEBUG ? fprintf(LOG_FILE, "[__FUNCTION__ debug]"),fprintf(LOG_FILE,A) : 0)
+#define LogD(...) (Log::level >= Log::DEBUG ? fprintf(LOG_FILE,__VA_ARGS__) : 0)
+#define TagD(...) (Log::level >= Log::DEBUG ? fprintf(LOG_FILE, "[__FUNCTION__ debug]"),fprintf(LOG_FILE,__VA_ARGS__) : 0)
 
-#define LogI(A) (Log::level >= LOG_INFO ? fprintf(LOG_FILE,A) : 0)
-#define TagI(A) (Log::level >= LOG_INFO ? fprintf(LOG_FILE, "[__FUNCTION__ info]"),fprintf(LOG_FILE,A) : 0)
+#define LogI(...) (Log::level >= Log::INFO ? fprintf(LOG_FILE,__VA_ARGS__) : 0)
+#define TagI(...) (Log::level >= Log::INFO ? fprintf(LOG_FILE, "[__FUNCTION__ info]"),fprintf(LOG_FILE,__VA_ARGS__) : 0)
 
-#define LogE(A) (Log::level >= LOG_ERROR ? fprintf(LOG_FILE,A) : 0)
-#define TagE(A) (Log::level >= LOG_ERROR ? fprintf(LOG_FILE, "[__FUNCTION__ error]"),fprintf(LOG_FILE,A) : 0)
+#define LogE(...) (Log::level >= Log::ERROR ? fprintf(LOG_FILE,__VA_ARGS__) : 0)
+#define TagE(...) (Log::level >= Log::ERROR ? fprintf(LOG_FILE, "[__FUNCTION__ error]"),fprintf(LOG_FILE,__VA_ARGS__) : 0)
 

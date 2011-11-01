@@ -82,7 +82,7 @@ osg::ref_ptr<osg::Node> createScene(std::string filename)
 			textSize=num;
 			TagI("TEXTSIZE=%lf\n",textSize);
 		} else {
-			TagW("ignore unknown type : %s\n", type.c_str());
+			TagE("ignore unknown type : %s\n", type.c_str());
 		}
 	}
 	geode->getOrCreateStateSet()->setMode(

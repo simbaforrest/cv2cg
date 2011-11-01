@@ -21,9 +21,8 @@
 #include <fstream>
 #include <sstream>
 
-#include "Log.hxx"
-#include "Log.h"
 #include "OpenCVHelper.h"
+#include "Log.h"
 
 /////////////////////////////////////////////
 // Camear Calibration using Direct Linear Transform(DLT)
@@ -221,6 +220,8 @@ void calibrate(std::ofstream& fout)
 	helper::reprojectionError(g_num, ipa, wpa, P[0],
 		meanErr, maxErr, sumsqErr, sd);
 }
+
+Log::Level Log::level = Log::INFO;
 
 int main( int argc, char **argv )
 {
