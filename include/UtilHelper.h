@@ -94,30 +94,32 @@ std::string num2bits(T val)
 
 #define CV_2_PI (CV_PI*2)
 //ensure val lies within (-PI,PI]
-inline double mod2pi_pos(double vin)
-{
-	double q = vin * 0.5/CV_PI + 0.5;
-	int qi = (int) q;
-	return vin - qi*CV_2_PI;
-}
-
-inline double mod2pi(double vin)
-{
-	double v;
-
-	if (vin < 0) {
-		v = -mod2pi_pos(-vin);
-	} else {
-		v = mod2pi_pos(vin);
-	}
-
-	return v;
-}
-//T mod2pi(T val)
+//inline double mod2pi_pos(double vin)
 //{
-//	int n = std::max((int)ceil(-0.5-val/CV_2_PI),(int)floor(0.5-val/CV_2_PI));
-//	return val+n*CV_2_PI;
+//	double q = vin * 0.5/CV_PI + 0.5;
+//	int qi = (int) q;
+//	return vin - qi*CV_2_PI;
 //}
+
+//inline double mod2pi(double vin)
+//{
+//	double v;
+
+//	if (vin < 0) {
+//		v = -mod2pi_pos(-vin);
+//	} else {
+//		v = mod2pi_pos(vin);
+//	}
+
+//	return v;
+//}
+
+#define INV_2_PI (0.5/CV_PI)
+double mod2pi(double val)
+{
+	int n = (int)floor(0.5-val*INV_2_PI);
+	return val+n*CV_2_PI;
+}
 
 //Returns a value of v wrapped such that ref and v differ by no more +/-PI
 double mod2pi(double ref, double v)
