@@ -109,30 +109,31 @@ struct Gridder {
 			c = 0;
 			if(g) {
 				c = &(g->cells[iy][ix]);
-				citr = (*c).begin();
+				citr = c->begin();
+				if (c->empty()) next(); //first cell empty, so move to next non-empty cell
 			}
 		}
 
-		inline bool valid() {
-			return (g && c && !c->empty());
+		inline bool done() {
+			return !g;
 		}
 
 		inline Tptr get() {
-			return valid() ? (*citr) : 0;
+			return done() ? 0 : (*citr);
 		}
 
-		void next() {
-			if(!valid()) {
+		//after next() finished, either citr moved to next valid position,
+		//or no more valid position and g is set to be 0
+		inline void next() {
+			if(!g) {
 				return;
 			}
 
-			++citr;
-			if (citr != c->end()) {
+			if(citr != c->end()) {//current cell not finished yet, move on list
+				++citr;
 				return;
 			}
-			c = 0;
-
-			//go to next cell
+			//current cell finished, find next non-empty cell
 			ix++;
 			while (true) {
 				if (ix > ix1) {
@@ -140,6 +141,7 @@ struct Gridder {
 					ix = ix0;
 				}
 				if (iy > iy1) {
+					g = 0; //no more valid position
 					return;
 				}
 
@@ -148,7 +150,6 @@ struct Gridder {
 					citr = c->begin();
 					return;
 				}
-				c = 0;
 				ix++;
 			}
 		}

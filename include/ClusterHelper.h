@@ -41,11 +41,11 @@ struct UnionFind {
 	vector<int> parent;
 	vector<int> rank; //store class size
 //	set<int> root; //store all remaining roots
-	int nclasses;
+//	int nclasses;
 
 	//id range [0, maxid-1]
 	UnionFind(int maxid) {
-		nclasses = maxid;
+//		nclasses = maxid;
 		parent.resize(maxid);
 		rank.resize(maxid);
 		for(int i=0; i<maxid; ++i) {
@@ -74,7 +74,7 @@ struct UnionFind {
 		}
 
 		//merge by rank
-		--nclasses;
+//		--nclasses;
 		int xrank = rank[xroot];
 		int yrank = rank[yroot];
 		if(xrank>yrank) {

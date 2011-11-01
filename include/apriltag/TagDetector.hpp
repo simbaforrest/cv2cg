@@ -24,13 +24,13 @@
 #include <map>
 //opencv include
 #include "OpenCVHelper.h"
+#include "Log.h"
 
 #include "TagUtils.hpp"
 #include "TagGridder.hpp"
 
-#include "Log.h"
-
-#define TAG_DEBUG 1
+#define TAG_DEBUG_DRAW 0
+#define TAG_DEBUG_PERFORMANCE 0
 
 namespace april
 {
@@ -110,15 +110,10 @@ struct TagDetector {
 	 * makes porting harder) you can delete all of the code in an
 	 * if(debug) block.
 	 **/
-	bool debug;
-	Mat debugInput;         // the input image (after preprocessing)
-	Mat debugSegInput;      // the input image passed to segmentation.
+#if TAG_DEBUG_DRAW
 	Mat debugSegmentation;  // segmented image
 	Mat debugTheta, debugMag;
-//    VisWorld.Buffer debugSegments;      // segments fit to clusters
-//    VisWorld.Buffer debugQuads;         // quads fit to segments
-//    VisWorld.Buffer debugSamples;       // samples taken within a quad.
-//    VisWorld.Buffer debugLabels;        // labels drawn for each accepted quad.
+#endif
 
 	/** The optical center of the current frame, which is needed to correctly compute the homography. **/
 	double opticalCenter[2];
@@ -137,7 +132,7 @@ struct TagDetector {
 	 * processing. Given that these orientations are pretty noisy to
 	 * begin with, some quantization error is acceptable.
 	 **/
-	int WEIGHT_SCALE;;
+	int WEIGHT_SCALE;
 
 	TagDetector(Ptr<TagFamily> tagFamily) {
 		this->tagFamily = tagFamily;
@@ -152,7 +147,6 @@ struct TagDetector {
 		minimumSegmentSize = 4;
 		minimumTagSize = 6;
 		maxQuadAspectRatio = 32;
-		debug = false;
 		WEIGHT_SCALE = 100; //10000;
 	}
 
@@ -172,7 +166,7 @@ struct TagDetector {
 	}
 
 	// lousy approximation of arctan function, but good enough for our purposes (about 4 degrees)
-	double fast_atan2(double y, double x) {
+	static double fast_atan2(double y, double x) {
 		double coeff_1 = CV_PI/4;
 		double coeff_2 = 3*coeff_1;
 		double abs_y = std::abs(y)+1e-10;      // kludge to prevent 0/0 condition
@@ -239,17 +233,18 @@ struct TagDetector {
 	 * optical center, but it is usually fine to pass in (width/2,
 	 * height/2).
 	 **/
-	void process(Mat im, double opticalCenter[2], vector<TagDetection>& ret) {
+	void process(Mat im, double opticalCenter[2], vector<TagDetection>& goodDetections) {
 		this->opticalCenter[0] = opticalCenter[0];
 		this->opticalCenter[1] = opticalCenter[1];
 
 		// This is a very long function, but it can't really be
 		// factored any more simply: it's just a long sequence of
 		// sequential operations.
+#if TAG_DEBUG_PERFORMANCE
 		helper::PerformanceMeasurer PM;
 		PM.scale = 1000;
-
 		PM.tic();
+#endif
 		///////////////////////////////////////////////////////////
 		// Step one. Preprocess image (convert to float (grayscale) [0,1]
 		// and low pass if necessary.)
@@ -261,17 +256,16 @@ struct TagDetector {
 			int filtsz = ((int) std::max(3.0, 3*sigma)) | 1;
 			GaussianBlur(fimOrig, fim, cv::Size(filtsz,filtsz), sigma);
 		}
-
+#if TAG_DEBUG_PERFORMANCE
 		loglnd("[process] step 1 takes "<<PM.toctic()<<" ms.");
-
-#if 0
+#endif
+#if TAG_DEBUG_DRAW
 		{
 			std::string win = "fim";
 			cv::namedWindow(win);
 			cv::imshow(win, fim);
 		}
 #endif
-
 		///////////////////////////////////////////////////////////
 		// Step two. For each pixel, compute the local gradient. We
 		// store the direction and magnitude.
@@ -309,23 +303,15 @@ struct TagDetector {
 			}
 		}
 
+#if TAG_DEBUG_PERFORMANCE
 		loglnd("[process] step 2 takes "<<PM.toctic()<<" ms.");
-
-#if 0
-//		loglnd(">>> ||fimseg||1  ="<<cv::norm(fimseg, cv::NORM_L1));
-//		loglnd(">>> ||fimTheta||1="<<cv::norm(fimTheta, cv::NORM_L1));
-//		loglnd(">>> ||fimMag||1  ="<<cv::norm(fimMag, cv::NORM_L1));
-//		loglnd(">>> ||fimseg||2  ="<<cv::norm(fimseg));
-//		loglnd(">>> ||fimTheta||2="<<cv::norm(fimTheta));
-//		loglnd(">>> ||fimMag||2  ="<<cv::norm(fimMag));
+#endif
+#if TAG_DEBUG_DRAW
 		{
 			debugTheta = Mat::zeros(fimseg.size(), CV_32FC1);
 			debugMag = Mat::zeros(fimseg.size(), CV_32FC1);
 			cv::normalize(fimTheta, debugTheta, 0, 1, cv::NORM_MINMAX);
 			cv::normalize(fimMag, debugMag, 0, 1, cv::NORM_MINMAX);
-//			std::string win0 = "fimseg";
-//			cv::namedWindow(win0);
-//			cv::imshow(win0, fimseg);
 			std::string win = "fimTheta";
 			cv::namedWindow(win);
 			cv::imshow(win, debugTheta);
@@ -334,13 +320,11 @@ struct TagDetector {
 			cv::imshow(win2, debugMag);
 		}
 #endif
-
 		///////////////////////////////////////////////////////////
 		// Step three. Segment the edges, grouping pixels with similar
 		// thetas together. This is a greedy algorithm: we start with
 		// the most similar pixels.  We use 4-connectivity.
 		helper::UnionFind uf(fimseg.cols*fimseg.rows);
-
 		{
 			int width = fimseg.cols;
 			int height = fimseg.rows;
@@ -404,24 +388,14 @@ struct TagDetector {
 				}
 			}
 
+#if TAG_DEBUG_PERFORMANCE
 			loglnd("\t[process] step 3.1-BuildGraph takes "<<PM.toctic()<<" ms.");
-			loglnd("\t>>> nedges="<<nedges);
-
+#endif
 			// sort those edges by weight (lowest weight first).
 			countingSortLongArray(edges, nedges, -1, WEIGHT_MASK);
-
-#if 0
-			// test (debugging code)
-			logd("edges[0-9]=");
-			for (int i = 0; i < 10; i++) {
-				int w0 = (int) (edges[i]&WEIGHT_MASK);
-				logd(w0<<" ");
-			}
-			logd("\n");
-#endif
-
+#if TAG_DEBUG_PERFORMANCE
 			loglnd("\t[process] step 3.2-SortGraph  takes "<<PM.toctic()<<" ms.");
-
+#endif
 			// process edges in order of increasing weight, merging
 			// clusters if we can do so without exceeding the
 			// thetaThresh.
@@ -474,18 +448,17 @@ struct TagDetector {
 					mmax[idab] = mmaxab;
 				}
 			}
-
+#if TAG_DEBUG_PERFORMANCE
 			loglnd("\t[process] step 3.3-UnionFind  takes "<<PM.toctic()<<" ms.");
+#endif
 		}
 
 		///////////////////////////////////////////////////////////
 		// Step four. Loop over the pixels again, collecting
 		// statistics for each cluster. We will soon fit lines to
 		// these points.
-#if TAG_DEBUG
-		if (debug) {
-			debugSegmentation = Mat::zeros(fimseg.size(), CV_8UC3);
-		}
+#if TAG_DEBUG_DRAW
+		debugSegmentation = Mat::zeros(fimseg.size(), CV_8UC3);
 #endif
 
 		typedef cv::Vec3d Pixel;
@@ -500,13 +473,11 @@ struct TagDetector {
 				}
 
 				int rep = uf.Find(pid);
-#if TAG_DEBUG
-				if (debug) {
-					cv::Vec3b& pix = debugSegmentation.at<cv::Vec3b>(y, x);
-					pix[2]=(char)(rep&0xFF0000)>>16;
-					pix[1]=(char)(rep&0x00FF00)>>8;
-					pix[0]=(char)rep&0x0000FF;
-				}
+#if TAG_DEBUG_DRAW
+				cv::Vec3b& pix = debugSegmentation.at<cv::Vec3b>(y, x);
+				pix[2]=(char)(rep&0xFF0000)>>16;
+				pix[1]=(char)(rep&0x00FF00)>>8;
+				pix[0]=(char)rep&0x0000FF;
 #endif
 
 				PixelCluster::iterator itr = clusters.find(rep);
@@ -519,11 +490,10 @@ struct TagDetector {
 				itr->second.push_back(Pixel(x,y,fimMag.at<float>(y,x)));
 			}
 		}
-
+#if TAG_DEBUG_PERFORMANCE
 		loglnd("[process] step 4 takes "<<PM.toctic()<<" ms.");
-		loglnd("\t>>> nclasses="<<uf.nclasses);
 		loglnd(">>> clusters.size()="<<clusters.size());
-
+#endif
 		///////////////////////////////////////////////////////////
 		// Step five. Loop over the clusters, fitting lines (which we
 		// call Segments).
@@ -586,18 +556,13 @@ struct TagDetector {
 				seg.length *= 2;
 			}
 
-#if TAG_DEBUG
-			double tx = seg.x1-seg.x0, ty = seg.y1-seg.y0;
-			double tmp = helper::rad2deg(atan2(ty, tx));
-			loglnd("atan2(dy,dx)="<<tmp<<" seg.theta="<<helper::rad2deg(seg.theta));
-			if(debug && !debugSegmentation.empty()) {
-				double cx = (seg.x0 + seg.x1)/2, cy = (seg.y0 + seg.y1)/2;
-				double notch = std::max(2.0, 0.1*seg.length);
-				cv::Scalar co(rand()%255, rand()%255, rand()%255);
-				line(debugSegmentation, cv::Point(seg.x0,seg.y0), cv::Point(seg.x1,seg.y1), co);
-				line(debugSegmentation, cv::Point(cx,cy), cv::Point(cx+notch*sin(seg.theta),cy-notch*cos(seg.theta)), co);
-				circle(debugSegmentation, cv::Point(seg.x0,seg.y0), 2, co, -1);
-			}
+#if TAG_DEBUG_DRAW
+			double cx = (seg.x0 + seg.x1)/2, cy = (seg.y0 + seg.y1)/2;
+			double notch = std::max(2.0, 0.1*seg.length);
+			cv::Scalar co(rand()%255, rand()%255, rand()%255);
+			line(debugSegmentation, cv::Point(seg.x0,seg.y0), cv::Point(seg.x1,seg.y1), co);
+			line(debugSegmentation, cv::Point(cx,cy), cv::Point(cx+notch*sin(seg.theta),cy-notch*cos(seg.theta)), co);
+			circle(debugSegmentation, cv::Point(seg.x0,seg.y0), 2, co, -1);
 #endif
 
 			segments.push_back(seg);
@@ -606,11 +571,10 @@ struct TagDetector {
 
 		int width = fim.cols, height = fim.rows;
 
-#if TAG_DEBUG
+#if TAG_DEBUG_PERFORMANCE
 		loglnd(">>> segments.size()="<<segments.size());
-#endif
-
 		loglnd("[process] step 5 takes "<<PM.toctic()<<" ms.");
+#endif
 		////////////////////////////////////////////////////////////////
 		// Step six. For each segment, find segments that begin where
 		// this segment ends. (We will chain segments together
@@ -618,7 +582,6 @@ struct TagDetector {
 		// (essentially) a 2D hash table.
 		Gridder<Segment> gridder(0, 0, width, height, 10);
 
-		int totalChildNum=0;
 		// add every segment to the hash table according to the
 		// position of the segment's first point. (Remember that the
 		// first point has a specific meaning due to our left-hand
@@ -634,13 +597,12 @@ struct TagDetector {
 			Segment &parent = segments[i];
 
 			Gridder<Segment>::Iterator itr = gridder.find(parent.x1, parent.y1, 0.5*parent.length);
-			for (; itr.valid(); itr.next()) {
+			for (; !itr.done(); itr.next()) {
 				Segment &child = *(itr.get());
 				// require child to have the right handedness...
 				if (helper::mod2pi(child.theta - parent.theta) > 0) {
 					continue;
 				}
-				totalChildNum++;
 
 				// compute intersection of points.
 				double px, py;
@@ -657,14 +619,13 @@ struct TagDetector {
 				parent.children.push_back(&child);
 			}
 		}
-
-		loglnd(">>> totalChildNum="<<totalChildNum);
+#if TAG_DEBUG_PERFORMANCE
 		loglnd("[process] step 6 takes "<<PM.toctic()<<" ms.");
+#endif
 		////////////////////////////////////////////////////////////////
 		// Step seven. Search all connected segments to see if any
 		// form a loop of length 4. Add those to the quads list.
 		vector<Quad> quads;
-
 		{
 			Segment *tmp[5];
 			for(int i=0; i<(int)segments.size(); ++i) {
@@ -674,29 +635,25 @@ struct TagDetector {
 			}
 		}
 
-#if TAG_DEBUG
-		loglnd(">>> quads.size()="<<quads.size());
-		if(debug && !debugSegmentation.empty()) {
-			for(int i=0; i<(int)quads.size(); ++i) {
-				Quad& q = quads[i];
-				cv::Point p0(q.p[0][0], q.p[0][1]);
-				cv::Point p1(q.p[1][0], q.p[1][1]);
-				cv::Point p2(q.p[2][0], q.p[2][1]);
-				cv::Point p3(q.p[3][0], q.p[3][1]);
-				line(debugSegmentation, p0, p1, helper::CV_RB, 2);
-				line(debugSegmentation, p1, p2, helper::CV_RB, 2);
-				line(debugSegmentation, p2, p3, helper::CV_RB, 2);
-				line(debugSegmentation, p3, p0, helper::CV_RB, 2);
-			}
-
-			std::string win = "debugSegmentation";
-			cv::namedWindow(win);
-			cv::imshow(win, debugSegmentation);
+#if TAG_DEBUG_DRAW
+		for(int i=0; i<(int)quads.size(); ++i) {
+			Quad& q = quads[i];
+			cv::Point p0(q.p[0][0], q.p[0][1]);
+			cv::Point p1(q.p[1][0], q.p[1][1]);
+			cv::Point p2(q.p[2][0], q.p[2][1]);
+			cv::Point p3(q.p[3][0], q.p[3][1]);
+			cv::Scalar co = helper::CV_RG;
+			line(debugSegmentation, p0, p1, co, 2);
+			line(debugSegmentation, p1, p2, co, 2);
+			line(debugSegmentation, p2, p3, co, 2);
+			line(debugSegmentation, p3, p0, co, 2);
 		}
 #endif
-
-		loglnd("[process] step 7 takes "<<PM.toc()<<" ms.");
+#if TAG_DEBUG_PERFORMANCE
+		loglnd(">>> quads.size()="<<quads.size());
+		loglnd("[process] step 7 takes "<<PM.toctic()<<" ms.");
 		double step8[3] = {0};
+#endif
 		////////////////////////////////////////////////////////////////
 		// Step eight. Decode the quads. For each quad, we first
 		// estimate a threshold color to decided between 0 and
@@ -704,8 +661,6 @@ struct TagDetector {
 		vector<TagDetection> detections;
 
 		for(int i=0; i<(int)quads.size(); ++i) {
-			PM.tic();
-
 			Quad &quad = quads[i];
 			// Find a threshold
 			GrayModel blackModel;
@@ -736,14 +691,21 @@ struct TagDetector {
 					if ((iy == -1 || iy == dd) || (ix == -1 || ix == dd)) {
 						// part of the outer white border.
 						whiteModel.addObservation(x, y, v);
+#if TAG_DEBUG_DRAW
+						circle(debugSegmentation, cv::Point(px,py), 2, helper::CV_BLUE, 2, -1);
+#endif
 					} else if ((iy == 0 || iy == (dd-1)) || (ix == 0 || ix == (dd-1))) {
 						// part of the outer black border.
 						blackModel.addObservation(x, y, v);
+#if TAG_DEBUG_DRAW
+						circle(debugSegmentation, cv::Point(px,py), 2, helper::CV_BLUE, 2, -1);
+#endif
 					}
 				}
 			}
-			step8[0]+=PM.toc();
-			PM.tic();
+#if TAG_DEBUG_PERFORMANCE
+			step8[0]+=PM.toctic();
+#endif
 
 			bool bad = false;
 			INT64 tagCode = 0;
@@ -767,6 +729,10 @@ struct TagDetector {
 
 					double threshold = (blackModel.interpolate(x, y) + whiteModel.interpolate(x,y))*.5;
 
+#if TAG_DEBUG_DRAW
+					circle(debugSegmentation, cv::Point(px,py), 2, helper::CV_RG, 2, -1);
+#endif
+
 					float v = fim.at<float>(iry, irx);
 
 					tagCode = tagCode << 1;
@@ -775,8 +741,9 @@ struct TagDetector {
 					}
 				}
 			}
-			step8[1]+=PM.toc();
-			PM.tic();
+#if TAG_DEBUG_PERFORMANCE
+			step8[1]+=PM.toctic();
+#endif
 
 			if (!bad) {
 				TagDetection d;
@@ -809,18 +776,27 @@ struct TagDetector {
 				}
 
 				if (d.good) {
-					detections.push_back(d);
 					quad.interpolate01(.5, .5, d.cxy[0], d.cxy[1]);
 					d.observedPerimeter = quad.observedPerimeter;
+					detections.push_back(d);
 				}
 			}
-			step8[2]+=PM.toc();
+#if TAG_DEBUG_PERFORMANCE
+			step8[2]+=PM.toctic();
+#endif
 		}//end of quads[]
 
+#if TAG_DEBUG_PERFORMANCE
+		loglnd(">>> detections.size()="<<detections.size());
 		loglnd("\t[process] step 8.1-GrayModel takes "<<step8[0]<<" ms.");
 		loglnd("\t[process] step 8.2-ReadBits  takes "<<step8[1]<<" ms.");
 		loglnd("\t[process] step 8.3-Decode    takes "<<step8[2]<<" ms.");
-		PM.tic();
+#endif
+#if TAG_DEBUG_DRAW
+		std::string win = "debugSegmentation";
+		cv::namedWindow(win);
+		cv::imshow(win, debugSegmentation);
+#endif
 		////////////////////////////////////////////////////////////////
 		// Step nine. Some quads may be detected more than once, due
 		// to partial occlusion and our aggressive attempts to recover
@@ -828,8 +804,6 @@ struct TagDetector {
 		// overlap, we will keep the one with the lowest error, and if
 		// the error is the same, the one with the greatest observed
 		// perimeter.
-
-		vector<TagDetection>& goodDetections = ret;
 
 		// NOTE: allow multiple (non-overlapping) detections of the same target.
 		for(int i=0; i<(int)detections.size(); ++i) {
@@ -863,8 +837,9 @@ struct TagDetector {
 				goodDetections.push_back(d);
 			}
 		}
-
+#if TAG_DEBUG_PERFORMANCE
 		loglnd("[process] step 9 takes "<<PM.toc()<<" ms.");
+#endif
 		////////////////////////////////////////////////////////////////
 		// I thought it would never end. //simbaforrest: me too! ^_^
 	}

@@ -1,6 +1,6 @@
 rm ./test
 
-SOURCE=TestAprilTag.cpp
+SOURCE=AprilTagFinder.cpp
 
 INCLUDE_DIR="-I/usr/local/include -I/usr/local/include/opencv -I."
 LIB_DIR="-L/usr/local/lib64 -L/usr/local/lib"
@@ -18,4 +18,4 @@ OTHER_LIBS="ESMlib.a -lm"
 #g++ -g -o test ${SOURCE} ${INCLUDE_DIR} ${LIB_DIR} ${OPENCV_LIBS} ${OSG_LIBS} ${OTHER_LIBS}
 
 ##release
-g++ -O3 -funroll-loops -o test ${SOURCE} ${INCLUDE_DIR} ${LIB_DIR} ${OPENCV_LIBS} ${OSG_LIBS} ${OTHER_LIBS}
+g++ -O3 -funroll-loops -o AprilTagFinder ${SOURCE} ${INCLUDE_DIR} ${LIB_DIR} ${OPENCV_LIBS} ${OSG_LIBS} ${OTHER_LIBS}
