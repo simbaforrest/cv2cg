@@ -34,8 +34,8 @@ FIND_PACKAGE(OpenSceneGraph 2.0.0 REQUIRED
 	osgText
 	osgViewer
 	OpenThreads
-	Eigen3
 )
+FIND_PACKAGE(Eigen3 REQUIRED)
 
 ########### uninstall files ###############
 CONFIGURE_FILE(
