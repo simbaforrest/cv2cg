@@ -83,7 +83,7 @@ bool MVSR::loadimage(vector<string>& pathlist,
 		pic.path = name;
 		pic.img = imread(name);
 		if(pic.img.empty()) {
-			TagW("can't open %s\n", name.c_str());
+			TagI("can't open %s\n", name.c_str());
 			continue;
 		} else {
 			TagI("opened %s\n", name.c_str());

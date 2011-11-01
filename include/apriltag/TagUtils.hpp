@@ -96,7 +96,7 @@ inline cv::Vec4d wlsq2D(std::vector<cv::Vec3d>& xyw)
 
 	// find dominant direction via SVD
 	double phi = 0.5*atan2(-2*Cxy,(Cyy-Cxx));
-	double rho = Ex*cos(phi) + Ey*sin(phi);
+//	double rho = Ex*cos(phi) + Ey*sin(phi); //simbaforrest: no use, skip calc it
 
 	// compute line parameters, normalize x0,y0 so it's closest to origin
 	double dx=-sin(phi), dy=cos(phi), x0=Ex, y0=Ey;

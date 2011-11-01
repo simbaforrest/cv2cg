@@ -19,7 +19,6 @@
 #include <fstream>
 #include <sstream>
 
-#include "Log.hxx"
 #include "Log.h"
 #include "OpenCVHelper.h"
 #include "OSGHelper.h"
@@ -31,6 +30,8 @@
 //#ifdef _WIN32
 //#include "Windows.h"
 //#endif
+
+Log::Level Log::level = Log::INFO;
 
 using namespace cv;
 using namespace std;
@@ -64,18 +65,20 @@ struct TrackThread : public OpenThreads::Thread {
 	TrackThread() {}
 
 	virtual void run() {
+		helper::PerformanceMeasurer PM;
+
+		PM.tic();
 		for(; videoFromWebcam || framecnt<videoFrameCnt; ++framecnt) {
 
 			_mutex.lock();
 
 			if(!videoFromWebcam) {
-				cout<<"[TrackThread] framecnt="<<framecnt<<endl;
+				loglni("[TrackThread] framecnt="<<framecnt);
 			}
-			helper::fps(true);
 
 			cap >> frame;
 			if(frame.empty()) {
-				cout<<"[TrackThread] no valid frame, exit!!!"<<endl;
+				loglni("[TrackThread] no valid frame, exit!!!");
 				OpenCVneedQuit = true;
 				_mutex.unlock();
 				break;
@@ -84,9 +87,9 @@ struct TrackThread : public OpenThreads::Thread {
 			cvtColor(frame, gray, CV_BGR2GRAY);
 			double rms, ncc;
 			if( needToInit ) {
-				cout<<"[TrackThread] INITing..."<<endl;
+				loglni("[TrackThread] INITing...");
 				needToInit=!tracker.init(gray,rms,ncc);
-				cout<<"[TrackThread] ...INITed"<<endl;
+				loglni("[TrackThread] ...INITed");
 			} else if( !tracker.opts.empty() ) {
 				if(prevGray.empty()) {
 					gray.copyTo(prevGray);
@@ -103,9 +106,9 @@ struct TrackThread : public OpenThreads::Thread {
 				}
 			}
 			++BkgModifyCnt;
-			helper::fps(false);
+			loglni("[TrackThread] fps="<<1.0/PM.toctic());
 			if(tracker.debug)
-				cout<<"[TrackThread] frame end -------------------------"<<endl;
+				loglni("[TrackThread] frame end -------------------------");
 
 			_mutex.unlock();
 			if(OpenCVneedQuit) {
@@ -116,9 +119,9 @@ struct TrackThread : public OpenThreads::Thread {
 		}
 
 		OpenThreads::Thread::YieldCurrentThread();
-		cout<<"[TrackThread] OpenCV quited..."<<endl;
+		loglni("[TrackThread] OpenCV quited...");
 		if(!videoFromWebcam) {
-			cerr<<"[TrackThread] OpenCV notify OSG to quit..."<<endl;
+			loglni("[TrackThread] OpenCV notify OSG to quit...");
 			viewer.setDone(true);
 		}
 //		cerr<<"[TrackThread] testCancel="<<testCancel()<<endl;
@@ -147,13 +150,13 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 		if(ea.getEventType()==osgGA::GUIEventAdapter::KEYDOWN) {
 			if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Escape) {
 				OpenCVneedQuit=true;
-				cerr<<"[QuitHandler] OSG notify OpenCV to quit..."<<endl;
+				loglni("[QuitHandler] OSG notify OpenCV to quit...");
 			} else if(ea.getKey()==' ') {
 				needToInit=true;
 			} else if(ea.getKey()=='d') {
 				tracker.debug=!tracker.debug;
-				if(tracker.debug) cout<<"[Debug Mode] ON."<<endl;
-				else cout<<"[Debug Mode] OFF."<<endl;
+				if(tracker.debug) loglni("[Debug Mode] ON.");
+				else loglni("[Debug Mode] OFF.");
 			} else if(ea.getKey()=='.') { //>
 				sx+=0.4;sy+=0.4;sz+=0.4;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
@@ -162,8 +165,8 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
 			} else if(ea.getKey()=='c') {
 				needToCapframe = !needToCapframe;
-				if(needToCapframe) cout<<"[Capture Frame] Begin."<<endl;
-				else cout<<"[Capture Frame] End."<<endl;
+				if(needToCapframe) loglni("[Capture Frame] Begin.");
+				else loglni("[Capture Frame] End.");
 			} else if(ea.getKey()=='h') {
 				QuitHandler::usage();
 			} else if(ea.getKey()=='1') {
@@ -194,7 +197,7 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 	}
 
 	static void usage() {
-		cerr<<
+		cout<<
 		"Handler Usage\n"
 		"  \'1\': show background video ON/OFF\n"
 		"  \'2\': show scene object ON/OFF\n"
@@ -235,17 +238,16 @@ bool InitVideoCapture(int argc, char ** argv)
 		}
 		if(fromDevice) {
 			int idx = atoi(argv[1]);
-			cout<<"[InitVideoCapture] open from device "<<idx<<endl;
+			loglni("[InitVideoCapture] open from device "<<idx);
 			cap.open(idx);
 			videoFromWebcam = true;
 		} else {
-			cout<<"[InitVideoCapture] open from file "<<argv[1]<<endl;
+			loglni("[InitVideoCapture] open from file "<<argv[1]);
 			cap.open(argv[1]);
 			videoFromWebcam = false;
 
 			videoFrameCnt=cap.get(CV_CAP_PROP_FRAME_COUNT)-2;
-			cout<<"[InitVideoCapture] number of frames: "
-				<<videoFrameCnt<<endl;
+			loglni("[InitVideoCapture] number of frames: "<<videoFrameCnt);
 
 			needToInit=true;
 		}
@@ -263,34 +265,34 @@ int main( int argc, char **argv )
 		return 1;
 	}
 	if( !InitVideoCapture(argc,argv) ) {
-		cout << "[main] Could not initialize capturing...\n";
+		loglne("[main] Could not initialize capturing...");
 		return 1;
 	}
-	cout<<"[main] Video Captured."<<endl;
+	loglni("[main] Video Captured.");
 	QuitHandler::usage();
 
 	if(cap.set(CV_CAP_PROP_FRAME_WIDTH, 640))
-		cout<<"[main] video width=640"<<endl;
+		loglni("[main] video width=640");
 	if(cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480))
-		cout<<"[main] video height=480"<<endl;
+		loglni("[main] video height=480");
 
 	cap >> frame;
 	if( frame.empty() ) {
-		cout<<"[main] No valid video!"<<endl;
+		loglni("[main] No valid video!");
 		return 1;
 	}
 	imgW = frame.cols;
 	imgH = frame.rows;
 
-	cout<<"[main] loading K matrix from: "<<argv[2]<<endl;
+	loglni("[main] loading K matrix from: "<<argv[2]);
 	double K[9];
 	std::ifstream kfile(argv[2]);
 	for(int i=0; i<9; ++i) kfile >> K[i];
 	tracker.loadK(K);
-	cout<<"[main] K matrix loaded:"<<endl;
-	cout<<helper::PrintMat<>(3,3,K)<<endl;
+	loglni("[main] K matrix loaded:");
+	loglni(helper::PrintMat<>(3,3,K));
 
-	cout<<"[main] load template image from: "<<argv[3]<<endl;
+	loglni("[main] load template image from: "<<argv[3]);
 	tracker.loadTemplate(argv[3]);
 
 	osg::ref_ptr<osg::Group> root = new osg::Group;
@@ -318,7 +320,7 @@ int main( int argc, char **argv )
 	viewer.addEventHandler(new osgViewer::WindowSizeHandler);
 	viewer.addEventHandler(new QuitHandler);
 
-	cerr<<"[main] press any key to start..."<<endl;
+	loglni("[main] press any key to start...");
 	getchar();
 
 	//start tracking thread
@@ -329,14 +331,14 @@ int main( int argc, char **argv )
 	viewer.run();
 
 	if(argc>5) {
-		cerr<<"[main] saving keyframes to: "<<argv[5]<<endl;
+		loglni("[main] saving keyframes to: "<<argv[5]);
 		tracker.SaveKeyFrames(argv[5]);
 	}
 
 //	cerr<<"[main] cancel="<<thr->cancel()<<endl;
 //	cerr<<"[main] thr still running="<<thr->isRunning()<<endl;
 	delete thr;
-	cerr<<"[main] DONE...exit!"<<endl;
+	loglni("[main] DONE...exit!");
 	//sleep to wait all threads end
 //#ifdef _WIN32
 //	Sleep(3000);
