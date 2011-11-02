@@ -768,7 +768,7 @@ struct TagDetector {
 					};
 					double homo[3][3];
 					helper::mul(3,3,3,3,d.homography[0],R[0],homo[0]);
-					std::copy(homo[0], homo[0]+9, d.homography[0]);
+					std::copy((double*)homo[0], (double*)homo[0]+9, (double*)d.homography[0]);
 				}
 
 				if (d.good) {

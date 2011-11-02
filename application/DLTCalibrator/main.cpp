@@ -221,7 +221,7 @@ void calibrate(std::ofstream& fout)
 		meanErr, maxErr, sumsqErr, sd);
 }
 
-Log::Level Log::level = Log::INFO;
+Log::Level Log::level = Log::LOG_INFO;
 
 int main( int argc, char **argv )
 {

@@ -31,7 +31,7 @@
 //#include "Windows.h"
 //#endif
 
-Log::Level Log::level = Log::INFO;
+Log::Level Log::level = Log::LOG_INFO;
 
 using namespace cv;
 using namespace std;

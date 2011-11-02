@@ -21,7 +21,7 @@
 #include "Log.h"
 #include "CameraSwitcher.h"
 
-Log::Level Log::level = Log::INFO;
+Log::Level Log::level = Log::LOG_INFO;
 
 int main(int argc, char** argv)
 {
