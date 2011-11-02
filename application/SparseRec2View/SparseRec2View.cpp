@@ -332,7 +332,7 @@ bool SparseRec2View::estimateRelativePose()
 	P2[4]=R[3]; P2[5]=R[4]; P2[6]=R[5]; P2[7]=t[1];
 	P2[8]=R[6]; P2[9]=R[7]; P2[10]=R[8]; P2[11]=t[2];
 	cvMatMul(&_K,&_P2,&_P2);
-	if(Log::level>=Log::DEBUG) helper::print(3,4,P2,"Final P2");
+	if(Log::level>=Log::LOG_DEBUG) helper::print(3,4,P2,"Final P2");
 	double maxu1=-DBL_MAX,minu1=DBL_MAX,maxv1=-DBL_MAX,minv1=DBL_MAX;
 	double maxu2=-DBL_MAX,minu2=DBL_MAX,maxv2=-DBL_MAX,minv2=DBL_MAX;
 	for(int i=0; i<(int)p1.size(); ++i) {

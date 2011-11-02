@@ -75,7 +75,7 @@ struct TagFamily {
 	 * modified externally. **/
 	TagFamily(int bits_, int minimumHammingDistance_, vector<INT64> codes_):
 		whiteBorder(1), blackBorder(1), errorRecoveryBits(1),
-		bits(bits_), d((int)sqrt(bits)), codes(codes_),
+		bits(bits_), d((int)sqrt((float)bits)), codes(codes_),
 		minimumHammingDistance(minimumHammingDistance_) {
 		assert(d *d == bits);
 	}
@@ -214,7 +214,7 @@ struct TagFamily {
 	}
 
 	void writeAllImagesMosaic(std::string filepath) {
-		int width = (int) sqrt(codes.size());
+		int width = (int) sqrt((float)codes.size());
 		int height = codes.size()/width+1;
 		int dim = getTagRenderDimension();
 

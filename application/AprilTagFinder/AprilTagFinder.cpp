@@ -137,7 +137,7 @@ void usage( int argc, char **argv ) {
 	cout<<"default ID: 0"<<endl;
 }
 
-Log::Level Log::level = Log::INFO;
+Log::Level Log::level = Log::LOG_INFO;
 
 int main( int argc, char **argv )
 {

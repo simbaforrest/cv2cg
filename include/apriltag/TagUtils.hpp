@@ -43,7 +43,7 @@ inline double distance(double x1, double y1, double x2, double y2)
 	return sqrt( (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) );
 }
 
-inline double distance(double p1[2], double p2[0])
+inline double distance(double p1[2], double p2[2])
 {
 	return distance(p1[0],p1[1], p2[0],p2[1]);
 }
@@ -226,7 +226,7 @@ struct Homography33 {
 	/** Note that the returned H matrix does not reflect cx, cy. **/
 	inline void getH(double h[3][3]) {
 		compute();
-		std::copy(H[0], H[0]+9, h[0]);
+		std::copy((double*)H[0], (double*)H[0]+9, (double*)h[0]);
 	}
 
 	inline void getCXY(double cxy[2]) {
@@ -406,7 +406,7 @@ struct Quad {
 	 * needed to correctly compute the homography.
 	 **/
 	Quad(double p[4][2], double cx, double cy) : homography(cx,cy) {
-		std::copy(p[0], p[0]+8, this->p[0]);
+		std::copy((double*)p[0], (double*)p[0]+8, (double*)this->p[0]);
 
 		homography.addCorrespondence(-1, -1, p[0][0], p[0][1]);
 		homography.addCorrespondence( 1, -1, p[1][0], p[1][1]);
