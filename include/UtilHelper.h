@@ -40,6 +40,8 @@ inline void green2float(const cv::Mat &rgb, cv::Mat &fim)
 {
 	fim.create(rgb.size(), CV_32FC1);
 	float scale = 1.0f/255.0f;
+
+if(rgb.channels()==3) {
 	for(int i=0; i<rgb.rows; ++i) {
 		for(int j=0; j<rgb.cols; ++j) {
 			fim.at<float>(i,j) = (float) rgb.at<cv::Vec3b>(i,j)[1]*scale;
@@ -47,6 +49,20 @@ inline void green2float(const cv::Mat &rgb, cv::Mat &fim)
 //			fim.at<float>(i,j) = ( ((int)77*pix[2]+151*pix[1]+28*pix[0])>>8 ) * scale;
 		}
 	}
+} else if(rgb.channels()==4) {
+	for(int i=0; i<rgb.rows; ++i) {
+		for(int j=0; j<rgb.cols; ++j) {
+			fim.at<float>(i,j) = (float) rgb.at<cv::Vec4b>(i,j)[1]*scale;
+		}
+	}
+} else if(rgb.channels()==1) {
+	for(int i=0; i<rgb.rows; ++i) {
+		for(int j=0; j<rgb.cols; ++j) {
+			fim.at<float>(i,j) = (float) rgb.at<uchar>(i,j)*scale;
+		}
+	}
+}
+
 }
 
 template<typename TYPE>
