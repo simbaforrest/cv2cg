@@ -66,14 +66,14 @@ inline void project(double const *P,
 inline void decompose(double const *P,
                       double *K, double *R, double *T, double *C)
 {
-	CreateCvMatHead(_P,3,4,P);
-	CreateCvMatHead(_K,3,3,K);
-	CreateCvMatHead(_R,3,3,R);
+	cv::Mat mP(3,4,CV_64FC1,const_cast<double*>(P));
+	cv::Mat mK(3,3,CV_64FC1,K);
+	cv::Mat mR(3,3,CV_64FC1,R);
 	double tmp[4];
-	CreateCvMatHead(_tmp,4,1,tmp);
+	cv::Mat mtmp(4,1,CV_64FC1,tmp);
 	//translation vector is camera Center in world coordinate system
 	//so it is C rather than T in opencv manual
-	cvDecomposeProjectionMatrix(&_P,&_K,&_R,&_tmp);
+	decomposeProjectionMatrix(mP,mK,mR,mtmp);
 	C[0]=tmp[0]/tmp[3];
 	C[1]=tmp[1]/tmp[3];
 	C[2]=tmp[2]/tmp[3];
@@ -110,7 +110,7 @@ inline void RotationMatrix_PH_CV(double *R)
 		}
 }
 
-inline void triangulate(const double x1, const double y1,
+inline bool triangulate(const double x1, const double y1,
                         const double x2, const double y2,
                         const double P1[12], const double P2[12], double X[3])
 {
@@ -127,10 +127,7 @@ inline void triangulate(const double x1, const double y1,
 		y2 *P2[11]-P2[7]
 	};
 
-	CreateCvMatHead(_A,4,3,A);
-	CreateCvMatHead(_b,4,1,b);
-	CreateCvMatHead(_X,3,1,X);
-	cvSolve(&_A,&_b,&_X, CV_SVD);
+	return CvMatHelper::solve(4,3,A,b,X);
 }
 
 //compute plane pose (R and T) from K and Homography

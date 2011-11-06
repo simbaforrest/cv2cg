@@ -33,7 +33,7 @@
 
 namespace CvMatHelper
 {
-#define CreateCvMatHead(h,r,c,p) CvMat h = cvMat(r,c,CV_64FC1, const_cast<double*>(p))
+#define CreateCvMatHead(h,r,c,p)  CvMat h = cvMat(r,c,CV_64FC1, const_cast<double*>(p))
 #define IDX(m,n,N) ((m)*(N)+(n)) //N cols
 
 inline void identity(int n, double *A)
@@ -53,55 +53,50 @@ inline void zeros(int m, int n, double *A)
 inline void transpose(int m,  int n,
                       double const *A, double *AT)
 {
-	CreateCvMatHead(_A,m,n,A);
-	CreateCvMatHead(_AT,n,m,AT);
-	cvTranspose(&_A,&_AT);
+	cv::Mat mA(m,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mAT(n,m,CV_64FC1,AT);
+	mAT = mA.t();
 }
 
 // R<amxbn> = A<amxan> * B<bmxbn>, an==bm
 inline void mul(int am, int an, int bm, int bn,
                 double const *A, double const *B, double *R)
 {
-	CreateCvMatHead(_A,am,an,A);
-	CreateCvMatHead(_B,bm,bn,B);
-	CreateCvMatHead(_R,am,bn,R);
-	cvMatMul(&_A,&_B,&_R);
+	cv::Mat mA(am,an,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mB(bm,bn,CV_64FC1,const_cast<double*>(B));
+	cv::Mat mR(am,bn,CV_64FC1,R);
+	mR = mA*mB;
 }
 
 // R<amxbn> = A<amxan>' * B<bmxbn>, am==bm
 inline void mulAtB(int am, int an, int bm, int bn,
                    double const *A, double const *B, double *R)
 {
-	CreateCvMatHead(_A,am,an,A);
-	CreateCvMatHead(_B,bm,bn,B);
-	CreateCvMatHead(_R,an,bn,R);
-	cvGEMM(&_A,&_B,1,0,0,&_R,CV_GEMM_A_T);
+	cv::Mat mA(am,an,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mB(bm,bn,CV_64FC1,const_cast<double*>(B));
+	cv::Mat mR(an,bn,CV_64FC1,R);
+	mR = mA.t()*mB;
 }
 
 // R<amxbn> = A<amxan> * B<bmxbn>', an==bn
 inline void mulABt(int am, int an, int bm, int bn,
                    double const *A, double const *B, double *R)
 {
-	CreateCvMatHead(_A,am,an,A);
-	CreateCvMatHead(_B,bm,bn,B);
-	CreateCvMatHead(_R,am,bm,R);
-	cvGEMM(&_A,&_B,1,0,0,&_R,CV_GEMM_B_T);
+	cv::Mat mA(am,an,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mB(bm,bn,CV_64FC1,const_cast<double*>(B));
+	cv::Mat mR(am,bm,CV_64FC1,R);
+	mR = mA*mB.t();
 }
 
 // R<1x1> = x'<1xn> * A<nxn> * y<nx1>
 inline double mulxtAy(int n,
                       double const *x, double const *A, double const *y)
 {
-	CreateCvMatHead(_A,n,n,A);
-	CreateCvMatHead(_y,n,1,y);
-	CreateCvMatHead(_xt,1,n,x);
-	double result;
-	CreateCvMatHead(_R,1,1,&result);
-	CvMat *tmp = cvCreateMat(n,1,CV_64FC1);
-	cvMatMul(&_A,&_y,tmp);
-	cvMatMul(&_xt,tmp,&_R);
-	cvReleaseMat(&tmp);
-	return result;
+	cv::Mat mA(n,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mx(1,n,CV_64FC1,const_cast<double*>(x));
+	cv::Mat my(n,1,CV_64FC1,const_cast<double*>(y));
+	cv::Mat ret = mx * mA * my;
+	return ret.at<double>(0,0);
 }
 
 // R<mxn> = A<mxn> * s
@@ -117,42 +112,42 @@ inline void scale(int m,  int n,
 // R<nxn> = A<nxn> ^ idx
 inline void pow(int n, double const *A, int idx, double *R)
 {
-	CreateCvMatHead(_A,n,n,A);
-	CreateCvMatHead(_R,n,n,R);
-	cvPow(&_A,&_R,idx);
+	cv::Mat mA(n,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mR(n,n,CV_64FC1,R);
+	cv::pow(mA, idx, mR);
 }
 
 // R<mxn> = A<mxn> + B<mxn>
 inline void add(int m, int n,
                 double const *A, double const *B, double *R)
 {
-	CreateCvMatHead(_A,m,n,A);
-	CreateCvMatHead(_B,m,n,B);
-	CreateCvMatHead(_R,m,n,R);
-	cvAdd(&_A,&_B,&_R);
+	cv::Mat mA(m,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mB(m,n,CV_64FC1,const_cast<double*>(B));
+	cv::Mat mR(m,n,CV_64FC1,R);
+	mR = mA+mB;
 }
 
 // R<mxn> = A<mxn> - B<mxn>
 inline void sub(int m, int n,
                 double const *A, double const *B, double *R)
 {
-	CreateCvMatHead(_A,m,n,A);
-	CreateCvMatHead(_B,m,n,B);
-	CreateCvMatHead(_R,m,n,R);
-	cvSub(&_A,&_B,&_R);
+	cv::Mat mA(m,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mB(m,n,CV_64FC1,const_cast<double*>(B));
+	cv::Mat mR(m,n,CV_64FC1,R);
+	mR = mA-mB;
 }
 
 inline double det(int n, double const *A)
 {
-	CreateCvMatHead(_A,n,n,A);
-	return cvDet(&_A);
+	cv::Mat mA(n,n,CV_64FC1,const_cast<double*>(A));
+	return cv::determinant(mA);
 }
 
-inline double inv(int n, double const *A, double *Ainv, int method=CV_SVD)
+inline void inv(int n, double const *A, double *Ainv, int method=cv::DECOMP_SVD)
 {
-	CreateCvMatHead(_A,n,n,A);
-	CreateCvMatHead(_Ainv,n,n,Ainv);
-	return cvInvert(&_A,&_Ainv,method);
+	cv::Mat mA(n,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mAi(n,n,CV_64FC1,Ainv);
+	mAi = mA.inv(method);
 }
 
 // U<mxmn> * S<mnxmn> * VT<mnxn> = A<mxn>, mn=min(m,n)
@@ -160,40 +155,30 @@ inline void svd(int m, int n,
                 double const *A, double *U, double *S, double *VT)
 {
 	int mn = std::min(m,n);
-	CreateCvMatHead(_A,m,n,A);
-	CreateCvMatHead(_U,m,mn,U);
-	CreateCvMatHead(_S,mn,mn,S);
-	CreateCvMatHead(_VT,mn,n,VT);
-	cvSVD(&_A,&_S,&_U,&_VT,CV_SVD_V_T);
+	cv::Mat mA(m,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mU(m,mn,CV_64FC1,U);
+	cv::Mat mS(mn,mn,CV_64FC1,S);
+	cv::Mat mVT(mn,n,CV_64FC1,VT);
+	cv::SVD::compute(mA,mS,mU,mVT);
 }
 
 // x<nx1> = arg(x) min ||A<mxn> * x - b<mx1>||
 // i.e. solve Ax=b
-inline int solve(int m, int n,
-                 double const *A, double const *b, double *x, int method=CV_SVD)
+inline bool solve(int m, int n,
+                 double const *A, double const *b, double *x, int method=cv::DECOMP_SVD)
 {
-	CreateCvMatHead(_A,m,n,A);
-	CreateCvMatHead(_b,m,1,b);
-	CreateCvMatHead(_x,n,1,x);
-	return cvSolve(&_A,&_b,&_x,method);
+	cv::Mat mA(m,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mb(m,1,CV_64FC1,const_cast<double*>(b));
+	cv::Mat mx(n,1,CV_64FC1,x);
+	return cv::solve(mA,mb,mx);
 }
 
 // x<nx1> = arg(x) min ||A<mxn> * x||, s.j. ||x||=1
 inline void nullvector(int m, int n, double const *A, double *x)
 {
-	int mn = std::min(m,n);
-	CreateCvMatHead(_A,m,n,A);
-	CvMat *U = cvCreateMat(m,mn,CV_64FC1);
-	CvMat *S = cvCreateMat(mn,mn,CV_64FC1);
-	CvMat *V = cvCreateMat(n,mn,CV_64FC1);
-	cvSVD(&_A,S,U,V);
-	int end = mn-1;
-	for(int i=0; i<n; ++i) {
-		x[i] = CV_MAT_ELEM(*V, double, i, end);
-	}
-	cvReleaseMat(&U);
-	cvReleaseMat(&S);
-	cvReleaseMat(&V);
+	cv::Mat mA(m,n,CV_64FC1,const_cast<double*>(A));
+	cv::Mat mx(n,1,CV_64FC1,x);
+	cv::SVD::solveZ(mA,mx);
 }
 
 inline void cross(double const *A, double const *B, double *R)
