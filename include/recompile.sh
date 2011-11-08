@@ -1,4 +1,4 @@
-rm ./test
+rm -f ./test
 
 SOURCE=AprilTagFinder.cpp
 

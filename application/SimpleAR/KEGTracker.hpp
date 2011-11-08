@@ -22,10 +22,11 @@
 #include "Log.h"
 #include "OpenCVHelper.h"
 
-#include "esm.hpp"
+#include "esm/esm.hpp"
 
 using namespace cv;
 using namespace std;
+using namespace esm;
 
 double defaultK[9] = {
 	9.1556072719327040e+02, 0., 3.1659567931197148e+02,
@@ -81,7 +82,7 @@ struct KEGTracker {
 	vector<KeyPoint> tkeys;
 	Mat tdes;
 
-	HomoESM esm; //refiner
+	esm::Refiner refiner; //refiner
 
 	vector<KeyFrame> keyframes;
 
@@ -116,8 +117,8 @@ struct KEGTracker {
 //		int posx = 0, posy = 0;
 //		int sizx = timg.cols, sizy = timg.rows;
 
-		esm.setTemplateImage(timg);
-		esm.setDeltaRMSLimit(0.5);
+		refiner.setTemplateImage(timg);
+		refiner.setDeltaRMSLimit(0.5);
 //		if(!esm.init(timg,posx,posy,sizx,sizy,miter,mprec)) {
 //			exit(0);
 //		}
@@ -159,7 +160,7 @@ struct KEGTracker {
 		H = findHomography(Mat(tpts), Mat(npts),
 		                   match_mask, RANSAC, ransacThresh);
 		//!!! notice, do not refine at init stage, not enough data to refine
-		esm.track(nframe, miter, H, rms, ncc);
+		refiner.track(nframe, miter, H, rms, ncc);
 		if(cvIsNaN(ncc) || ncc<=0) return false;
 
 		Mat nptsmat(npts);
@@ -203,7 +204,7 @@ struct KEGTracker {
 		                   match_mask, RANSAC, ransacThresh);
 
 		//ESM refinement
-		esm.track(nframe, miter, H, rms, ncc);
+		refiner.track(nframe, miter, H, rms, ncc);
 		ret = !cvIsNaN(ncc) && ncc>0;
 
 		if(ret) {//image similarity check passed
