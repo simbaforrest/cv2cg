@@ -25,7 +25,7 @@
 #include "OpenCV2OSG.h"
 #include "CV2CG.h"
 
-#include "Tracker.hpp"
+#include "KEGTracker.hpp"
 
 //#ifdef _WIN32
 //#include "Windows.h"
