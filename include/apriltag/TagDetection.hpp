@@ -17,6 +17,7 @@
 
 /* TagDetection.hpp
 	modified from april/tag/TagDetection.java
+	git://april.eecs.umich.edu/home/git/april.git
 */
 
 #include <iostream>

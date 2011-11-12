@@ -17,6 +17,7 @@
 
 /* TagDetector.hpp
 	modified from april/tag/TagDetector.java
+	git://april.eecs.umich.edu/home/git/april.git
 */
 
 #include <iostream>
@@ -113,6 +114,9 @@ struct TagDetector {
 	 **/
 	Mat debugSegmentation;  // segmented image
 	Mat debugTheta, debugMag;
+#endif
+#if TAG_DEBUG_PERFORMANCE
+	double steptime[9];
 #endif
 
 	/** The optical center of the current frame, which is needed to correctly compute the homography. **/
@@ -257,7 +261,7 @@ struct TagDetector {
 			GaussianBlur(fimOrig, fim, cv::Size(filtsz,filtsz), sigma);
 		}
 #if TAG_DEBUG_PERFORMANCE
-		loglnd("[process] step 1 takes "<<PM.toctic()<<" ms.");
+		steptime[0] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		{
@@ -303,7 +307,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		loglnd("[process] step 2 takes "<<PM.toctic()<<" ms.");
+		steptime[1] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		{
@@ -386,14 +390,8 @@ struct TagDetector {
 					// hasn't been disabled.)
 				}
 			}
-#if TAG_DEBUG_PERFORMANCE
-			loglnd("\t[process] step 3.1-BuildGraph takes "<<PM.toctic()<<" ms.");
-#endif
 			// sort those edges by weight (lowest weight first).
 			countingSortLongArray(edges, nedges, -1, WEIGHT_MASK);
-#if TAG_DEBUG_PERFORMANCE
-			loglnd("\t[process] step 3.2-SortGraph  takes "<<PM.toctic()<<" ms.");
-#endif
 			// process edges in order of increasing weight, merging
 			// clusters if we can do so without exceeding the
 			// thetaThresh.
@@ -446,11 +444,10 @@ struct TagDetector {
 					mmax[idab] = mmaxab;
 				}
 			}
-#if TAG_DEBUG_PERFORMANCE
-			loglnd("\t[process] step 3.3-UnionFind  takes "<<PM.toctic()<<" ms.");
-#endif
 		}
-
+#if TAG_DEBUG_PERFORMANCE
+		steptime[2] = PM.toctic();
+#endif
 		///////////////////////////////////////////////////////////
 		// Step four. Loop over the pixels again, collecting
 		// statistics for each cluster. We will soon fit lines to
@@ -487,7 +484,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		loglnd("[process] step 4 takes "<<PM.toctic()<<" ms.");
+		steptime[3] = PM.toctic();
 		loglnd(">>> clusters.size()="<<clusters.size());
 #endif
 		///////////////////////////////////////////////////////////
@@ -569,7 +566,7 @@ struct TagDetector {
 
 #if TAG_DEBUG_PERFORMANCE
 		loglnd(">>> segments.size()="<<segments.size());
-		loglnd("[process] step 5 takes "<<PM.toctic()<<" ms.");
+		steptime[4] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step six. For each segment, find segments that begin where
@@ -616,7 +613,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		loglnd("[process] step 6 takes "<<PM.toctic()<<" ms.");
+		steptime[5] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step seven. Search all connected segments to see if any
@@ -647,8 +644,7 @@ struct TagDetector {
 #endif
 #if TAG_DEBUG_PERFORMANCE
 		loglnd(">>> quads.size()="<<quads.size());
-		loglnd("[process] step 7 takes "<<PM.toctic()<<" ms.");
-		double step8[3] = {0};
+		steptime[6] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step eight. Decode the quads. For each quad, we first
@@ -699,9 +695,6 @@ struct TagDetector {
 					}
 				}
 			}
-#if TAG_DEBUG_PERFORMANCE
-			step8[0]+=PM.toctic();
-#endif
 
 			bool bad = false;
 			INT64 tagCode = 0;
@@ -737,9 +730,6 @@ struct TagDetector {
 					}
 				}
 			}
-#if TAG_DEBUG_PERFORMANCE
-			step8[1]+=PM.toctic();
-#endif
 
 			if (!bad) {
 				TagDetection d;
@@ -777,16 +767,11 @@ struct TagDetector {
 					detections.push_back(d);
 				}
 			}
-#if TAG_DEBUG_PERFORMANCE
-			step8[2]+=PM.toctic();
-#endif
 		}//end of quads[]
 
 #if TAG_DEBUG_PERFORMANCE
 		loglnd(">>> detections.size()="<<detections.size());
-		loglnd("\t[process] step 8.1-GrayModel takes "<<step8[0]<<" ms.");
-		loglnd("\t[process] step 8.2-ReadBits  takes "<<step8[1]<<" ms.");
-		loglnd("\t[process] step 8.3-Decode    takes "<<step8[2]<<" ms.");
+		steptime[7] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		std::string win = "debugSegmentation";
@@ -833,11 +818,14 @@ struct TagDetector {
 				goodDetections.push_back(d);
 			}
 		}
-#if TAG_DEBUG_PERFORMANCE
-		loglnd("[process] step 9 takes "<<PM.toc()<<" ms.");
-#endif
 		////////////////////////////////////////////////////////////////
 		// I thought it would never end. //simbaforrest: me too! ^_^
+#if TAG_DEBUG_PERFORMANCE
+		steptime[8] = PM.toctic();
+		for(int i=0; i<9; ++i) {
+			loglnd("[process] step "<<(i+1)<<" takes "<<steptime[i]<<" ms.");
+		}
+#endif
 	}
 
 	bool detectionsOverlapTooMuch(TagDetection &a, TagDetection &b) {

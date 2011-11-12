@@ -1,7 +1,6 @@
 #pragma once
 /*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
- *    and the University of Michigan
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by

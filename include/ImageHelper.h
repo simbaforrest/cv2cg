@@ -1,7 +1,6 @@
 #pragma once
 /*
  *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
- *    and the University of Michigan
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,7 +43,7 @@ namespace ImageHelper
 
 // generate pseudocolor look up table
 // maxcolors: required max number of colors
-inline std::vector<CvScalar> pseudocolor(int maxcolors)
+inline std::vector<cv::Scalar> pseudocolor(int maxcolors)
 {
 	//find proper number of bit_per_channle
 	//maxcolors = std::min(1<<30,maxcolors);
@@ -60,7 +59,7 @@ inline std::vector<CvScalar> pseudocolor(int maxcolors)
 		}
 	}
 
-	std::vector<CvScalar> lut(color_num);
+	std::vector<cv::Scalar> lut(color_num);
 
 	for(int c = 0; c < color_num; c++) {
 		int r = 0;
@@ -75,9 +74,9 @@ inline std::vector<CvScalar> pseudocolor(int maxcolors)
 		g = g << (8 - bit_per_channle);
 		b = b << (8 - bit_per_channle);
 
-		lut[c].val[0]=r;
-		lut[c].val[1]=g;
-		lut[c].val[2]=b;
+		lut[c][0]=r;
+		lut[c][1]=g;
+		lut[c][2]=b;
 	}
 
 	return lut;

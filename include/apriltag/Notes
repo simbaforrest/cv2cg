@@ -1,6 +1,64 @@
 Questions:
 
+////////////////////////////////////////////////////////////////////////
+Q1
 step 3:
 build graph: why use 4-connectivity as [x+1,y], [x,y+1], [x+1,y+1], [x-1,y+1] ? rather than the [x+1,y], [x,y+1], [x-1,y], [x,y-1]?
 
-Answer: this is 8 connectivity, think about it.
+A1: this is 8 connectivity, think about it.
+
+////////////////////////////////////////////////////////////////////////
+Q2
+step 5:
+in seg.theta calculation, the theta seems not to be as described in the comment, the "gradient direction (points towards white)"?
+
+////////////////////////////////////////////////////////////////////////
+// Step one. Preprocess image (convert to float (grayscale) [0,1]
+// and low pass if necessary.)
+
+////////////////////////////////////////////////////////////////////////
+// Step two. For each pixel, compute the local gradient. We
+// store the direction and magnitude.
+
+// This step is quite sensitive to noise, since a few bad
+// theta estimates will break up segments, causing us to miss
+// quads. It is helpful to do a Gaussian low-pass on this step
+// even if we don't want it for decoding.
+
+////////////////////////////////////////////////////////////////////////
+// Step three. Segment the edges, grouping pixels with similar
+// thetas together. This is a greedy algorithm: we start with
+// the most similar pixels.  We use 4-connectivity.
+
+////////////////////////////////////////////////////////////////////////
+// Step four. Loop over the pixels again, collecting
+// statistics for each cluster. We will soon fit lines to
+// these points.
+
+////////////////////////////////////////////////////////////////////////
+// Step five. Loop over the clusters, fitting lines (which we
+// call Segments).
+
+////////////////////////////////////////////////////////////////////////
+// Step six. For each segment, find segments that begin where
+// this segment ends. (We will chain segments together
+// next...) The gridder accelerates the search by building
+// (essentially) a 2D hash table.
+
+////////////////////////////////////////////////////////////////////////
+// Step seven. Search all connected segments to see if any
+// form a loop of length 4. Add those to the quads list.
+
+////////////////////////////////////////////////////////////////////////
+// Step eight. Decode the quads. For each quad, we first
+// estimate a threshold color to decided between 0 and
+// 1. Then, we read off the bits and see if they make sense.
+
+////////////////////////////////////////////////////////////////////////
+// Step nine. Some quads may be detected more than once, due
+// to partial occlusion and our aggressive attempts to recover
+// from broken lines. When two quads (with the same id)
+// overlap, we will keep the one with the lowest error, and if
+// the error is the same, the one with the greatest observed
+// perimeter.
+// NOTE: allow multiple (non-overlapping) detections of the same target.
