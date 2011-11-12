@@ -16,6 +16,7 @@
  */
 
 /* TagUtils.hpp
+	modified from git://april.eecs.umich.edu/home/git/april.git
 */
 
 //standard include

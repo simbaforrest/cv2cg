@@ -1,7 +1,6 @@
 #pragma once
 /*
- *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
- *    and the University of Michigan
+ *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -100,4 +99,5 @@ inline void quat2mat(double *Q, double *R)
 	R[7]=2*(wx + yz);
 	R[8]=w2-x2-y2+z2;
 }
-}
+
+}// end of RotationHelper

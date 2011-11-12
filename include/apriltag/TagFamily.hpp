@@ -17,6 +17,7 @@
 
 /* TagFamily.hpp
 	modified from april/tag/TagFamily.java
+	git://april.eecs.umich.edu/home/git/april.git
 */
 
 #include <iostream>
@@ -202,9 +203,15 @@ struct TagFamily {
 	 * the first block is nbits, the second block is hamming distance,
 	 * and the final block is the id.
 	 **/
-	void writeAllImages(std::string dirpath) {
+	void writeAllImages(std::string dirpath, int scale=1) {
 		for (int i = 0; i < (int)codes.size(); i++) {
 			cv::Mat im = makeImage(i);
+			if(scale>1) {
+				static int textH=30;
+				cv::resize(im,im,cv::Size(im.rows*scale+textH+10,im.cols*scale),0,0,cv::INTER_NEAREST);
+				cv::putText(im, cv::format("ID=%03d",i),
+					cv::Point(im.cols/2,im.rows-textH-5), CV_FONT_NORMAL, 1, cv::Scalar(0,0,0), 2);
+			}
 			std::string fname = cv::format("tag%02d_%02d_%05d.png",
 			                               bits,
 			                               minimumHammingDistance,

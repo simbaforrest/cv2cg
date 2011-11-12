@@ -1,7 +1,6 @@
 #pragma once
 /*
- *  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
- *    and the University of Michigan
+ *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,7 +22,6 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
-#include "Log.h"
 #include "OpenCVHelper.h"
 
 extern "C" {
@@ -59,21 +57,30 @@ inline void imageStruct2Mat(imageStruct &I, Mat &m)
 	m.convertTo(m,CV_8U);
 }
 
-struct ESMKernel {
+struct ESMTracker {
 	trackStruct T;
 	Mat RefImg;   //internally hold the reference/template image
 	bool inited;
 	int px,py,sx,sy;
 
-	ESMKernel() {
+	ESMTracker() {
 		inited=false;
 	}
-	~ESMKernel() {
+	~ESMTracker() {
 		if(inited) {
 			FreeTrack(&T);
 		}
 	}
 
+	// miter: the number of iterations of the ESM algorithm (>= 1);
+	// mprec: the precision of the ESM algorithm (1..10)
+	// low precision = 1, high precision = 10;
+	// miter and mprec should be chosen depending on the available
+	// computation time;
+	// For low-speed PCs or high video framerate choose low miter and low mprec.
+	// (posx,posy) The window position (upper left corner)
+	// The image coordinates start from (0,0)
+	// The window size sizex,sizey
 	inline bool init(const Mat &refimg,
 	                 int posx, int posy,
 	                 int sizex, int sizey,
@@ -98,7 +105,7 @@ struct ESMKernel {
 
 	inline bool run(imageStruct &I) {
 		if(!inited) {
-			cout<<"[ESMKernel::run] please init the ESMKernel first!"<<endl;
+			cout<<"[ESMTracker::run] please init first!"<<endl;
 			return false;
 		}
 
@@ -133,111 +140,5 @@ struct ESMKernel {
 		for(int i=0; i<9; ++i, ++itr) {
 			(*itr) = T.homog[i];
 		}
-	}
-};
-
-struct ESMTracker {
-	ESMKernel kernel;
-	Mat CurImg; //internally hold the image being tracked
-
-	// miter: the number of iterations of the ESM algorithm (>= 1);
-	// mprec: the precision of the ESM algorithm (1..10)
-	// low precision = 1, high precision = 10;
-	// miter and mprec should be chosen depending on the available
-	// computation time;
-	// For low-speed PCs or high video framerate choose low miter and low mprec.
-	// (posx,posy) The window position (upper left corner)
-	// The image coordinates start from (0,0)
-	// The window size sizex,sizey
-	inline bool init(const Mat &refimg,
-	                 int posx, int posy,
-	                 int sizex, int sizey,
-	                 int maxIter=5, int maxPrec=2) {
-		if (!kernel.init(refimg,posx,posy,sizex,sizey,maxIter,maxPrec)) {
-			cout<<"[ESMTracker] failed to inited."<<endl;
-			return false;
-		}
-		cout<<"[ESMTracker] inited."<<endl;
-		return true;
-	}
-
-	inline bool run(Mat &curimg, bool keepCurrent=true) {
-		imageStruct I;
-		if(keepCurrent) {
-			curimg.copyTo(CurImg);
-			Mat2imageStruct(CurImg, I);
-		} else {
-			Mat2imageStruct(curimg, I);
-		}
-		return kernel.run(I);
-	}
-
-	inline void setH(double const H[9]) {
-		kernel.setH(H);
-	}
-
-	inline void getH(double H[9]) const {
-		kernel.getH(H);
-	}
-
-	template<typename Iterator>
-	void setH(Iterator itr) {
-		kernel.setH(itr);
-	}
-
-	template<typename Iterator>
-	void getH(Iterator itr) const {
-		kernel.getH(itr);
-	}
-};
-
-struct ESMMultipleTracker {
-	vector<ESMKernel> kArr;
-	Mat CurImg; //internally hold the image being tracked
-
-	inline bool init(const Mat &refimg,
-	                 int posx, int posy,
-	                 int sizex, int sizey,
-	                 int maxIter=5, int maxPrec=2) {
-		kArr.push_back(ESMKernel());
-		ESMKernel &kernel = kArr[kArr.size()-1];
-		if (!kernel.init(refimg,posx,posy,sizex,sizey,maxIter,maxPrec)) {
-			cout<<"[ESMMultipleTracker] new("<<kArr.size()-1<<") kernel failed to inited."<<endl;
-			kArr.resize(kArr.size()-1);
-			return false;
-		}
-		cout<<"[ESMMultipleTracker] new("<<kArr.size()-1<<") kernel inited."<<endl;
-		return true;
-	}
-
-	inline bool run(Mat &curimg, bool keepCurrent=true) {
-		imageStruct I;
-		if(keepCurrent) {
-			curimg.copyTo(CurImg);
-			Mat2imageStruct(CurImg, I);
-		} else {
-			Mat2imageStruct(curimg, I);
-		}
-
-		int cnt=(int)kArr.size();
-		int oi=0;
-		for(int i=0; i<cnt; ++oi) {
-			ESMKernel &kernel = kArr[i];
-			if(!kernel.run(I)) {
-				swap(kArr[i],kArr[cnt-1]);
-				--cnt;
-				cout<<"[ESMMultipleTracker] kernel("
-				    <<oi<<") lost track, deleted."<<endl;
-			} else {
-				++i;
-			}
-		}
-		bool ret = cnt==(int)kArr.size();
-		if(cnt==0) {
-			kArr.clear();
-		} else {
-			kArr.resize(cnt);
-		}
-		return ret;
 	}
 };

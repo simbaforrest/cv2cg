@@ -17,6 +17,7 @@
 
 /* TagGridder.hpp
 	modified from april.util.Gridder.java
+	git://april.eecs.umich.edu/home/git/april.git
 */
 
 //standard include
