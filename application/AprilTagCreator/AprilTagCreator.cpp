@@ -1,4 +1,3 @@
-#pragma once
 /************************************************************************\
 
   Copyright 2011 The University of Michigan.
@@ -46,60 +45,60 @@
 
 \************************************************************************/
 
-/* TagFamilyFactory.hpp
-	to create TagFamily
-*/
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <sstream>
 
-#include "TagTypes.hpp"
+#include "OpenCVHelper.h"
+#include "Log.h"
 
-#include "Tag16h5.hpp"
-#include "Tag25h7.hpp"
-#include "Tag25h9.hpp"
-#include "Tag36h9.hpp"
-#include "Tag36h11.hpp"
+#include "apriltag/apriltag.hpp"
+#include "apriltag/TagFamilyFactory.hpp"
 
-#include "TagFamily.hpp"
+using namespace std;
+using namespace cv;
+using april::tag::INT64;
+using april::tag::TagFamily;
+using april::tag::TagFamilyFactory;
+using april::tag::TagDetector;
+using april::tag::TagDetection;
 
-namespace april
-{
-namespace tag
-{
-
-struct TagFamilyFactory {
-	enum SUPPORT_TYPE {TAG16H5, TAG25H7, TAG25H9, TAG36H9, TAG36H11, TAGTOTAL};
-	static const std::string SUPPORT_NAME[];
-
-	inline static Ptr<TagFamily> create(unsigned int type) {
-		Ptr<TagFamily> ret;
-		vector<INT64> codes;
-		switch(type) {
-#define MacroCreate(d,m) \
-	codes.insert(codes.begin(), codes##d##h##m, codes##d##h##m+sizeof(codes##d##h##m)/sizeof(INT64)); \
-	ret = new TagFamily(d,m,codes)
-		case TAG16H5:
-			MacroCreate(16,5);
-			break;
-		case TAG25H7:
-			MacroCreate(25,7);
-			break;
-		case TAG25H9:
-			MacroCreate(25,9);
-			break;
-		case TAG36H9:
-			MacroCreate(36,9);
-			break;
-		case TAG36H11:
-			MacroCreate(36,11);
-			break;
-		default:
-			std::cerr<<"[TagFamily error] Unknown type!"<<std::endl;
-#undef MacroCreate
-		}
-		return ret;
+void usage( int argc, char **argv ) {
+	cout<< "[usage] " <<argv[0]<<" <output dir> [TagFamily ID] [Tag Scale]"<<endl;
+	cout<< "Supported TagFamily ID List:\n";
+	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
+		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
-};
+	cout<<"default ID:    0"<<endl;
+	cout<<"default Scale: 1.0"<<endl;
+}
 
-const std::string TagFamilyFactory::SUPPORT_NAME[] = {"TAG16H5", "TAG25H7", "TAG25H9", "TAG36H9", "TAG36H11"};
+Log::Level Log::level = Log::LOG_INFO;
 
-}//end of tag
-}//end of april
+int main( int argc, char **argv )
+{
+	if(argc<2) {
+		usage(argc,argv);
+		return -1;
+	}
+
+	//// create tagFamily
+	int tagid = 0; //default tag16h5
+	if(argc>2) tagid = atoi(argv[2]);
+	cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(tagid);
+	if(tagFamily.empty()) {
+		loglne("[main] create TagFamily fail!");
+		return -1;
+	}
+
+	string dir(argv[1]);
+	double tagscale = 1.0;
+	if(argc>3) tagscale = atof(argv[3]);
+	tagFamily->writeAllImages(helper::legalDir(dir),tagscale);
+	tagFamily->writeAllImagesMosaic(dir+"mosaic.png");
+	tagFamily->writeAllImagesPostScript(dir+"all.ps");
+
+	loglni("[main] DONE!");
+	return 0;
+}
