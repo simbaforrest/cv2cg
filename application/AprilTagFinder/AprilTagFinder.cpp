@@ -103,8 +103,12 @@ void ProcessVideo() {
 		detector.process(frame, opticalCenter, detections);
 		loglni("[TagDetector] process time = "<<PM.toc()<<" sec.");
 
+		logi(">>> find id: ");
 		for(int id=0; id<(int)detections.size(); ++id) {
 			TagDetection &dd = detections[id];
+			if(dd.hammingDistance>0) continue; //very strict!
+
+			logi("#"<<dd.id<<"|"<<dd.hammingDistance<<" ");
 			for(int i=0; i<4; ++i) {
 				int j = (i+1)%4;
 				Point r1(dd.p[i][0],dd.p[i][1]);
@@ -113,6 +117,7 @@ void ProcessVideo() {
 			}
 			cv::putText( frame, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
 		}
+		logi(endl);
 
 #if TAG_DEBUG_PERFORMANCE
 		static int barH = 30;

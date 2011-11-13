@@ -22,7 +22,7 @@ using namespace cv;
 
 struct HomoState {
 	Mat H;
-	double error;
+	double error;//rms error
 };
 
 class Refiner
@@ -64,14 +64,13 @@ public:
 	inline void track(Mat &testImage, int nIters, Mat &H,
 	           double &rmsError, double&ncc,
 	           cv::Ptr<LieAlgebra> lieAlgebra = new LieAlgebraHomography(),
-	           bool saveComputations = false,
 	           std::vector<HomoState> *computations = 0) const
 	{
 		if( testImage.type() != CV_8UC1 ) {
 			cvtColor(testImage, testImage, CV_RGB2GRAY);
 		}
 
-		if (saveComputations) {
+		if (computations) {
 			assert( computations != 0 );
 			computations->clear();
 		}
@@ -80,9 +79,11 @@ public:
 		cout<<"[ESM] delta RMS";
 		for (int iter = 0; iter < nIters; iter++) {
 			Mat warpedTemplateDouble;
+			//extract template from current frame(i.e. testImage)
+			//note that H maps warpedTemplateDouble -> testImage, so use flag WARP_INVERSE_MAP
 			warpPerspective(testImage,
 				warpedTemplateDouble, H,
-				templateImage.size(), INTER_LINEAR|WARP_INVERSE_MAP); //
+				templateImage.size(), INTER_LINEAR|WARP_INVERSE_MAP);
 			warpedTemplateDouble.convertTo(warpedTemplateDouble,CV_64F);
 
 			Mat warpedTemplateRowDouble = warpedTemplateDouble.reshape(0, 1);
@@ -93,7 +94,7 @@ public:
 			oldrms=rmsError;
 			cout<<"->"<<deltarms;
 
-			if (saveComputations) {
+			if (computations) {
 				HomoState state;
 				H.copyTo(state.H);
 				state.error = rmsError;

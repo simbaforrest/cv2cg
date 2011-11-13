@@ -58,10 +58,6 @@
 
 #include "KEGTracker.hpp"
 
-//#ifdef _WIN32
-//#include "Windows.h"
-//#endif
-
 Log::Level Log::level = Log::LOG_INFO;
 
 using namespace cv;
@@ -366,15 +362,7 @@ int main( int argc, char **argv )
 		tracker.SaveKeyFrames(argv[5]);
 	}
 
-//	cerr<<"[main] cancel="<<thr->cancel()<<endl;
-//	cerr<<"[main] thr still running="<<thr->isRunning()<<endl;
 	delete thr;
 	loglni("[main] DONE...exit!");
-	//sleep to wait all threads end
-//#ifdef _WIN32
-//	Sleep(3000);
-//#else
-//	sleep(3);
-//#endif
 	return 0;
 }

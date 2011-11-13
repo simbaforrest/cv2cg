@@ -97,6 +97,7 @@ struct KEGTracker {
 	double derivedLambda;
 	double ransacThresh;
 	int drawTresh;
+	double nccThresh;
 
 	vector<Point2f> opts; //old pts to track
 	vector<Point2f> npts; //new pts being tracked
@@ -108,7 +109,7 @@ struct KEGTracker {
 
 	vector<unsigned char> match_mask;
 
-	Ptr<FeatureDetector> detector; //FIXME, it should be recognizer's job
+	Ptr<FeatureDetector> detector;
 	Ptr<DescriptorExtractor> descriptor;
 	Ptr<DescriptorMatcher> matcher;
 	vector<KeyPoint> tkeys;
@@ -125,19 +126,23 @@ struct KEGTracker {
 	KEGTracker(int winW=8, int winH=8,
 	           int termIter=5, int termEps=0.3,
 	           int maxlevel=3, double lambda=0.3,
-	           double ransacT=2, int drawT=15) :
+	           double nccT=0.1, double ransacT=2, int drawT=15) :
 		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
 		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
-		ransacThresh(ransacT), drawTresh(drawT) {}
+		ransacThresh(ransacT), drawTresh(drawT), nccThresh(nccT)
+	{
+		loadK(defaultK);
+	}
 
-	void loadTemplate(string templatename) {
+	inline void loadTemplate(string templatename, bool isDecimate=true) {
 		detector=new DynamicAdaptedFeatureDetector(new SurfAdjuster, 40, 80, 20);
 		descriptor=DescriptorExtractor::create("SURF");
 		matcher=DescriptorMatcher::create("FlannBased");
 
 		//load template
 		Mat tmp = imread(templatename, 0);
-		pyrDown(tmp, timg);//scale the template to 256x256, faster
+		if(isDecimate)
+			pyrDown(tmp, timg);//scale the template down one-level, faster
 		cpts.push_back(Point2f(0,0));
 		cpts.push_back(Point2f(timg.cols,0));
 		cpts.push_back(Point2f(timg.cols,timg.rows));
@@ -146,14 +151,9 @@ struct KEGTracker {
 
 		// The tracking parameters
 		miter = 5;//  mprec = 4;
-//		int posx = 0, posy = 0;
-//		int sizx = timg.cols, sizy = timg.rows;
 
 		refiner.setTemplateImage(timg);
 		refiner.setDeltaRMSLimit(0.5);
-//		if(!esm.init(timg,posx,posy,sizx,sizy,miter,mprec)) {
-//			exit(0);
-//		}
 
 		detector->detect(timg, tkeys);
 		descriptor->compute(timg, tkeys, tdes);
@@ -168,6 +168,11 @@ struct KEGTracker {
 		}
 	}
 
+	//init by initH estimated from outside, such as a apriltag recognizer
+	inline bool init(Mat & nframe, Mat initH) {
+	}
+
+	//FIXME, it should be recognizer's job
 	inline bool init(Mat &nframe, double& rms, double& ncc) {
 		vector<KeyPoint> keys;
 		Mat des;
@@ -191,9 +196,8 @@ struct KEGTracker {
 		}
 		H = findHomography(Mat(tpts), Mat(npts),
 		                   match_mask, RANSAC, ransacThresh);
-		//!!! notice, do not refine at init stage, not enough data to refine
 		refiner.track(nframe, miter, H, rms, ncc);
-		if(cvIsNaN(ncc) || ncc<=0) return false;
+		if(cvIsNaN(ncc) || ncc<=nccThresh) return false;
 
 		Mat nptsmat(npts);
 		perspectiveTransform(Mat(tpts), nptsmat, H);
@@ -237,7 +241,7 @@ struct KEGTracker {
 
 		//ESM refinement
 		refiner.track(nframe, miter, H, rms, ncc);
-		ret = !cvIsNaN(ncc) && ncc>0;
+		ret = !cvIsNaN(ncc) && ncc>nccThresh;
 
 		if(ret) {//image similarity check passed
 			//Geometric Enhancement, VERY IMPORTANT STEP, STABLIZE!!!
@@ -362,7 +366,7 @@ struct KEGTracker {
 		}
 	}
 
-	void CapKeyFrame(int id, Mat& frame, double R[3][3], double T[3],
+	inline void CapKeyFrame(int id, Mat& frame, double R[3][3], double T[3],
                      double rms=-1, double ncc=-1) {
 		KeyFrame newkf;
 		newkf.id = id;
@@ -378,7 +382,7 @@ struct KEGTracker {
 		keyframes.push_back(newkf);
 	}
 
-	bool SaveKeyFrames(string name) {
+	inline bool SaveKeyFrames(string name) {
 		name = DirHelper::getFileDir(name);
 		string swtname = name + string("ar.swt");
 		string rmsnccname = name + string("rmsncc.txt");
