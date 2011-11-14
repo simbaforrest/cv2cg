@@ -135,7 +135,8 @@ struct KEGTracker {
 	}
 
 	inline void loadTemplate(string templatename, bool isDecimate=true) {
-		detector=new DynamicAdaptedFeatureDetector(new SurfAdjuster, 40, 80, 20);
+		//limit the number of keypoints to track to [40,80]
+		detector=new DynamicAdaptedFeatureDetector(new SurfAdjuster, 40, 80, 10000);
 		descriptor=DescriptorExtractor::create("SURF");
 		matcher=DescriptorMatcher::create("FlannBased");
 
@@ -143,6 +144,8 @@ struct KEGTracker {
 		Mat tmp = imread(templatename, 0);
 		if(isDecimate)
 			pyrDown(tmp, timg);//scale the template down one-level, faster
+		else
+			timg = tmp;
 		cpts.push_back(Point2f(0,0));
 		cpts.push_back(Point2f(timg.cols,0));
 		cpts.push_back(Point2f(timg.cols,timg.rows));
@@ -158,6 +161,8 @@ struct KEGTracker {
 		detector->detect(timg, tkeys);
 		descriptor->compute(timg, tkeys, tdes);
 
+		//now use just surf, rather than the dynamic one
+		detector = new SurfFeatureDetector;
 		debug=true;
 	}
 
@@ -168,11 +173,31 @@ struct KEGTracker {
 		}
 	}
 
-	//init by initH estimated from outside, such as a apriltag recognizer
-	inline bool init(Mat & nframe, Mat initH) {
+	//init by initH estimated from outside, such as an apriltag recognizer
+	inline bool init(Mat &image, Mat &nframe, Mat initH) {
+		//use ESM to check ncc
+		double rms, ncc;
+		refiner.setDeltaRMSLimit(0.05);
+		refiner.track(nframe, 20, initH, rms, ncc);
+		refiner.setDeltaRMSLimit(0.5);
+		//drawHomo(image, initH);
+		if(cvIsNaN(ncc) || ncc<=0.7) return false;
+		initH.copyTo(this->H);
+
+		npts.resize(tkeys.size());
+		tpts.resize(tkeys.size());//fill tpts by all tkeys
+		for(int i=0; i<(int)tkeys.size(); ++i) {
+			tpts[i] = tkeys[i].pt;
+		}
+		Mat nptsmat(npts);
+		perspectiveTransform(Mat(tpts), nptsmat, H);
+		cornerSubPix(nframe, npts, winSize, Size(-1,-1), termcrit);
+		opts.resize(npts.size());
+		std::copy(npts.begin(), npts.end(), opts.begin());
+		return true;
 	}
 
-	//FIXME, it should be recognizer's job
+	//init by SURF, very slow!!! only use this if you have no other recognizer
 	inline bool init(Mat &nframe, double& rms, double& ncc) {
 		vector<KeyPoint> keys;
 		Mat des;
@@ -300,9 +325,9 @@ struct KEGTracker {
 		}
 	}
 
-	inline void drawHomo(Mat& image) {
+	inline void drawHomo(Mat& image, Mat Homo) {
 		//draw homo
-		const Mat_<double>& mH = H;
+		const Mat_<double>& mH = Homo;
 		vector<Point2f> corners(4);
 		for(int i = 0; i < 4; i++ ) {
 			Point2f pt((float)(i == 0 || i == 3 ? 0 : timg.cols),
@@ -384,7 +409,7 @@ struct KEGTracker {
 
 	inline bool SaveKeyFrames(string name) {
 		name = DirHelper::getFileDir(name);
-		string swtname = name + string("ar.swt");
+		string swtname = helper::legalDir(name) + string("ar.swt");
 		string rmsnccname = name + string("rmsncc.txt");
 		std::ofstream swt(swtname.c_str());
 		swt << "scene.osg" << endl;
