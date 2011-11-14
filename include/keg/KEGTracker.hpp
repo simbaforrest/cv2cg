@@ -180,8 +180,7 @@ struct KEGTracker {
 		refiner.setDeltaRMSLimit(0.05);
 		refiner.track(nframe, 20, initH, rms, ncc);
 		refiner.setDeltaRMSLimit(0.5);
-		//drawHomo(image, initH);
-		if(cvIsNaN(ncc) || ncc<=0.7) return false;
+		if(cvIsNaN(ncc) || ncc<0.5) return false;
 		initH.copyTo(this->H);
 
 		npts.resize(tkeys.size());
