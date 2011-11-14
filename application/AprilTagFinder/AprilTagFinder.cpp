@@ -63,14 +63,7 @@ using april::tag::TagFamily;
 using april::tag::TagFamilyFactory;
 using april::tag::TagDetector;
 using april::tag::TagDetection;
-
-bool videoFromWebcam;
-VideoCapture cap;
-Mat frame;
-int imgW, imgH;
-
-double videoFrameCnt = -1;
-int framecnt = 0;
+using helper::ImageSource;
 
 cv::Ptr<TagFamily> tagFamily;
 cv::Ptr<TagDetector> detector;
@@ -104,123 +97,77 @@ inline void drawHomo(Mat& image, Mat Homo) {
 	line(image, corners[1], corners[3], CV_GB, 2);
 }
 
-void ProcessVideo() {
-	string winname = "frame";
-	namedWindow(winname);
+namespace ImageHelper {
 
-	helper::PerformanceMeasurer PM;
+void ProcessOneFrame(cv::Mat& frame) {
+	static helper::PerformanceMeasurer PM;
+	int imgW=frame.cols, imgH=frame.rows;
+	vector<TagDetection> detections;
+	double opticalCenter[2] = { frame.cols/2.0, frame.rows/2.0 };
+	PM.tic();
+	detector->process(frame, opticalCenter, detections);
+	loglni("[TagDetector] process time = "<<PM.toc()<<" sec.");
 
-	for(; videoFromWebcam || framecnt<videoFrameCnt; ++framecnt) {
+	logi(">>> find id: ");
+	for(int id=0; id<(int)detections.size(); ++id) {
+		TagDetection &dd = detections[id];
+		if(dd.hammingDistance>0) continue; //very strict!
 
-		if(!videoFromWebcam) {
-			cout<<"[process] framecnt="<<framecnt<<endl;
-		}
+		logi("#"<<dd.id<<"|"<<dd.hammingDistance<<" ");
+		cv::putText( frame, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
 
-		cap >> frame;
-		if(frame.empty()) {
-			cout<<"[process] no valid frame, exit!!!"<<endl;
-			break;
-		}
-
-		//////////////////////////////
-		//    process frame
-		//////////////////////////////
-		vector<TagDetection> detections;
-		double opticalCenter[2] = { frame.cols/2.0, frame.rows/2.0 };
-		PM.tic();
-		detector->process(frame, opticalCenter, detections);
-		loglni("[TagDetector] process time = "<<PM.toc()<<" sec.");
-
-		logi(">>> find id: ");
-		for(int id=0; id<(int)detections.size(); ++id) {
-			TagDetection &dd = detections[id];
-			if(dd.hammingDistance>0) continue; //very strict!
-
-			logi("#"<<dd.id<<"|"<<dd.hammingDistance<<" ");
-			cv::putText( frame, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
-
-			cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
-			double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
-			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,vm) * tmp;
-			drawHomo(frame, Homo);
-		}
-		logi(endl);
+		cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
+		double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
+		cv::Mat Homo = cv::Mat(3,3,CV_64FC1,vm) * tmp;
+		drawHomo(frame, Homo);
+	}
+	logi(endl);
 
 #if TAG_DEBUG_PERFORMANCE
-		static int barH = 30;
-		static int textH = 12;
-		static vector<cv::Scalar> pclut = helper::pseudocolor(16);
-		//draw performance bar
-		double total = 0;
-		for(int i=0; i<9; ++i) {
-			total += detector->steptime[i];
-		}
-		int lastx=0;
-		int lasty=barH+textH;
-		for(int i=0; i<9; ++i) {
-			double thisx = (detector->steptime[i]/total)*imgW+lastx;
-			cv::rectangle(frame, cv::Point(lastx,0), cv::Point(thisx,barH), pclut[i], CV_FILLED);
-			lastx = thisx;
-			cv::putText(frame, cv::format("step %d: %05.3f ms",i+1,detector->steptime[i]),
-				cv::Point(5,lasty-2), CV_FONT_NORMAL, 0.5, pclut[i], 1 );
-			lasty += textH;
-		}
-		cv::putText(frame, cv::format("fps=%4.3lf",1000.0/total), cv::Point(imgW/2,barH), CV_FONT_NORMAL, 1, helper::CV_BLUE, 1);
-		loglnd("-------------------------------");
+	static int barH = 30;
+	static int textH = 12;
+	static vector<cv::Scalar> pclut = helper::pseudocolor(16);
+	//draw performance bar
+	double total = 0;
+	for(int i=0; i<9; ++i) {
+		total += detector->steptime[i];
+	}
+	int lastx=0;
+	int lasty=barH+textH;
+	for(int i=0; i<9; ++i) {
+		double thisx = (detector->steptime[i]/total)*imgW+lastx;
+		cv::rectangle(frame, cv::Point(lastx,0), cv::Point(thisx,barH), pclut[i], CV_FILLED);
+		lastx = thisx;
+		cv::putText(frame, cv::format("step %d: %05.3f ms",i+1,detector->steptime[i]),
+			cv::Point(5,lasty-2), CV_FONT_NORMAL, 0.5, pclut[i], 1 );
+		lasty += textH;
+	}
+	cv::putText(frame, cv::format("fps=%4.3lf",1000.0/total), cv::Point(imgW/2,barH), CV_FONT_NORMAL, 1, helper::CV_BLUE, 1);
+	loglnd("-------------------------------");
 #endif
+}
 
-		imshow(winname, frame);
-		char key = (char)waitKey(8);
-		switch (key) {
-		case 'd':
-			detector->segDecimate = !detector->segDecimate;
-			loglni("[ProcessVideo] detector.segDecimate="<<detector->segDecimate); break;
-		case 27:
-		case 'q':
-			return;
-		}
+void KeyResponse(char key) {
+	switch (key) {
+	case 'd':
+		detector->segDecimate = !detector->segDecimate;
+		loglni("[ProcessVideo] detector.segDecimate="<<detector->segDecimate); break;
 	}
 }
 
-bool InitVideoCapture(int argc, char ** argv)
-{
-	if(argc==1) {//default
-		cap.open(0);
-		videoFromWebcam=true;
-	} else {
-		int len = strlen(argv[1]);
-		bool fromDevice=true;
-		for(int i=0; i<len; ++i) {
-			if( !isdigit(argv[1][i]) ) {
-				fromDevice = false;
-				break;
-			}
-		}
-		if(fromDevice) {
-			int idx = atoi(argv[1]);
-			cout<<"[InitVideoCapture] open from device "<<idx<<endl;
-			cap.open(idx);
-			videoFromWebcam = true;
-		} else {
-			cout<<"[InitVideoCapture] open from file "<<argv[1]<<endl;
-			cap.open(argv[1]);
-			videoFromWebcam = false;
-
-			videoFrameCnt=cap.get(CV_CAP_PROP_FRAME_COUNT)-2;
-			cout<<"[InitVideoCapture] number of frames: "
-				<<videoFrameCnt<<endl;
-		}
-	}
-	return cap.isOpened();
-}
+}//end of namespace ImageHelper
 
 void usage( int argc, char **argv ) {
-	cout<< "[usage] " <<argv[0]<<" <device number|video file> [TagFamily ID]"<<endl;
+	cout<< "[usage] " <<argv[0]<<" <url> [TagFamily ID]"<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
 	cout<<"default ID: 0"<<endl;
+	cout<<"Example ImageSource url:\n";
+	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
+	cout<<"camera://0\n";
+	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
 }
 
 #if TAG_DEBUG_PERFORMANCE
@@ -236,24 +183,12 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
-	if( !InitVideoCapture(argc,argv) ) {
-		cout << "[main] Could not initialize capturing...\n";
+	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
+	if(is.empty()) {
+		loglne("[main] createImageSource failed!");
 		return -1;
 	}
-	cout<<"[main] Video Captured."<<endl;
-
-	if(cap.set(CV_CAP_PROP_FRAME_WIDTH, 640))
-		cout<<"[main] video width=640"<<endl;
-	if(cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480))
-		cout<<"[main] video height=480"<<endl;
-
-	cap >> frame;
-	if( frame.empty() ) {
-		cout<<"[main] No valid video!"<<endl;
-		return -1;
-	}
-	imgW = frame.cols;
-	imgH = frame.rows;
+	is->reportInfo();
 
 	//// create tagFamily
 	int tagid = 0; //default tag16h5
@@ -269,7 +204,7 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
-	ProcessVideo();
+	helper::LoopInImageSource(is);
 
 	cout<<"[main] DONE...exit!"<<endl;
 	return 0;
