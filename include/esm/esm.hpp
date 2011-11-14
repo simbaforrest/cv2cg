@@ -79,11 +79,14 @@ public:
 		cout<<"[ESM] delta RMS";
 		for (int iter = 0; iter < nIters; iter++) {
 			Mat warpedTemplateDouble;
+			templateImage.copyTo(warpedTemplateDouble);
 			//extract template from current frame(i.e. testImage)
-			//note that H maps warpedTemplateDouble -> testImage, so use flag WARP_INVERSE_MAP
+			//ATTENTION: that H maps warpedTemplateDouble -> testImage, so use flag WARP_INVERSE_MAP
+			//ATTENTION: use flag BORDER_TRANSPARENT to handle the case that template image is
+			//partially outside the view, this part won't affect NCC and RMS computation
 			warpPerspective(testImage,
 				warpedTemplateDouble, H,
-				templateImage.size(), INTER_LINEAR|WARP_INVERSE_MAP);
+				templateImage.size(), INTER_LINEAR|WARP_INVERSE_MAP, BORDER_TRANSPARENT);
 			warpedTemplateDouble.convertTo(warpedTemplateDouble,CV_64F);
 
 			Mat warpedTemplateRowDouble = warpedTemplateDouble.reshape(0, 1);

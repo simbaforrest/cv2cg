@@ -73,10 +73,38 @@ double videoFrameCnt = -1;
 int framecnt = 0;
 
 cv::Ptr<TagFamily> tagFamily;
+cv::Ptr<TagDetector> detector;
+
+inline void drawHomo(Mat& image, Mat Homo) {
+	static cv::Scalar colors[] = {
+		Scalar(0,0,0),
+		Scalar(0,255,0),
+		Scalar(0,0,255),
+		Scalar(255,0,0)
+	};
+	const Mat_<double>& mH = Homo;
+	vector<Point2f> corners(4);
+	corners[0] = Point2f(-1,-1);
+	corners[1] = Point2f( 1,-1);
+	corners[2] = Point2f( 1, 1);
+	corners[3] = Point2f(-1, 1);
+	for(int i = 0; i < 4; i++ ) {
+		Point2f pt = corners[i];
+		double w = 1./(mH(2,0)*pt.x + mH(2,1)*pt.y + mH(2,2));
+		corners[i] =
+		    Point2f((float)((mH(0,0)*pt.x + mH(0,1)*pt.y + mH(0,2))*w),
+		            (float)((mH(1,0)*pt.x + mH(1,1)*pt.y + mH(1,2))*w));
+	}
+	for(int i = 0; i < 4; ++i) {
+		const Point& r1 = corners[i%4];
+		const Point& r2 = corners[(i+1)%4];
+		line( image, r1, r2, colors[i], 2 );
+	}
+	line(image, corners[0], corners[2], CV_GB, 2);
+	line(image, corners[1], corners[3], CV_GB, 2);
+}
 
 void ProcessVideo() {
-	TagDetector detector(tagFamily);
-
 	string winname = "frame";
 	namedWindow(winname);
 
@@ -100,7 +128,7 @@ void ProcessVideo() {
 		vector<TagDetection> detections;
 		double opticalCenter[2] = { frame.cols/2.0, frame.rows/2.0 };
 		PM.tic();
-		detector.process(frame, opticalCenter, detections);
+		detector->process(frame, opticalCenter, detections);
 		loglni("[TagDetector] process time = "<<PM.toc()<<" sec.");
 
 		logi(">>> find id: ");
@@ -109,13 +137,12 @@ void ProcessVideo() {
 			if(dd.hammingDistance>0) continue; //very strict!
 
 			logi("#"<<dd.id<<"|"<<dd.hammingDistance<<" ");
-			for(int i=0; i<4; ++i) {
-				int j = (i+1)%4;
-				Point r1(dd.p[i][0],dd.p[i][1]);
-				Point r2(dd.p[j][0],dd.p[j][1]);
-				line( frame, r1, r2, helper::CV_RED, 2 );
-			}
 			cv::putText( frame, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
+
+			cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
+			double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
+			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,vm) * tmp;
+			drawHomo(frame, Homo);
 		}
 		logi(endl);
 
@@ -126,15 +153,15 @@ void ProcessVideo() {
 		//draw performance bar
 		double total = 0;
 		for(int i=0; i<9; ++i) {
-			total += detector.steptime[i];
+			total += detector->steptime[i];
 		}
 		int lastx=0;
 		int lasty=barH+textH;
 		for(int i=0; i<9; ++i) {
-			double thisx = (detector.steptime[i]/total)*imgW+lastx;
+			double thisx = (detector->steptime[i]/total)*imgW+lastx;
 			cv::rectangle(frame, cv::Point(lastx,0), cv::Point(thisx,barH), pclut[i], CV_FILLED);
 			lastx = thisx;
-			cv::putText(frame, cv::format("step %d: %05.3f ms",i+1,detector.steptime[i]),
+			cv::putText(frame, cv::format("step %d: %05.3f ms",i+1,detector->steptime[i]),
 				cv::Point(5,lasty-2), CV_FONT_NORMAL, 0.5, pclut[i], 1 );
 			lasty += textH;
 		}
@@ -146,8 +173,8 @@ void ProcessVideo() {
 		char key = (char)waitKey(8);
 		switch (key) {
 		case 'd':
-			detector.segDecimate = !detector.segDecimate;
-			loglni("[ProcessVideo] detector.segDecimate="<<detector.segDecimate); break;
+			detector->segDecimate = !detector->segDecimate;
+			loglni("[ProcessVideo] detector.segDecimate="<<detector->segDecimate); break;
 		case 27:
 		case 'q':
 			return;
@@ -234,6 +261,11 @@ int main( int argc, char **argv )
 	tagFamily = TagFamilyFactory::create(tagid);
 	if(tagFamily.empty()) {
 		loglne("[main] create TagFamily fail!");
+		return -1;
+	}
+	detector = new TagDetector(tagFamily);
+	if(detector.empty()) {
+		loglne("[main] create TagDetector fail!");
 		return -1;
 	}
 

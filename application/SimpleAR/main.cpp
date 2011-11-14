@@ -56,25 +56,44 @@
 #include "OpenCV2OSG.h"
 #include "CV2CG.h"
 
-#include "KEGTracker.hpp"
+#include "keg/KEGTracker.hpp"
+
+#include "apriltag/apriltag.hpp"
+#include "apriltag/TagFamilyFactory.hpp"
 
 Log::Level Log::level = Log::LOG_INFO;
 
 using namespace cv;
 using namespace std;
 
+//////////////apriltag//////////////////
+using april::tag::INT64;
+using april::tag::TagFamily;
+using april::tag::TagFamilyFactory;
+using april::tag::TagDetector;
+using april::tag::TagDetection;
+
+cv::Ptr<TagFamily> tagFamily;
+cv::Ptr<TagDetector> detector;
+cv::Mat HI;
+cv::Mat iHI; //inverse of init Homography, X_tag = iHI * X_keg
+
+//////////////video/////////////////////
 bool videoFromWebcam;
 VideoCapture cap;
 Mat frame,gray,prevGray;
 int imgW, imgH;
 
+//////////////osg///////////////////////
 osgViewer::Viewer viewer;
 osg::ref_ptr<helper::ARVideoBackground> arvideo;
 osg::ref_ptr<helper::ARSceneRoot> arscene;
 osg::ref_ptr<osg::MatrixTransform> manipMat;
 
+//////////////KEGTracker////////////////
 KEGTracker tracker;
 
+//////////////MISC//////////////////////
 int BkgModifyCnt=0; //global signal for update osg
 bool OpenCVneedQuit=false;
 bool needToInit = false;
@@ -86,6 +105,36 @@ double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0,0,0},lastT[3]={0};
 
 int framecnt = 0;
 
+////////////////////////////////////////////////////
+bool findAprilTag(Mat &image, int targetID, Mat &ret, bool draw=false, int errorThresh=0) {
+	vector<TagDetection> detections;
+	double opticalCenter[2] = { image.cols/2.0, image.rows/2.0 };
+	detector->process(image, opticalCenter, detections);
+
+	for(int id=0; id<(int)detections.size(); ++id) {
+		TagDetection &dd = detections[id];
+		if(dd.id!=targetID) continue;
+		if(dd.hammingDistance>errorThresh) continue; //very strict!
+
+		if(draw) {
+			for(int i=0; i<4; ++i) {
+				int j = (i+1)%4;
+				Point r1(dd.p[i][0],dd.p[i][1]);
+				Point r2(dd.p[j][0],dd.p[j][1]);
+				line( image, r1, r2, helper::CV_RED, 2 );
+			}
+			cv::putText( image, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
+		}
+
+		cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
+		double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
+		ret = cv::Mat(3,3,CV_64FC1,vm) * tmp;
+		return true;
+	}
+	return false;
+}
+
+////////////////////////////////////////////////////
 struct TrackThread : public OpenThreads::Thread {
 	OpenThreads::Mutex _mutex;
 
@@ -115,8 +164,13 @@ struct TrackThread : public OpenThreads::Thread {
 			double rms, ncc;
 			if( needToInit ) {
 				loglni("[TrackThread] INITing...");
-				needToInit=!tracker.init(gray,rms,ncc);
-				loglni("[TrackThread] ...INITed");
+				//needToInit=!tracker.init(gray,rms,ncc);
+				Mat initH;
+				if( findAprilTag(frame, 0, initH, true) ) {
+					Mat mH = initH * iHI;
+					needToInit = !tracker.init(frame, gray, mH);
+					if(!needToInit) loglni("[TrackThread] ...INITed");
+				}
 			} else if( !tracker.opts.empty() ) {
 				if(prevGray.empty()) {
 					gray.copyTo(prevGray);
@@ -151,7 +205,6 @@ struct TrackThread : public OpenThreads::Thread {
 			loglni("[TrackThread] OpenCV notify OSG to quit...");
 			viewer.setDone(true);
 		}
-//		cerr<<"[TrackThread] testCancel="<<testCancel()<<endl;
 	}
 };
 
@@ -282,13 +335,22 @@ bool InitVideoCapture(int argc, char ** argv)
 	return cap.isOpened();
 }
 
+void usage( int argc, char **argv ) {
+	cout<< "[usage] " <<argv[0]<<" <device number|video file>"
+		" <K matrix file> <template file>"
+		" [osg scene file] [AprilTag Family ID] [keyframe saving path]" <<endl;
+	cout<< "Supported TagFamily ID List:\n";
+	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
+		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
+	}
+	cout<<"default ID: 0"<<endl;
+	QuitHandler::usage();
+}
+
 int main( int argc, char **argv )
 {
 	if(argc<4) {
-		cout<< "[usage] " <<argv[0]<<" <device number|video file>"
-			" <K matrix file> <template file>"
-			" [osg scene file] [keyframe saving path]" <<endl;
-		QuitHandler::usage();
+		usage(argc,argv);
 		return 1;
 	}
 	if( !InitVideoCapture(argc,argv) ) {
@@ -322,6 +384,31 @@ int main( int argc, char **argv )
 	loglni("[main] load template image from: "<<argv[3]);
 	tracker.loadTemplate(argv[3]);
 
+	//////////////// TagDetector /////////////////////////////////////////
+	int tagid = 0; //default tag16h5
+	if(argc>5) tagid = atoi(argv[5]);
+	tagFamily = TagFamilyFactory::create(tagid);
+	if(tagFamily.empty()) {
+		loglne("[main] create TagFamily fail!");
+		return -1;
+	}
+	detector = new TagDetector(tagFamily);
+	if(detector.empty()) {
+		loglne("[main] create TagDetector fail!");
+		return -1;
+	}
+	Mat temp = imread(argv[3]);
+	if( findAprilTag(temp, 0, HI, true) ) {
+		namedWindow("template");
+		imshow("template", temp);
+		double sc[]={2,0,0,0,2,0,0,0,1};
+		iHI = HI.inv() * Mat(3,3,CV_64FC1,sc);
+	} else {
+		loglne("[main error] detector did not find any apriltag on template image!");
+		return -1;
+	}
+
+	//////////////// OSG ////////////////////////////////////////////////
 	osg::ref_ptr<osg::Group> root = new osg::Group;
 
 	string scenefilename = (argc>4?argv[4]:("cow.osg"));
@@ -357,9 +444,9 @@ int main( int argc, char **argv )
 
 	viewer.run();
 
-	if(argc>5) {
-		loglni("[main] saving keyframes to: "<<argv[5]);
-		tracker.SaveKeyFrames(argv[5]);
+	if(argc>6) {
+		loglni("[main] saving keyframes to: "<<argv[6]);
+		tracker.SaveKeyFrames(argv[6]);
 	}
 
 	delete thr;
