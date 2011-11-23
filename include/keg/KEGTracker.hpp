@@ -60,22 +60,12 @@ using namespace cv;
 using namespace std;
 using namespace esm;
 
+namespace keg {
+
 double defaultK[9] = {
 	9.1556072719327040e+02, 0., 3.1659567931197148e+02,
 	0.,	9.2300384975219845e+02, 2.8310067999512370e+02,
 	0., 0., 1.
-};
-
-Scalar colors[3] = {
-	CV_RED,  //x
-	CV_GREEN,//y
-	CV_BLUE, //z
-};
-
-int lines[12][2] = {
-	{0,3},{2,1},{4,7},{6,5},
-	{0,1},{2,3},{4,5},{6,7},
-	{0,4},{3,7},{5,1},{2,6}
 };
 
 struct KeyFrame {
@@ -86,17 +76,32 @@ struct KeyFrame {
 	double rms,ncc;
 };
 
-//KLT+ESM+Geometric Enhancement Tracking framework
-struct KEGTracker {
-	bool debug;
+/** KLT+ESM+Geometric Enhancement Tracking framework
+Coordinate_System:
+Right-hand 3D coordinate system attached to the marker image :
+	origin: left-top corner of the image
+	x-axis: top to bottom of marker image
+	y-axis: left to right of marker image
+	z-axis: marker image to face
+Right-hand 2D image coordinate system (used when estimate homography) :
+	origin: left-top corner of the image
+	x-axis: left to right of marker image
+	y-axis: top to bottom of marker image
+ATTENTION:
+	2D coordinate system and 3D coordinate system's difference!
+*/
+struct Tracker {
+	bool doDraw;
+	//// for KLT
 	vector<uchar> status;
 	vector<float> err;
 	TermCriteria termcrit;
 	Size winSize;
 	int maxLevel;
 	double derivedLambda;
+	/// thresholds
 	double ransacThresh;
-	int drawTresh;
+	int validInlierThresh;
 	double nccThresh;
 
 	vector<Point2f> opts; //old pts to track
@@ -109,6 +114,7 @@ struct KEGTracker {
 
 	vector<unsigned char> match_mask;
 
+	//// embeded detector, slow
 	Ptr<FeatureDetector> detector;
 	Ptr<DescriptorExtractor> descriptor;
 	Ptr<DescriptorMatcher> matcher;
@@ -123,29 +129,25 @@ struct KEGTracker {
 
 	double K[9];
 
-	KEGTracker(int winW=8, int winH=8,
+	Tracker(int winW=8, int winH=8,
 	           int termIter=5, int termEps=0.3,
 	           int maxlevel=3, double lambda=0.3,
-	           double nccT=0.1, double ransacT=2, int drawT=15) :
+	           double nccT=0.2, double ransacT=2, int validT=15) :
 		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
 		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
-		ransacThresh(ransacT), drawTresh(drawT), nccThresh(nccT)
+		ransacThresh(ransacT), validInlierThresh(validT), nccThresh(nccT)
 	{
 		loadK(defaultK);
+		this->H = Mat::eye(3,3,CV_64FC1);
 	}
 
-	inline void loadTemplate(string templatename, bool isDecimate=true) {
+	inline void loadTemplate(string templatename) {
 		//limit the number of keypoints to track to [40,80]
 		detector=new DynamicAdaptedFeatureDetector(new SurfAdjuster, 40, 80, 10000);
 		descriptor=DescriptorExtractor::create("SURF");
 		matcher=DescriptorMatcher::create("FlannBased");
-
 		//load template
-		Mat tmp = imread(templatename, 0);
-		if(isDecimate)
-			pyrDown(tmp, timg);//scale the template down one-level, faster
-		else
-			timg = tmp;
+		timg = imread(templatename, 0);
 		cpts.push_back(Point2f(0,0));
 		cpts.push_back(Point2f(timg.cols,0));
 		cpts.push_back(Point2f(timg.cols,timg.rows));
@@ -163,7 +165,7 @@ struct KEGTracker {
 
 		//now use just surf, rather than the dynamic one
 		detector = new SurfFeatureDetector;
-		debug=true;
+		doDraw=true;
 	}
 
 	//load calibration matrix
@@ -174,10 +176,9 @@ struct KEGTracker {
 	}
 
 	//init by initH estimated from outside, such as an apriltag recognizer
-	inline bool init(Mat &image, Mat &nframe, Mat initH) {
+	inline bool init(Mat &image, Mat &nframe, Mat initH, double& rms, double & ncc) {
 		//use ESM to check ncc
-		double rms, ncc;
-		refiner.setDeltaRMSLimit(0.05);
+		refiner.setDeltaRMSLimit(0.01);
 		refiner.track(nframe, 20, initH, rms, ncc);
 		refiner.setDeltaRMSLimit(0.5);
 		if(cvIsNaN(ncc) || ncc<0.5) return false;
@@ -202,13 +203,13 @@ struct KEGTracker {
 		Mat des;
 		vector<DMatch> matches;
 		detector->detect(nframe, keys);
-		if((int)keys.size()<drawTresh) {
+		if((int)keys.size()<validInlierThresh) {
 			return false;
 		}
 		descriptor->compute(nframe, keys, des);
 		matcher->clear();
 		matcher->match(des, tdes, matches);
-		if((int)matches.size()<drawTresh) {
+		if((int)matches.size()<validInlierThresh) {
 			return false;
 		}
 		npts.resize(matches.size());
@@ -225,12 +226,12 @@ struct KEGTracker {
 
 		Mat nptsmat(npts);
 		perspectiveTransform(Mat(tpts), nptsmat, H);
-		if((int)match_mask.size()>drawTresh) {
+		if((int)match_mask.size()>validInlierThresh) {
 			cornerSubPix(nframe, npts, winSize, Size(-1,-1), termcrit);
 			opts.resize(npts.size());
 			std::copy(npts.begin(), npts.end(), opts.begin());
 		}
-		return (int)match_mask.size()>drawTresh;
+		return (int)match_mask.size()>validInlierThresh;
 	}
 
 	inline bool withinFrame(const Point2f &p, const Mat &frame) const {
@@ -254,7 +255,7 @@ struct KEGTracker {
 			npts[i] = status[i]?npts[i]:Point2f(0,0);
 		}
 
-		if((int)npts.size()<2*drawTresh || tpts.size()!=npts.size()) {
+		if((int)npts.size()<2*validInlierThresh || tpts.size()!=npts.size()) {
 			return false;
 		}
 
@@ -274,9 +275,9 @@ struct KEGTracker {
 
 			//validation
 			ret=validateH(nframe); //TODO do we still need this?
-			if(ret && debug) {
+			if(ret && doDraw) {
 				drawTrail(image);
-				//drawHomo(image);
+				drawHomo(image, H);
 				draw3D(image);
 			}
 		}
@@ -299,14 +300,14 @@ struct KEGTracker {
 		double d23 = helper::cross2D(tmpdir[1],tmpdir[2]) * 0.5;
 		double area = abs(d12+d23);
 		bool s123 = d12*d23>0;
-		bool ret = s123 && area>64 && countNonZero(Mat(match_mask)) > drawTresh;
+		bool ret = s123 && area>64 && countNonZero(Mat(match_mask)) > validInlierThresh;
 		if(ret) {
 			int cnt=0;
 			for(int i=0; i<(int)npts.size(); ++i) {
 				cnt+=(int)(status[i] && match_mask[i]
 				           && withinFrame(npts[i],nframe));
 			}
-			ret = (int)(cnt>drawTresh);
+			ret = (int)(cnt>validInlierThresh);
 		}
 		return ret;
 	}
@@ -324,37 +325,35 @@ struct KEGTracker {
 		}
 	}
 
-	inline void drawHomo(Mat& image, Mat Homo) {
-		//draw homo
-		const Mat_<double>& mH = Homo;
-		vector<Point2f> corners(4);
-		for(int i = 0; i < 4; i++ ) {
-			Point2f pt((float)(i == 0 || i == 3 ? 0 : timg.cols),
-			           (float)(i <= 1 ? 0 : timg.rows));
-			double w = 1./(mH(2,0)*pt.x + mH(2,1)*pt.y + mH(2,2));
-			corners[i] =
-			    Point2f((float)((mH(0,0)*pt.x + mH(0,1)*pt.y + mH(0,2))*w),
-			            (float)((mH(1,0)*pt.x + mH(1,1)*pt.y + mH(1,2))*w));
-		}
-		for(int i = 0; i < 4; ++i) {
-			Point r1 = corners[i%4];
-			Point r2 = corners[(i+1)%4];
-			line( image, r1, r2, CV_GREEN, 2 );
-		}
-		line(image, corners[0], corners[2], CV_BLACK, 2);
-		line(image, corners[1], corners[3], CV_BLACK, 2);
+	inline void drawHomo(Mat& image, const Mat& Homo) {
+		const double crns[4][2]={
+				{0, timg.rows},
+				{timg.cols, timg.rows},
+				{timg.cols, 0},
+				{0, 0}
+		};
+		helper::drawHomography(image, Homo, crns);
 	}
 
 	inline void draw3D(Mat &image) {
+		static cv::Scalar linecolors[] = {
+			CV_BLACK,
+			CV_GREEN,
+			CV_BLUE,
+			CV_RED  };
+		static int lineidx[12][2] = {
+			{0,1},{1,2},{2,3},{3,0},
+			{4,5},{5,6},{6,7},{7,4},
+			{0,4},{1,5},{2,6},{3,7} };
 		static double crns[8][3] = {
 			{0, 0, 0},
-			{timg.cols, 0, 0},
-			{timg.cols, timg.rows, 0},
-			{0, timg.rows, 0},
-			{timg.cols*0.4, timg.rows*0.4, timg.rows*0.5},
-			{timg.cols*0.6, timg.rows*0.4, timg.rows*0.5},
-			{timg.cols*0.6, timg.rows*0.6, timg.rows*0.5},
-			{timg.cols*0.4, timg.rows*0.6, timg.rows*0.5},
+			{0, timg.cols, 0},
+			{timg.rows, timg.cols, 0},
+			{timg.rows, 0, 0},
+			{timg.rows*0.4, timg.cols*0.4, timg.rows*0.5},
+			{timg.rows*0.4, timg.cols*0.6, timg.rows*0.5},
+			{timg.rows*0.6, timg.cols*0.6, timg.rows*0.5},
+			{timg.rows*0.6, timg.cols*0.4, timg.rows*0.5}
 		};
 		//homo to P
 		double Homo[9];
@@ -370,21 +369,28 @@ struct KEGTracker {
 		}
 		for(int i=0; i<3; ++i) {
 			for(int j=i*4; j<4+i*4; ++j) {
-				Point r1(p[lines[j][0]][0],p[lines[j][0]][1]);
-				Point r2(p[lines[j][1]][0],p[lines[j][1]][1]);
-				line( image, r1, r2, colors[i], 2 );
+				int s=lineidx[j][0], e=lineidx[j][1];
+				Point r1(p[s][0],p[s][1]);
+				Point r2(p[e][0],p[e][1]);
+				line( image, r1, r2, linecolors[j%4], 2 );
 			}
 		}
 	}
 
-	inline void GetCameraPose(double R[3][3], double T[3]) {
+	inline void GetCameraPose(double R[3][3], double T[3],
+		bool verbose=true, bool doAR=false) {
 		double Homo[9];
 		std::copy(H.begin<double>(), H.end<double>(), Homo);
-		double Rf[9];
-		CameraHelper::RTfromKH(K,Homo,Rf,T);
-		double R0[9]= {0,1,0,1,0,0,0,0,-1};
-		helper::mul(3,3,3,3,Rf,R0,R[0]);
-		if(debug) {
+		CameraHelper::RTfromKH(K,Homo,R[0],T);
+		if(doAR) { // R = R * [0,1,0;1,0,0;0,0,-1]
+			std::swap(R[0][0],R[0][1]);
+			std::swap(R[1][0],R[1][1]);
+			std::swap(R[2][0],R[2][1]);
+			R[0][2]=-R[0][2];
+			R[1][2]=-R[1][2];
+			R[2][2]=-R[2][2];
+		}
+		if(verbose) {
 			cout<<"R=\n"<<helper::PrintMat<>(3,3,R[0])<<endl;
 			cout<<"T=\n"<<helper::PrintMat<>(1,3,T)<<endl;
 		}
@@ -408,13 +414,20 @@ struct KEGTracker {
 
 	inline bool SaveKeyFrames(string name) {
 		name = DirHelper::getFileDir(name);
-		string swtname = helper::legalDir(name) + string("ar.swt");
-		string rmsnccname = name + string("rmsncc.txt");
-		std::ofstream swt(swtname.c_str());
-		swt << "scene.osg" << endl;
+		string mainname = helper::legalDir(name) + string("frames.main");
+		string rmsnccname = name + string("frames.rmsncc");
+		string framesRname = name + string("frames.R");
+		string framesTname = name + string("frames.T");
+		std::ofstream mainout(mainname.c_str());
+		mainout << "CAMERAFRUSTUM "<<keyframes.size()<<" 1"<< endl;
+		mainout << name << endl;
 		cerr<<"[SaveKeyFrames] "<<(int)keyframes.size()<<" frame(s) total!"<<endl;
 		std::ofstream rmsncc(rmsnccname.c_str());
-		rmsncc <<"#format: frame_id rms ncc"<<endl;
+//		rmsncc <<"#format: frame_id rms ncc"<<endl;
+		std::ofstream framesR(framesRname.c_str());
+//		framesR <<"#format: frame_id R[0][0] R[0][1] ... R[2][2]"<<endl;
+		std::ofstream framesT(framesTname.c_str());
+//		framesT <<"#format: frame_id T[0] T[1] T[2]"<<endl;
 		for(int i=0; i<(int)keyframes.size(); ++i) {
 			const KeyFrame& kf = keyframes[i];
 			if(kf.frame.empty()) {
@@ -427,10 +440,8 @@ struct KEGTracker {
 
 			string parname = prefix + string(".par");
 			std::ofstream par(parname.c_str());
-			par << "n=0.1\nf=1000000\n" << endl;
-			par << "K(alphaX alphaY u0 v0)=\n"
-			    <<K[0]<<"\n"<<K[4]<<"\n"
-			    <<K[2]<<"\n"<<K[5]<< endl;
+			par << "n=0.1\nf=10000\n" << endl;
+			par << "K=\n" << helper::PrintMat<>(3,3,K) << endl;
 			par << "R=\n" << helper::PrintMat<>(3,3,kf.R[0]) << endl;
 			par << "T=\n" << helper::PrintMat<>(3,1,kf.T) << endl;
 			par.close();
@@ -442,12 +453,21 @@ struct KEGTracker {
 
 			string relativeParname = relativePrefix + string(".par");
 			string relativeImgname = relativePrefix + string(".jpg");
-			swt << relativeImgname << endl;
-			swt << relativeParname << endl;
+			mainout << relativeImgname << endl;
+			mainout << relativeParname << endl;
 
 			rmsncc <<kf.id<<" "<<kf.rms<<" "<<kf.ncc<<endl;
+			framesR <<kf.id<<" "<<helper::PrintMat<>(1,9,kf.R[0]);
+			framesT <<kf.id<<" "<<helper::PrintMat<>(1,3,kf.T);
 		}
+		rmsncc.close();
+		framesR.close();
+		mainout.close();
 		cerr<<"[SaveKeyFrames] DONE!"<<endl;
 		return true;
 	}
-};//end of struct KEGTracker
+};//end of struct Tracker
+
+}//end of namespace keg
+
+typedef keg::Tracker KEGTracker;

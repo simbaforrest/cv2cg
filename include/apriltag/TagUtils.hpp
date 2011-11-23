@@ -203,7 +203,7 @@ struct Segment {
 		b00=s.x0 - this->x0;
 		b10=s.y0 - this->y0;
 
-		double x00, x10;
+		double x00; //, x10;
 		x00=i00*b00+i01*b10;
 		//	x10=i10*b00+i11*b10;
 

@@ -44,6 +44,36 @@ namespace ImageHelper
 #define CV_BLACK	Scalar(0,0,0)
 #define CV_GRAY		Scalar(128,128,128)
 
+using cv::Scalar;
+using cv::Mat;
+using std::vector;
+using cv::Point2f;
+using cv::Point;
+
+inline void drawHomography(Mat& image, const Mat& Homo, double const crns[4][2]) {
+	static cv::Scalar homocolors[] = {
+		CV_BLACK,
+		CV_GREEN,
+		CV_BLUE,
+		CV_RED  };
+	const cv::Mat_<double>& mH = Homo;
+	vector<Point2f> corners(4);
+	for(int i = 0; i < 4; i++ ) {
+		double ptx = crns[i][0], pty=crns[i][1];
+		double w = 1./(mH(2,0)*ptx + mH(2,1)*pty + mH(2,2));
+		corners[i] =
+		    Point2f((float)((mH(0,0)*ptx + mH(0,1)*pty + mH(0,2))*w),
+		            (float)((mH(1,0)*ptx + mH(1,1)*pty + mH(1,2))*w));
+	}
+	for(int i = 0; i < 4; ++i) {
+		const Point& r1 = corners[i%4];
+		const Point& r2 = corners[(i+1)%4];
+		line( image, r1, r2, homocolors[i], 2 );
+	}
+	line(image, corners[0], corners[2], CV_GB, 2);
+	line(image, corners[1], corners[3], CV_GB, 2);
+}
+
 // generate pseudocolor look up table
 // maxcolors: required max number of colors
 inline std::vector<cv::Scalar> pseudocolor(int maxcolors)
@@ -97,6 +127,59 @@ public:
 	virtual string classname() = 0;
 
 	virtual void reportInfo() {}
+
+	struct Processor {
+		virtual void operator()(cv::Mat& frame) = 0; //main process
+		virtual void handle(char key) = 0; //handle user input
+	};
+
+	virtual void run(Processor& processor,
+		double idealfps = 20, bool verbose=false,
+		bool pa=false, bool lo=false) {
+		pause(pa);
+		loop(lo);
+		cv::namedWindow("frame");
+		bool openFromWebcam = (this->classname() == "ImageSource_Camera");
+		PerformanceHelper::PerformanceMeasurer PM;
+		PM.scale = 1000;
+		double lastdur = 0;
+		double idealdur = 1000.0/idealfps;
+		while(!this->done()) {
+			PM.tic();
+			cv::Mat frame;
+			this->get(frame);
+
+			processor(frame);
+			cv::imshow("frame",frame);
+
+			lastdur = PM.toc();
+			if(verbose) cout<<"[loop] dur = "<<lastdur<<endl;
+			double waitdur = openFromWebcam?8:std::max(idealdur-lastdur, 8.0);
+			char key = cv::waitKey(waitdur);
+			processor.handle(key);
+			switch(key) {
+			case 'v':
+				verbose = !verbose; break;
+			case 'p':
+				pause(!isPause); if(verbose) cout<<"pause="<<isPause<<endl;
+				break;
+			case 'l':
+				loop(!isLoop); if(verbose) cout<<"loop="<<isLoop<<endl;
+				break;
+			case '=':
+				++idealfps;
+				idealdur = 1000/idealfps;
+				break;
+			case '-':
+				--idealfps; if(idealfps<=0) idealfps=1;
+				idealdur = 1000/idealfps;
+				break;
+			case 27:
+			case 'q':
+				return;
+			}
+		}
+	}
 
 	inline void pause(bool val=true) { isPause=val; }
 	inline void loop(bool val=true) { isLoop=val; }
@@ -240,19 +323,21 @@ private:
 public:
 	ImageSource_Photo(string content) {
 		cout<<"[ImageSource_Photo] open images from: "<<content<<endl;
-		string cmd = string("ls -1 ")+content;
 #ifdef _WIN32
+		string cmd = string("dir /B ")+content;
 		FILE* fptr = _popen(cmd.c_str(), "r");
 #else
+		string cmd = string("ls -v1 ")+content;
 		FILE* fptr = popen(cmd.c_str(), "r");
 #endif
 		char buf[1024]={0};
 		while( fgets(buf,1024,fptr)!=0 ) {
 			int len = strlen(buf);
-			if(len>1)
-			imnames.push_back(string(buf,buf+len-1));
-			memset(buf,0,sizeof(char)*1024);
-			cout<<imnames.back()<<endl;
+			if(len>1) {
+				imnames.push_back(string(buf,buf+len-1));
+				memset(buf,0,sizeof(char)*1024);
+				cout<<imnames.back()<<endl;
+			}
 		}
 #ifdef _WIN32
 		_pclose(fptr);
@@ -324,68 +409,6 @@ inline ImageSource* createImageSource(string url) {
 		cout<<"[ImageSource error] unknown url header: "<<header<<endl;
 	}
 	return NULL;
-}
-
-/*//////////////////////////////////////////////////////////////////////
-//To properly use the following functions, implement these two functions:
-namespace ImageHelper {
-void ProcessOneFrame(cv::Mat& frame) {
-}
-
-void KeyResponse(char key) {
-}
-}
-*/
-
-inline void ProcessOneFrame(cv::Mat& frame);
-inline void KeyResponse(char key);
-
-inline void LoopInImageSource(cv::Ptr<ImageSource> is, double idealfps = 20, bool verbose=false) {
-	static bool pa = false;
-	static bool lo = false;
-	cv::namedWindow("frame");
-
-	PerformanceHelper::PerformanceMeasurer PM;
-	PM.scale = 1000;
-	double lastdur = 0;
-	double idealdur = 1000.0/idealfps;
-	while(!is->done()) {
-		PM.tic();
-		cv::Mat frame;
-		is->get(frame);
-
-		ProcessOneFrame(frame);
-		cv::imshow("frame",frame);
-
-		lastdur = PM.toc();
-		if(verbose) cout<<"[loop] dur = "<<lastdur<<endl;
-		double waitdur = idealdur-lastdur;
-		char key = cv::waitKey(waitdur>0?waitdur:8);
-		KeyResponse(key);
-		switch(key) {
-		case 'v':
-			verbose = !verbose; break;
-		case 'p':
-			is->pause(pa); if(verbose) cout<<"pause="<<pa<<endl;
-			pa = !pa;
-			break;
-		case 'l':
-			is->loop(lo); if(verbose) cout<<"loop="<<lo<<endl;
-			lo = !lo;
-			break;
-		case '=':
-			++idealfps;
-			idealdur = 1000/idealfps;
-			break;
-		case '-':
-			--idealfps; if(idealfps<=0) idealfps=1;
-			idealdur = 1000/idealfps;
-			break;
-		case 27:
-		case 'q':
-			return;
-		}
-	}
 }
 
 }//ImageHelper
