@@ -210,9 +210,9 @@ inline std::ostream &operator<<(std::ostream &os, const osg::Camera &camera)
 	os << std::setiosflags(std::ios::scientific);
 	osg::Matrix vmat = camera.getViewMatrix();
 	osg::Matrix pmat = camera.getProjectionMatrix();
-	os << "View Matrix = " << std::endl;
+	os << "ViewMatrix = " << std::endl;
 	os << vmat ;
-	os << "Projection Matrix = " << std::endl;
+	os << "ProjectionMatrix = " << std::endl;
 	os << pmat ;
 	double l,r,b,t,n,f;
 	camera.getProjectionMatrixAsFrustum(l,r,b,t,n,f);
@@ -229,7 +229,6 @@ inline std::ostream &operator<<(std::ostream &os, const osg::Camera &camera)
 inline void CG_Report(const osg::Camera &camera,
                       std::ostream &out=std::cout)
 {
-	out<<"#------------Graphics--------------"<<std::endl;
 	out<<camera<<std::endl;
 	out<<"#Test CG Projection:"<<std::endl;
 	double u,v;
@@ -259,7 +258,6 @@ inline void CV_Report(const osg::Camera &camera,
 		out << "imgW=" << imgW << " imgH=" <<imgH<<std::endl;
 	}
 
-	out<<"#------------Vision----------------"<<std::endl;
 	double K[3][3],C[3],T[3],R[3][3],P[3][4];
 	cg2cv(camera, imgW, imgH, K,C,R);
 	helper::compose(K[0],R[0],C,P[0],true);
@@ -268,8 +266,7 @@ inline void CV_Report(const osg::Camera &camera,
 	T[1]*=-1;
 	T[2]*=-1;
 
-	out<<"K(alphaX alphaY u0 v0)="<<std::endl,
-	   out<<K[0][0]<<"\n"<<K[1][1]<<"\n"<<K[0][2]<<"\n"<<K[1][2]<<std::endl;
+	out<<"K=\n"<<helper::PrintMat<>(3,3,K[0]);
 	out<<"R=\n"<<helper::PrintMat<>(3,3,R[0]);
 	out<<"C=\n"<<helper::PrintMat<>(3,1,C);
 	out<<"T=\n"<<helper::PrintMat<>(3,1,T);
@@ -283,8 +280,8 @@ inline void CV_Report(const osg::Camera &camera,
 inline void CV_CG_Report(const osg::Camera &camera,
                          std::ostream &out=std::cout)
 {
-	CG_Report(camera, out);
 	CV_Report(camera, out);
+	CG_Report(camera, out);
 }
 
 inline void CG_Project_Report(const osg::Camera &camera,

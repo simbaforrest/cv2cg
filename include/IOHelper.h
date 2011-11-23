@@ -35,14 +35,14 @@ namespace IOHelper
 //read one valid line, i.e. non-empty line
 //return false if no valid line, i.e. end-of-file
 inline bool readValidLine(std::istream &in,
-                          std::string &line)
+                          std::string &line, char commentchar='#')
 {
 	line = "";//clear;
 	bool haschar = false;
 	while(in) {
 		std::string str;
 		std::getline(in, str);
-		if(str.length()==0) {
+		if(str.length()==0 || str[0]==commentchar) {
 			continue;
 		}
 		haschar = true;

@@ -72,6 +72,7 @@ using april::tag::TagFamily;
 using april::tag::TagFamilyFactory;
 using april::tag::TagDetector;
 using april::tag::TagDetection;
+using helper::ImageSource;
 
 cv::Ptr<TagFamily> tagFamily;
 cv::Ptr<TagDetector> detector;
@@ -79,8 +80,8 @@ cv::Mat HI;
 cv::Mat iHI; //inverse of init Homography, X_tag = iHI * X_keg
 
 //////////////video/////////////////////
+cv::Ptr<ImageSource> is;
 bool videoFromWebcam;
-VideoCapture cap;
 Mat frame,gray,prevGray;
 int imgW, imgH;
 
@@ -144,15 +145,10 @@ struct TrackThread : public OpenThreads::Thread {
 		helper::PerformanceMeasurer PM;
 
 		PM.tic();
-		for(; videoFromWebcam || framecnt<videoFrameCnt; ++framecnt) {
-
+		while(!is->done()) {
 			_mutex.lock();
 
-			if(!videoFromWebcam) {
-				loglni("[TrackThread] framecnt="<<framecnt);
-			}
-
-			cap >> frame;
+			is->get(frame);
 			if(frame.empty()) {
 				loglni("[TrackThread] no valid frame, exit!!!");
 				OpenCVneedQuit = true;
@@ -167,8 +163,9 @@ struct TrackThread : public OpenThreads::Thread {
 				//needToInit=!tracker.init(gray,rms,ncc);
 				Mat initH;
 				if( findAprilTag(frame, 0, initH, true) ) {
-					Mat mH = initH * iHI;
-					needToInit = !tracker.init(frame, gray, mH);
+//					Mat mH = initH * iHI;
+//					needToInit = !tracker.init(frame, gray, mH);
+					needToInit=!tracker.init(gray,rms,ncc);
 					if(!needToInit) loglni("[TrackThread] ...INITed");
 				}
 			} else if( !tracker.opts.empty() ) {
@@ -188,8 +185,6 @@ struct TrackThread : public OpenThreads::Thread {
 			}
 			++BkgModifyCnt;
 			loglni("[TrackThread] fps="<<1.0/PM.toctic());
-			if(tracker.debug)
-				loglni("[TrackThread] frame end -------------------------");
 
 			_mutex.unlock();
 			if(OpenCVneedQuit) {
@@ -197,6 +192,7 @@ struct TrackThread : public OpenThreads::Thread {
 			}
 
 			swap(prevGray, gray);
+			++framecnt;
 		}
 
 		OpenThreads::Thread::YieldCurrentThread();
@@ -228,52 +224,73 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 	virtual bool handle(const osgGA::GUIEventAdapter &ea, 
 		osgGA::GUIActionAdapter &aa) {
 		if(ea.getEventType()==osgGA::GUIEventAdapter::KEYDOWN) {
-			if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Escape) {
+			switch(ea.getKey()) {
+			case osgGA::GUIEventAdapter::KEY_Escape:
 				OpenCVneedQuit=true;
 				loglni("[QuitHandler] OSG notify OpenCV to quit...");
-			} else if(ea.getKey()==' ') {
+				break;
+			case ' ':
 				needToInit=true;
-			} else if(ea.getKey()=='d') {
-				tracker.debug=!tracker.debug;
-				if(tracker.debug) loglni("[Debug Mode] ON.");
-				else loglni("[Debug Mode] OFF.");
-			} else if(ea.getKey()=='.') { //>
+				break;
+			case 'd':
+				tracker.doDraw=!tracker.doDraw;
+				if(tracker.doDraw){ loglni("[Debug Mode] ON."); }
+				else { loglni("[Debug Mode] OFF."); }
+				break;
+			case '.': //>
 				sx+=0.4;sy+=0.4;sz+=0.4;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
-			} else if(ea.getKey()==',') { //<
+				break;
+			case ',': //<
 				sx-=0.2;sy-=0.2;sz-=0.2;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
-			} else if(ea.getKey()=='c') {
+				break;
+			case 'c':
 				needToCapframe = !needToCapframe;
 				if(needToCapframe) loglni("[Capture Frame] Begin.");
 				else loglni("[Capture Frame] End.");
-			} else if(ea.getKey()=='h') {
-				QuitHandler::usage();
-			} else if(ea.getKey()=='1') {
-				switchARVideo();
-			} else if(ea.getKey()=='2') {
-				switchARScene();
-			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_KP_Up) {
+				break;
+			case 'h':
+				QuitHandler::usage(); break;
+			case '1':
+				switchARVideo(); break;
+			case '2':
+				switchARScene(); break;
+			case osgGA::GUIEventAdapter::KEY_KP_Up:
 				my+=10;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
-			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_KP_Down) {
+				break;
+			case osgGA::GUIEventAdapter::KEY_KP_Down:
 				my-=5;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
-			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_KP_Left) {
+				break;
+			case osgGA::GUIEventAdapter::KEY_KP_Left:
 				mx-=5;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
-			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_KP_Right) {
+				break;
+			case osgGA::GUIEventAdapter::KEY_KP_Right:
 				mx+=10;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
-			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Page_Up) {
+				break;
+			case osgGA::GUIEventAdapter::KEY_Page_Up:
 				mz+=10;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
-			} else if(ea.getKey()==osgGA::GUIEventAdapter::KEY_Page_Down) {
+				break;
+			case osgGA::GUIEventAdapter::KEY_Page_Down:
 				mz-=5;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
-			}
+				break;
+			case 'p':
+				static bool pa=false;
+				is->pause(pa); pa = !pa; break;
+				break;
+			case 'l':
+				static bool lo=false;
+				is->loop(lo); lo = !lo; break;
+				break;
+			}//end of switch
 		}
-		return false;
+		return true;
 	}
 
 	static void usage() {
@@ -302,41 +319,8 @@ struct ARUpdateCallback : public osg::NodeCallback {
 	}
 };
 
-bool InitVideoCapture(int argc, char ** argv)
-{
-	if(argc==1) {//default
-		cap.open(0);
-		videoFromWebcam=true;
-	} else {
-		int len = strlen(argv[1]);
-		bool fromDevice=true;
-		for(int i=0; i<len; ++i) {
-			if( !isdigit(argv[1][i]) ) {
-				fromDevice = false;
-				break;
-			}
-		}
-		if(fromDevice) {
-			int idx = atoi(argv[1]);
-			loglni("[InitVideoCapture] open from device "<<idx);
-			cap.open(idx);
-			videoFromWebcam = true;
-		} else {
-			loglni("[InitVideoCapture] open from file "<<argv[1]);
-			cap.open(argv[1]);
-			videoFromWebcam = false;
-
-			videoFrameCnt=cap.get(CV_CAP_PROP_FRAME_COUNT)-2;
-			loglni("[InitVideoCapture] number of frames: "<<videoFrameCnt);
-
-			needToInit=true;
-		}
-	}
-	return cap.isOpened();
-}
-
 void usage( int argc, char **argv ) {
-	cout<< "[usage] " <<argv[0]<<" <device number|video file>"
+	cout<< "[usage] " <<argv[0]<<" <url>"
 		" <K matrix file> <template file>"
 		" [osg scene file] [AprilTag Family ID] [keyframe saving path]" <<endl;
 	cout<< "Supported TagFamily ID List:\n";
@@ -344,6 +328,10 @@ void usage( int argc, char **argv ) {
 		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
 	cout<<"default ID: 0"<<endl;
+	cout<<"Example ImageSource url:\n";
+	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
+	cout<<"camera://0\n";
+	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
 	QuitHandler::usage();
 }
 
@@ -353,25 +341,19 @@ int main( int argc, char **argv )
 		usage(argc,argv);
 		return 1;
 	}
-	if( !InitVideoCapture(argc,argv) ) {
-		loglne("[main] Could not initialize capturing...");
-		return 1;
+	is = helper::createImageSource(argv[1]);
+	if(is.empty() || is->done()) {
+		loglne("[main] createImageSource failed or no valid imagesource!");
+		return -1;
 	}
-	loglni("[main] Video Captured.");
-	QuitHandler::usage();
-
-	if(cap.set(CV_CAP_PROP_FRAME_WIDTH, 640))
-		loglni("[main] video width=640");
-	if(cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480))
-		loglni("[main] video height=480");
-
-	cap >> frame;
-	if( frame.empty() ) {
-		loglni("[main] No valid video!");
-		return 1;
+	is->pause(true);
+	is->reportInfo();
+	is->get(frame);
+	imgW = frame.cols; imgH = frame.rows;
+	videoFromWebcam = false;
+	if( is->classname() == "ImageSource_Camera" ) {
+		videoFromWebcam = true;
 	}
-	imgW = frame.cols;
-	imgH = frame.rows;
 
 	loglni("[main] loading K matrix from: "<<argv[2]);
 	double K[9];
@@ -401,8 +383,7 @@ int main( int argc, char **argv )
 	if( findAprilTag(temp, 0, HI, true) ) {
 		namedWindow("template");
 		imshow("template", temp);
-		double sc[]={2,0,0,0,2,0,0,0,1};
-		iHI = HI.inv() * Mat(3,3,CV_64FC1,sc);
+		iHI = HI.inv();
 	} else {
 		loglne("[main error] detector did not find any apriltag on template image!");
 		return -1;
@@ -433,9 +414,6 @@ int main( int argc, char **argv )
 	viewer.addEventHandler(new osgViewer::StatsHandler);
 	viewer.addEventHandler(new osgViewer::WindowSizeHandler);
 	viewer.addEventHandler(new QuitHandler);
-
-	loglni("[main] press any key to start...");
-	getchar();
 
 	//start tracking thread
 	OpenThreads::Thread::Init();

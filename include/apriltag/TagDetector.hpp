@@ -892,7 +892,7 @@ struct TagDetector {
 			if (path[4] == path[0]) {
 
 				// the 4 corners of the quad as computed by the intersection of segments.
-				double p[4][2]= {0};
+				double p[4][2]= {{0}};
 				double observedPerimeter = 0;
 
 				bool bad = false;

@@ -156,11 +156,12 @@ inline void RTfromKH(const double K[9], double H[9],
 	R[6]=r1[2], R[7]=r2[2], R[8]=r3[2];
 	T[0]=A[2],  T[1]=A[5],  T[2]=A[8]; //translation
 
+//simbaforrest: add this will cause affect rendering effect, since lost info
 	//as suggested by AprilTag, do polar decomposition so R is orthogonal
 	//R = (UV')(VSV')
-	double U[9],S[9],VT[9];
-	CvMatHelper::svd(3,3,R,U,S,VT);
-	CvMatHelper::mul(3,3,3,3,U,VT,R);
+//	double U[9],S[9],VT[9];
+//	CvMatHelper::svd(3,3,R,U,S,VT);
+//	CvMatHelper::mul(3,3,3,3,U,VT,R);
 }
 
 }//CameraHelper
