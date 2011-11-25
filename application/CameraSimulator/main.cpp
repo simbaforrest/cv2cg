@@ -33,8 +33,8 @@ int main( int argc, char **argv )
 {
 	if(argc<=1) {
 		LogI("Usage: \n\tCameraSimulator <InputFileName>"
-			" [<OutPutFileName>(Without extention!)]\n");
-		LogI("Example: \n\tCameraSimulator draw.txt D:/Out\n");
+			" [OutPut Dir]\n");
+		LogI("Example: \n\tCameraSimulator draw.txt D:/Out/\n");
 		LogI("Example: \n\tCameraSimulator draw.txt\n");
 		return -1;
 	}
@@ -48,24 +48,38 @@ int main( int argc, char **argv )
 
 	if(argc>2) outdir = std::string(argv[2]);
 	helper::legalDir(outdir);
-	osg::ref_ptr<osg::Node> md = CreateSceneHelper::create_SCENE(inname);
-	osgDB::writeNodeFile(*md, outdir+"_model.osg");
+
 	osgViewer::Viewer viewer;
+	osg::ref_ptr<osg::Node> md = CreateSceneHelper::create_SCENE(inname,viewer);
+	osgDB::writeNodeFile(*md, outdir+"model.osg");
 	viewer.setSceneData(md);
+
+	if(!viewer.getCameraManipulator()) {
+		osgGA::TrackballManipulator* manip = new osgGA::TrackballManipulator;
+		manip->setAllowThrow(false);
+		viewer.setCameraManipulator(manip);
+	}
 
 	using CaptureSceneHelper::CaptureCallBack;
 	using CaptureSceneHelper::CaptureHandler;
 	using SwitchCameraHelper::CameraUpdator;
 	using SwitchCameraHelper::SwitchCameraHandler;
 
-	osg::ref_ptr<CaptureCallBack> capture = new CaptureCallBack(30);
-	osg::ref_ptr<CaptureHandler> handler = new CaptureHandler(capture);
-	osg::ref_ptr<CameraUpdator> updator = new CameraUpdator(&viewer);
-	osg::ref_ptr<SwitchCameraHandler> switcher = new SwitchCameraHandler(updator);
-	viewer.getCamera()->setPostDrawCallback(capture);
+	osg::ref_ptr<CameraUpdator> updator = 
+		new CameraUpdator(&viewer);
+	osg::ref_ptr<SwitchCameraHandler> switcher = 
+		new SwitchCameraHandler(updator);
 	viewer.getCamera()->setUpdateCallback(updator);
-	viewer.addEventHandler(handler);
 	viewer.addEventHandler(switcher);
+
+	osg::ref_ptr<CaptureCallBack> capture;
+	osg::ref_ptr<CaptureHandler> handler;
+	if(argc>2) { //do not capture without output dir!!!
+		capture = new CaptureCallBack(30);
+		handler = new CaptureHandler(capture);
+		viewer.getCamera()->setPostDrawCallback(capture);
+		viewer.addEventHandler(handler);
+	}
 
 	viewer.addEventHandler( new osgGA::StateSetManipulator(
 		viewer.getCamera()->getOrCreateStateSet()) );
@@ -74,12 +88,8 @@ int main( int argc, char **argv )
 	viewer.setUpViewInWindow(50,50,640,480);
 	viewer.getCamera()->setClearColor(osg::Vec4(0,0.1,0.3,1));
 
-	osgGA::TrackballManipulator* manip = new osgGA::TrackballManipulator;
-	manip->setAllowThrow(false);
-	viewer.setCameraManipulator(manip);
-
 	viewer.run();
 
-	if(argc>2) capture->saveKeyFrames(outdir);
+	if(capture.valid()) capture->saveKeyFrames(outdir);
 	return 0;
 }
