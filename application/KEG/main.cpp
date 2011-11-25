@@ -46,6 +46,7 @@
 \************************************************************************/
 
 #include <iostream>
+#include <limits>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -80,6 +81,7 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 	bool doCapFrame;
 	bool needToCapframe;
 	bool videoFromWebcam;
+	bool onlyApril;
 	double threshKeydistance;
 	int framecnt;
 
@@ -91,6 +93,7 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 
 /////// Constructor
 	KEGprocessor() {
+		onlyApril = false;
 		needToInit = false;
 		doCapFrame = true;
 		needToCapframe = false;
@@ -142,30 +145,55 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 		double rms=-1, ncc=-1;
 		double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0};
 		static double lastT[3]={0};
-		if( needToInit ) {
-			loglni("[KEGprocessor] INITing...");
+		if( onlyApril ) { //for test
 			Mat tmpH;
+			needToInit = true;
 			if( findAprilTag(frame, tmpH, true) ) {
 				Mat initH = tmpH * iHI;
-				needToInit = !tracker.init(frame, gray, initH, rms, ncc);
-//				needToInit=!tracker.init(gray,rms,ncc);
-				if(!needToInit) loglni("[KEGprocessor] ...INITed");
+				needToInit = !tracker.init(gray, initH, rms, ncc, 0);
+				if(!needToInit) {
+					tracker.draw3D(frame);
+				}
 			}
-		} else if( !tracker.opts.empty() ) {
-			if(prevGray.empty()) {
-				gray.copyTo(prevGray);
+		} else {
+			if( needToInit ) {
+				loglni("[KEGprocessor] INITing...");
+				Mat tmpH;
+				if( findAprilTag(frame, tmpH, true) ) {
+					Mat initH = tmpH * iHI;
+					needToInit = !tracker.init(gray, initH, rms, ncc);
+//					needToInit=!tracker.init(gray,rms,ncc);
+					if(!needToInit) loglni("[KEGprocessor] ...INITed");
+				}
+			} else if( !tracker.opts.empty() ) {
+				if(prevGray.empty()) {
+					gray.copyTo(prevGray);
+				}
+				needToInit=!tracker(prevGray, gray, &frame, rms, ncc);
 			}
-			needToInit=!tracker(prevGray, gray, frame, rms, ncc);
 		}
 
-		tracker.GetCameraPose(camR,camT);
+		if(!needToInit)
+			tracker.GetCameraPose(camR,camT);
+		else if(doCapFrame && !videoFromWebcam) {
+			for(int i=0; i<3; ++i) {
+				camT[i]=numeric_limits<double>::quiet_NaN();
+				for(int j=0; j<3; ++j)
+					camR[i][j]=numeric_limits<double>::quiet_NaN();
+			}
+			rms = ncc = numeric_limits<double>::quiet_NaN();
+		}
 		if (doCapFrame) {
-			double diff[3]={camT[0]-lastT[0],camT[1]-lastT[1],camT[2]-lastT[2]};
-			double dist = helper::normL2(3,1,diff);
-			if(!videoFromWebcam || //if file, then save each frame
-				(dist>=threshKeydistance && needToCapframe)) {
+			if(!videoFromWebcam) {//if file, then save each frame
 				std::copy(camT,camT+3,lastT);
 				tracker.CapKeyFrame(framecnt++, frame, camR, camT, rms, ncc);
+			} else if (!needToInit) {
+				double diff[3]={camT[0]-lastT[0],camT[1]-lastT[1],camT[2]-lastT[2]};
+				double dist = helper::normL2(3,1,diff);
+				if(dist>=threshKeydistance && needToCapframe) {
+					std::copy(camT,camT+3,lastT);
+					tracker.CapKeyFrame(framecnt++, frame, camR, camT, rms, ncc);
+				}
 			}
 		}
 
@@ -182,8 +210,8 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 			Log::level = Log::LOG_INFO; break;
 		case '3':
 			Log::level = Log::LOG_DEBUG; break;
-		case 'd':
-			tracker.doDraw = !tracker.doDraw; break;
+//		case 'd':
+//			tracker.doDraw = !tracker.doDraw; break;
 		case ' ':
 			needToInit=true; break;
 		case 'c':
@@ -204,7 +232,10 @@ void usage( int argc, char **argv ) {
 		" <template file>" //3
 		" [Target tag ID]" //4
 		" [AprilTag Family ID]" //5
-		" [keyframe saving path]" <<endl;
+		" [keyframe saving path]"//6
+		" [GeometricEnhancement]"//7
+		" [ESM Max Iteration]"//8
+		" [onlyApril]" <<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
@@ -279,6 +310,21 @@ int main( int argc, char **argv )
 	}
 
 	processor.doCapFrame = argc>6;
+
+	if(argc>7) {
+		bool flag = atoi(argv[7]);
+		processor.tracker.setDoGeometricEnhancement(flag);
+	}
+
+	if(argc>8) {
+		int miter = atoi(argv[8]);
+		processor.tracker.setMaxNumRefinement(miter);
+	}
+
+	if(argc>9) {
+		bool flag = atoi(argv[9]);
+		processor.onlyApril = flag;
+	}
 
 	//// Main Loop
 	is->run(processor,-1);

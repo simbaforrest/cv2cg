@@ -186,7 +186,6 @@ public:
 		e->getViewMatrixAsLookAt(eye,center,up);
 		manip->setHomePosition(eye, center, up);
 		viewer->setCameraManipulator(manip);
-		viewer->getCamera()->setUserData( e->getUserData() );//
 
 		lastE = e;
 		s = 0;

@@ -33,6 +33,9 @@
 #include <osg/BlendColor>
 #include <osg/BlendFunc>
 #include <osg/BlendEquation>
+#include <osgViewer/Viewer>
+#include <osg/AnimationPath>
+#include <osgGA/AnimationPathManipulator>
 
 #include "OpenCVHelper.h"
 #include "CV2CG.h"
@@ -593,7 +596,43 @@ inline osg::ref_ptr<osg::Camera> create_PHOTOBACKGROUND(std::istream& in) {
 }
 
 ////////////////////////////////////////////////////////////////////////
-inline osg::ref_ptr<osg::Node> create_SCENE(string filename) {
+/**
+SYNTAX:
+ANIMATIONPATH <#keyframe>
+
+<#keyframe> lines of keyframe, keyframe is a line of 1+9+3 numbers (time, R & T)
+
+EXAMPLE script: (move to 10,10,10 at 10.5 second)
+ANIMATIONPATH 2
+1 1 0 0 0 1 0 0 0 1 0 0 0
+10.5 1 0 0 0 1 0 0 0 1 10 10 10
+ **/
+inline osg::ref_ptr<osg::AnimationPath> create_ANIMATIONPATH(std::istream& in,
+	int nkeyframes) {
+	if(nkeyframes<=0) return 0;
+	osg::ref_ptr<osg::AnimationPath> ret = new osg::AnimationPath;
+	std::string str;
+	for(int i=0; i<nkeyframes; ++i) {
+		if(!readValidLine(in, str)) { std::cout<<"error!"<<std::endl; return 0; }
+		double R[9], T[3], time;
+		std::stringstream ss; ss<<str;
+		ss >> time;
+		for(int j=0; j<9; ++j) ss >> R[j];
+		for(int j=0; j<3; ++j) ss >> T[j];
+		osg::AnimationPath::ControlPoint cp(
+			osg::Vec3d(T[0],T[1],T[2]),
+			osg::Matrix(R[0],R[3],R[6],0,
+						R[1],R[4],R[7],0,
+						R[2],R[5],R[8],0,
+						0,0,0,1).getRotate() );
+		ret->insert(time,cp);
+	}
+	return ret;
+}
+
+////////////////////////////////////////////////////////////////////////
+inline osg::ref_ptr<osg::Node> create_SCENE(string filename,
+	osgViewer::Viewer& viewer) {
 	std::ifstream fin(filename.c_str());
 	osg::ref_ptr<osg::Group> ret = new osg::Group;
 	ret->setName("CreateSceneHelper.SCENE");
@@ -641,6 +680,16 @@ inline osg::ref_ptr<osg::Node> create_SCENE(string filename) {
 		} else if(cmd=="PHOTOBACKGROUND") {
 			osg::ref_ptr<osg::Node> nd = create_PHOTOBACKGROUND(fin);
 			if(nd.valid()) ret->addChild(nd);
+		} else if(cmd=="ANIMATIONPATH") {
+			int nkeyframes = arg[0];
+			osg::ref_ptr<osg::AnimationPath> ap = 
+				create_ANIMATIONPATH(fin,nkeyframes);
+			if(ap.valid()) {
+				osgGA::AnimationPathManipulator* manip = 
+					new osgGA::AnimationPathManipulator(ap);
+				viewer.setCameraManipulator(manip);
+				cout<<"animationpath setted!"<<endl;
+			}
 		} else {
 			cout<<"[create_SCENE] unknown cmd!"<<endl;
 			return 0;

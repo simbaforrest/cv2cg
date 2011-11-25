@@ -50,6 +50,13 @@ using std::vector;
 using cv::Point2f;
 using cv::Point;
 
+/**
+draw a homography (a quad) given the four corners to be mapped by Homography
+
+@param[in,out] image target image to be drawed on
+@param[in] Homo homography matrix, <3x3>
+@param[in] crns 4 corners in world coordinate system
+*/
 inline void drawHomography(Mat& image, const Mat& Homo, double const crns[4][2]) {
 	static cv::Scalar homocolors[] = {
 		CV_BLACK,
@@ -74,8 +81,49 @@ inline void drawHomography(Mat& image, const Mat& Homo, double const crns[4][2])
 	line(image, corners[1], corners[3], CV_GB, 2);
 }
 
-// generate pseudocolor look up table
-// maxcolors: required max number of colors
+/**
+draw a 3D pyramid on image, projection matrix \f$P=K[R,T]\f$
+
+@param[in,out] image target image to draw
+@param[in] K calibration matrix, <3x3>
+@param[in] R rotation matrix, <3x3>
+@param[in] T translation vector, <3x1>
+@param[in] crns 8 corners of the pyramid, 0~3 bottom, 4~7 top, in world coordinate system
+*/
+inline void drawPyramid(Mat& image,
+		double const K[9], double const R[9], double const T[3],
+		double const crns[8][3] ) {
+	static cv::Scalar linecolors[] = {
+		CV_BLACK,
+		CV_GREEN,
+		CV_BLUE,
+		CV_RED  };
+	static int lineidx[12][2] = {
+		{0,1},{1,2},{2,3},{3,0},
+		{4,5},{5,6},{6,7},{7,4},
+		{0,4},{1,5},{2,6},{3,7} };
+	double P[12];
+	CameraHelper::compose(K,R,T,P,false);
+	double p[8][2];
+	for(int i=0; i<8; ++i) {
+		CameraHelper::project(P,crns[i],p[i]);
+	}
+	for(int i=0; i<3; ++i) {
+		for(int j=i*4; j<4+i*4; ++j) {
+			int s=lineidx[j][0], e=lineidx[j][1];
+			Point r1(p[s][0],p[s][1]);
+			Point r2(p[e][0],p[e][1]);
+			line( image, r1, r2, linecolors[j%4], 2 );
+		}
+	}
+}
+
+/**
+generate pseudocolor look up table, algorithm from Szeliski's book
+
+@param maxcolors required max number of colors
+@return pseudocolor look up table
+*/
 inline std::vector<cv::Scalar> pseudocolor(int maxcolors)
 {
 	//find proper number of bit_per_channle
