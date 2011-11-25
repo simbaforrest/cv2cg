@@ -77,7 +77,7 @@ public:
 
 		double oldrms=1000000;
 		cout<<"[ESM] delta RMS";
-		for (int iter = 0; iter < nIters; iter++) {
+		for (int iter = 0; iter <= nIters; iter++) {
 			Mat warpedTemplateDouble;
 			templateImage.copyTo(warpedTemplateDouble);
 			//extract template from current frame(i.e. testImage)
@@ -104,7 +104,7 @@ public:
 				computations->push_back(state);
 			}
 
-			if (iter == nIters - 1 || deltarms<delatRMSLimit) {
+			if (iter == nIters || deltarms<delatRMSLimit) {
 				ncc=computeNCC(warpedTemplateRowDouble,templateImageRowDouble);
 				cout<<"|RMS="<<rmsError<<"|NCC="<<ncc<<endl;
 				break;

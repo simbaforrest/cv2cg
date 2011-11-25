@@ -66,28 +66,24 @@ struct CaptureCallBack : public osg::Camera::DrawCallback
 		if (!doCapture) return;
 		double delta = PM.toc();
 		if(delta<deltams) return;
+		PM.tic();
 
 		osg::Camera* camera = renderInfo.getCurrentCamera();
 		osg::Viewport* viewport = camera ? camera->getViewport() : 0;
 		if(!viewport) return;
 
 		KeyFrame kf;
-		kf.cam = new osg::Camera(*camera);
 		kf.img = new osg::Image;
-
-//		Distort_Image(_image, kkk, viewport->width()/2, viewport->height()/2,
-//			int(viewport->width()),int(viewport->height()));
-
 		//fill image
 		kf.img->readPixels(int(viewport->x()),int(viewport->y()),
 			int(viewport->width()),int(viewport->height()),
 			GL_RGBA,
 			GL_UNSIGNED_BYTE);
+		kf.cam = new osg::Camera(*camera);
 
 		keyframes.push_back(kf);
 
 		loglni("[CaptureCallBack] Screenshot #"<<(int)keyframes.size());
-		PM.tic();
 		if(isManual) doCapture = false;
 	}
 
@@ -171,10 +167,10 @@ struct CaptureHandler : public osgGA::GUIEventHandler
 	}
 
 	inline void printHelp() {
-		LogI("\nUsage(CaptureHandler):\n"
-			"\tPress p : take pictures manually\n"
-			"\tPress v : take pictures automatically\n"
-			"\tPress h : print help information to console\n");
+		loglni("\nUsage(CaptureHandler):\n"
+			"\tPress "<<(char)manCapKey<<" : take pictures manually\n"
+			"\tPress "<<(char)autoCapKey<<" : take pictures automatically\n"
+			"\tPress h : print help information to console");
 	}
 };
 

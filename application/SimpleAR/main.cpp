@@ -164,7 +164,7 @@ struct TrackThread : public OpenThreads::Thread {
 				Mat initH;
 				if( findAprilTag(frame, 0, initH, true) ) {
 //					Mat mH = initH * iHI;
-//					needToInit = !tracker.init(frame, gray, mH);
+//					needToInit = !tracker.init(gray, mH, rms, ncc);
 					needToInit=!tracker.init(gray,rms,ncc);
 					if(!needToInit) loglni("[TrackThread] ...INITed");
 				}
@@ -172,7 +172,7 @@ struct TrackThread : public OpenThreads::Thread {
 				if(prevGray.empty()) {
 					gray.copyTo(prevGray);
 				}
-				needToInit=!tracker(prevGray, gray, frame, rms, ncc);
+				needToInit=!tracker(prevGray, gray, &frame, rms, ncc);
 				tracker.GetCameraPose(camR,camT);
 				double diff[3]={camT[0]-lastT[0],camT[1]-lastT[1],camT[2]-lastT[2]};
 				double dist = helper::normL2(3,1,diff);
@@ -232,11 +232,11 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 			case ' ':
 				needToInit=true;
 				break;
-			case 'd':
-				tracker.doDraw=!tracker.doDraw;
-				if(tracker.doDraw){ loglni("[Debug Mode] ON."); }
-				else { loglni("[Debug Mode] OFF."); }
-				break;
+//			case 'd':
+//				tracker.doDraw=!tracker.doDraw;
+//				if(tracker.doDraw){ loglni("[Debug Mode] ON."); }
+//				else { loglni("[Debug Mode] OFF."); }
+//				break;
 			case '.': //>
 				sx+=0.4;sy+=0.4;sz+=0.4;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
