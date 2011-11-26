@@ -54,7 +54,8 @@
 #include "Log.h"
 #include "OpenCVHelper.h"
 
-#include "esm/esm.hpp"
+//#define ESM_ORIGINAL //define this if you have original implementation of ESM
+#include "esm/ESMInterface.h"
 
 using namespace cv;
 using namespace std;
@@ -82,7 +83,7 @@ struct KeyFrame {
 
 /**
 \class keg::Tracker KEGTracker.h "keg/KEGTracker.h"
-\brief KLT+ESM+Geometric Enhancement Tracking framework
+\brief KLT+ESM+Global Geometric Constraint Enhancement Tracking framework
 
 \par Coordinate_System:
 
@@ -107,6 +108,8 @@ struct Tracker {
 	Size winSize;
 	int maxLevel;
 	double derivedLambda;
+	Mat oframe; //previous gray frame
+
 	// thresholds
 	double ransacThresh;
 	int inlierNumThresh;
@@ -130,12 +133,12 @@ struct Tracker {
 	vector<KeyPoint> tkeys;
 	Mat tdes;
 
-	esm::Refiner refiner; //refiner
+	esm::Tracker refiner;
 
 	vector<KeyFrame> keyframes;
 
-	int miter; //max number of iterations
-	bool doGeometricEnhancement;
+	bool doKstep; //whether to perform KLT
+	bool doGstep; //whether to perform geometric constraint enhancement
 
 	double K[9];
 
@@ -149,24 +152,10 @@ struct Tracker {
 	{
 		loadK(defaultK);
 		this->H = Mat::eye(3,3,CV_64FC1);
-		doGeometricEnhancement = true;
-		// The refinement parameters
-		miter = 5;//  mprec = 4;
+		doGstep = true;
+		doKstep = true;
+		refiner.setTermCrit(5, 10);
 	}
-
-	/**
-	set max number of iterations of ESM refiner
-	
-	@param val val<=0 means no refinement, only compute rms and ncc during refinement
-	*/
-	inline void setMaxNumRefinement(int val=5) { miter = val>0?val:0; }
-
-	/**
-	set wether to perform geometric enhancement or not
-	
-	@param val default is true
-	*/
-	inline void setDoGeometricEnhancement(bool val=true) { doGeometricEnhancement=val; }
 
 	/**
 	load template image, extract SURF keypoints
@@ -186,8 +175,7 @@ struct Tracker {
 		cpts.push_back(Point2f(0,timg.rows));
 		//GaussianBlur(timg, timg, Size(5,5), 4);
 
-		refiner.setTemplateImage(timg);
-		refiner.setDeltaRMSLimit(0.5);
+		refiner.init(timg);
 
 		detector->detect(timg, tkeys);
 		descriptor->compute(timg, tkeys, tdes);
@@ -220,24 +208,29 @@ struct Tracker {
 	*/
 	inline bool init(Mat &gray, Mat &initH,
 			double& rms, double & ncc,
-			int maxiter=20, double deltaRMS=0.01) {
+			int maxiter=20, double deltaRMS=0.1) {
+		gray.copyTo(oframe);
 		//use ESM to refine and check ncc
-		refiner.setDeltaRMSLimit(deltaRMS);
-		refiner.track(gray, maxiter, initH, rms, ncc);
-		refiner.setDeltaRMSLimit(0.5);
+		int miter = refiner.maxIter;
+		double mprec = refiner.mprec;
+		refiner.setTermCrit(maxiter,1/deltaRMS);
+		refiner(gray, initH, ncc, rms);
+		refiner.setTermCrit(miter,mprec);
 		if(cvIsNaN(ncc) || ncc<0.5) return false;
 		initH.copyTo(this->H);
 
-		npts.resize(tkeys.size());
-		tpts.resize(tkeys.size());//fill tpts by all tkeys
-		for(int i=0; i<(int)tkeys.size(); ++i) {
-			tpts[i] = tkeys[i].pt;
+		if(doKstep) {
+			npts.resize(tkeys.size());
+			tpts.resize(tkeys.size());//fill tpts by all tkeys
+			for(int i=0; i<(int)tkeys.size(); ++i) {
+				tpts[i] = tkeys[i].pt;
+			}
+			Mat nptsmat(npts);
+			perspectiveTransform(Mat(tpts), nptsmat, H);
+			cornerSubPix(gray, npts, winSize, Size(-1,-1), termcrit);
+			opts.resize(npts.size());
+			std::copy(npts.begin(), npts.end(), opts.begin());
 		}
-		Mat nptsmat(npts);
-		perspectiveTransform(Mat(tpts), nptsmat, H);
-		cornerSubPix(gray, npts, winSize, Size(-1,-1), termcrit);
-		opts.resize(npts.size());
-		std::copy(npts.begin(), npts.end(), opts.begin());
 		return true;
 	}
 
@@ -250,6 +243,7 @@ struct Tracker {
 	@return true if success
 	*/
 	inline bool init(Mat &gray, double& rms, double& ncc) {
+		gray.copyTo(oframe);
 		vector<KeyPoint> keys;
 		Mat des;
 		vector<DMatch> matches;
@@ -272,7 +266,7 @@ struct Tracker {
 		}
 		H = findHomography(Mat(tpts), Mat(npts),
 		                   match_mask, RANSAC, ransacThresh);
-		refiner.track(gray, miter, H, rms, ncc);
+		refiner(gray, H, ncc, rms);
 		if(cvIsNaN(ncc) || ncc<=nccThresh) return false;
 
 		Mat nptsmat(npts);
@@ -292,44 +286,49 @@ struct Tracker {
 	/**
 	main tracking procedure
 	
-	@param[in] oframe old frame, i.e. last frame, should be gray image
 	@param[in,out] nframe new frame, i.e. current frame, maybe turned gray if RGB
 	@param[in,out] image target image to be drawed on if valid
 	@param[out] rms
 	@param[out] ncc
-	@return 0 if loss-of-track
+	@return false if loss-of-track
 	*/
-	inline int operator()(Mat const &oframe, Mat &nframe, Mat *image,
-                          double& rms, double& ncc) {
-		int ret;
+	inline bool operator()(Mat &nframe, Mat *image, double& rms, double& ncc) {
+		bool ret;
 		status.clear();
 		err.clear();
 
 		//1. KLT
-		calcOpticalFlowPyrLK(oframe, nframe, opts, npts,
-		                     status, err, winSize,
-		                     maxLevel, termcrit, derivedLambda);
-		for(int i=0; i<(int)npts.size(); ++i) {
-			//to make these points rejected by RANSAC
-			npts[i] = status[i]?npts[i]:Point2f(0,0);
-		}
-		//no enough inlier, tracking lost
-		if((int)npts.size()<2*inlierNumThresh || tpts.size()!=npts.size()) {
-			return false;
-		}
+		if(doKstep) {
+			if(opts.empty()) return false;
+			if(oframe.empty()) nframe.copyTo(oframe);
 
-		//2. RANSAC, rough estimation of Homography
-		match_mask.clear();
-		H = findHomography(Mat(tpts), Mat(npts),
-		                   match_mask, RANSAC, ransacThresh);
+			calcOpticalFlowPyrLK(oframe, nframe, opts, npts,
+				                 status, err, winSize,
+				                 maxLevel, termcrit, derivedLambda);
+			for(int i=0; i<(int)npts.size(); ++i) {
+				//to make these points rejected by RANSAC
+				npts[i] = status[i]?npts[i]:Point2f(0,0);
+			}
+			//no enough inlier, tracking lost
+			if((int)npts.size()<2*inlierNumThresh ||
+				tpts.size()!=npts.size()) {
+				oframe.release();
+				return false;
+			}
+
+			//2. RANSAC, rough estimation of Homography
+			match_mask.clear();
+			H = findHomography(Mat(tpts), Mat(npts),
+				               match_mask, RANSAC, ransacThresh);
+		}
 
 		//3. ESM refinement of Homography
-		refiner.track(nframe, miter, H, rms, ncc);
+		refiner(nframe, H, ncc, rms);
 		ret = !cvIsNaN(ncc) && ncc>nccThresh;
 
 		if(ret) {//image similarity check passed
-			//4. Geometric Enhancement, VERY IMPORTANT STEP, STABLIZE!!!
-			if(doGeometricEnhancement) {
+			//4. Global Geometric Constraint Enhancement
+			if(doGstep) {
 				Mat nptsmat(npts);
 				perspectiveTransform(Mat(tpts), nptsmat, H);
 			}
@@ -337,14 +336,15 @@ struct Tracker {
 			//validation, TODO do we still need this?
 			ret=validateH(nframe);
 			if(ret && image) {
-				drawTrail(*image);
+				if(doKstep) drawTrail(*image);
 				drawHomo(*image);
 				draw3D(*image);
 			}
 		}
 
+		std::swap(oframe, nframe);
 		std::swap(npts, opts);
-		return ret;
+		return ret && (!doKstep || !opts.empty());
 	}
 
 	/**
@@ -367,16 +367,16 @@ struct Tracker {
 		double d23 = helper::cross2D(tmpdir[1],tmpdir[2]) * 0.5;
 		double area = abs(d12+d23);
 		bool s123 = d12*d23>0;
-		bool ret = s123 && area>64 &&
-					countNonZero(Mat(match_mask)) > inlierNumThresh;
-		if(ret) {
+		bool ret = s123 && area>64; /*&&
+				(!doKstep || countNonZero(Mat(match_mask)) > inlierNumThresh );
+		if(ret || !doKstep ) {
 			int cnt=0;//number of inliers within current frame
 			for(int i=0; i<(int)npts.size(); ++i) {
 				cnt+=(int)(status[i] && match_mask[i]
 				           && withinFrame(npts[i],nframe));
 			}
 			ret = (int)(cnt>inlierNumThresh);
-		}
+		}*/
 		return ret;
 	}
 

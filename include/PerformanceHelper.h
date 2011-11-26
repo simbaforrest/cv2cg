@@ -34,6 +34,34 @@ namespace PerformanceHelper
 using namespace cv;
 using namespace std;
 
+/**
+computer rms error
+
+@param error error vector stored in a cv::Mat
+@return rms error
+*/
+inline double rms(const Mat &error)
+{
+	return norm(error) / sqrt((double)error.size().area());
+}
+
+/**
+compute zero mean normalized cross-correlation (ZNCC) between vector w and t
+
+@param w vector w [Nx1]
+@param t vector t [Nx1]
+@return zncc [1x1]
+*/
+inline double zncc(const Mat& w, const Mat& t)
+{
+	Scalar mw, mt, dw, dt;
+	meanStdDev(w, mw, dw);
+	meanStdDev(t, mt, dt);
+	Mat vecw = (w - mw.val[0])/dw.val[0];
+	Mat vect = (t - mt.val[0])/dt.val[0];
+	return vecw.dot(vect)/vecw.total();
+}
+
 struct PerformanceMeasurer {
 	int scale;
 	double startTick;
