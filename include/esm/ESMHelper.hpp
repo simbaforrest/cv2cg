@@ -22,14 +22,19 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
-#include "OpenCVHelper.h"
+//opencv include
+#include "opencv2/opencv.hpp"
 
 extern "C" {
 #include "ESMlibry.h"
 }
 
+#include "ESMInterface.h"
+
 using namespace cv;
 using namespace std;
+
+namespace esm {
 
 //!!! data still stored in m, and m will be changed to CV_32F if it is not
 inline void Mat2imageStruct(Mat &m, imageStruct &I)
@@ -57,19 +62,37 @@ inline void imageStruct2Mat(imageStruct &I, Mat &m)
 	m.convertTo(m,CV_8U);
 }
 
-struct ESMTracker {
+struct Tracker : public Interface {
 	trackStruct T;
 	Mat RefImg;   //internally hold the reference/template image
 	bool inited;
-	int px,py,sx,sy;
 
-	ESMTracker() {
-		inited=false;
+	Tracker() { inited=false; }
+	~Tracker() { if(inited) FreeTrack(&T); }
+
+	inline bool init(const Mat& refimg) {
+		return init(refimg, 0,0, refimg.cols,refimg.rows);
 	}
-	~ESMTracker() {
-		if(inited) {
-			FreeTrack(&T);
+
+	inline bool operator()(Mat& curimg, Mat& H, double& zncc, double& rms) {
+		//update internal homography
+		for(int i=0; i<3; ++i)
+			for(int j=0; j<3; ++j)
+				T.homog[i*3+j] = H.at<double>(i,j);
+		bool ret = this->run(curimg);
+		if(ret) { //update internal homography
+			for(int i=0; i<3; ++i)
+				for(int j=0; j<3; ++j)
+					H.at<double>(i,j) = T.homog[i*3+j];
 		}
+		zncc = GetZNCC(&T);
+		rms = NAN; //TODO
+		return ret;
+	}
+
+	inline void setTermCrit(int maxIter=5, double mprec=2) {
+		T.miter = this->maxIter = maxIter>0?maxIter:0;
+		T.mprec = this->mprec   = mprec;
 	}
 
 	// miter: the number of iterations of the ESM algorithm (>= 1);
@@ -85,11 +108,6 @@ struct ESMTracker {
 	                 int posx, int posy,
 	                 int sizex, int sizey,
 	                 int maxIter=5, int maxPrec=2) {
-		px=posx;
-		py=posy;
-		sx=sizex;
-		sy=sizey;
-
 		if(inited) {
 			FreeTrack(&T);
 		}
@@ -103,11 +121,16 @@ struct ESMTracker {
 		return inited = true;
 	}
 
-	inline bool run(imageStruct &I) {
+	inline bool run(const Mat& curimg) {
 		if(!inited) {
 			cout<<"[ESMTracker::run] please init first!"<<endl;
 			return false;
 		}
+
+		Mat CurImg;
+		curimg.copyTo(CurImg);
+		imageStruct I;
+		Mat2imageStruct(CurImg, I);
 
 		// Perform the tracking
 		if (MakeTrack (&T, &I)) {
@@ -115,30 +138,8 @@ struct ESMTracker {
 		}
 		return true;
 	}
+}; //end of struct Tracker
 
-	inline void setH(double const H[9]) {
-		for(int i=0; i<9; i++) {
-			T.homog[i] = H[i];
-		}
-	}
+}//end of namespace esm
 
-	inline void getH(double H[9]) const {
-		for(int i=0; i<9; i++) {
-			H[i] = T.homog[i];
-		}
-	}
-
-	template<typename Iterator>
-	void setH(Iterator itr) {
-		for(int i=0; i<9; ++i, ++itr) {
-			T.homog[i] = (*itr);
-		}
-	}
-
-	template<typename Iterator>
-	void getH(Iterator itr) const {
-		for(int i=0; i<9; ++i, ++itr) {
-			(*itr) = T.homog[i];
-		}
-	}
-};
+typedef esm::Tracker ESMTracker;

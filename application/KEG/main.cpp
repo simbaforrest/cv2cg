@@ -76,7 +76,7 @@ using helper::ImageSource;
 struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 /////// Vars
 	KEGTracker tracker;
-	Mat gray,prevGray;
+	Mat gray;
 	bool needToInit;
 	bool doCapFrame;
 	bool needToCapframe;
@@ -94,7 +94,7 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 /////// Constructor
 	KEGprocessor() {
 		onlyApril = false;
-		needToInit = false;
+		needToInit = true;
 		doCapFrame = true;
 		needToCapframe = false;
 		videoFromWebcam = false;
@@ -145,17 +145,16 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 		double rms=-1, ncc=-1;
 		double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0};
 		static double lastT[3]={0};
+
 		if( onlyApril ) { //for test
 			Mat tmpH;
 			needToInit = true;
 			if( findAprilTag(frame, tmpH, true) ) {
 				Mat initH = tmpH * iHI;
-				needToInit = !tracker.init(gray, initH, rms, ncc, 0);
-				if(!needToInit) {
-					tracker.draw3D(frame);
-				}
+				needToInit = !tracker.init(gray, initH, rms, ncc, 0, 1);
+				if(!needToInit) tracker.draw3D(frame);
 			}
-		} else {
+		} else { // KEG
 			if( needToInit ) {
 				loglni("[KEGprocessor] INITing...");
 				Mat tmpH;
@@ -165,11 +164,8 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 //					needToInit=!tracker.init(gray,rms,ncc);
 					if(!needToInit) loglni("[KEGprocessor] ...INITed");
 				}
-			} else if( !tracker.opts.empty() ) {
-				if(prevGray.empty()) {
-					gray.copyTo(prevGray);
-				}
-				needToInit=!tracker(prevGray, gray, &frame, rms, ncc);
+			} else {
+				needToInit=!tracker(gray, &frame, rms, ncc);
 			}
 		}
 
@@ -196,8 +192,6 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 				}
 			}
 		}
-
-		swap(prevGray, gray);
 	}
 
 	void handle(char key) {
@@ -230,21 +224,25 @@ void usage( int argc, char **argv ) {
 		" <url>" //1
 		" <K matrix file>" //2
 		" <template file>" //3
-		" [Target tag ID]" //4
-		" [AprilTag Family ID]" //5
+		" [Target tag ID=0]" //4
+		" [AprilTag Family ID=0]" //5
 		" [keyframe saving path]"//6
-		" [GeometricEnhancement]"//7
-		" [ESM Max Iteration]"//8
-		" [onlyApril]" <<endl;
+		" [ExperimentMode=0]"<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
-	cout<<"default ID: 0"<<endl;
 	cout<<"Example ImageSource url:\n";
 	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
 	cout<<"camera://0\n";
 	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
+	cout<<"ExperimentMode:"<<endl;
+	cout<<"\t0 - KEG+AprilTag\n"
+		  "\t1 - KG +AprilTag\n"
+		  "\t2 - KE +AprilTag\n"
+		  "\t3 - K  +AprilTag\n"
+		  "\t4 -     AprilTag\n"
+		  "\t5 -  E +AprilTag"<<endl;
 }
 
 int main( int argc, char **argv )
@@ -312,18 +310,22 @@ int main( int argc, char **argv )
 	processor.doCapFrame = argc>6;
 
 	if(argc>7) {
-		bool flag = atoi(argv[7]);
-		processor.tracker.setDoGeometricEnhancement(flag);
-	}
-
-	if(argc>8) {
-		int miter = atoi(argv[8]);
-		processor.tracker.setMaxNumRefinement(miter);
-	}
-
-	if(argc>9) {
-		bool flag = atoi(argv[9]);
-		processor.onlyApril = flag;
+		int experiment = atoi(argv[7]);
+		switch(experiment) {
+		case 1: //KG + AprilTag
+			processor.tracker.refiner.setTermCrit(0, 1); break;
+		case 2: //KE + AprilTag
+			processor.tracker.doGstep=false; break;
+		case 3: //K + AprilTag
+			processor.tracker.doGstep=false;
+			processor.tracker.refiner.setTermCrit(0, 1); break;
+		case 4: //AprilTag
+			processor.onlyApril=true; break;
+		case 5: //E + AprilTag
+			processor.tracker.refiner.setTermCrit(20,10);
+			processor.tracker.doKstep = false;
+			processor.tracker.doGstep = false; break;
+		}
 	}
 
 	//// Main Loop

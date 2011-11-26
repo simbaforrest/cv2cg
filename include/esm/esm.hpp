@@ -5,13 +5,13 @@
 #include <unsupported/Eigen/MatrixFunctions>
 namespace Eigen { using namespace Eigen; }
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/core/eigen.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/contrib/contrib.hpp>
-#include <opencv2/features2d/features2d.hpp>
-#include <opencv2/calib3d/calib3d.hpp>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <stdio.h>
+#include <stdlib.h>
+//opencv include
+#include "opencv2/opencv.hpp"
 
 #include "lie_algebra.hpp"
 
@@ -25,10 +25,25 @@ struct HomoState {
 	double error;//rms error
 };
 
-class Refiner
+class Tracker : public Interface
 {
 public:
-	Refiner() { delatRMSLimit=1; }
+	Tracker() { delatRMSLimit=0.5; maxIter = 5; }
+
+	inline bool init(const Mat& refimg) {
+		setTemplateImage(refimg); return true;
+	}
+
+	inline bool operator()(Mat& curimg, Mat& H, double& zncc, double& rms) {
+		(*this)(curimg, maxIter, H, rms, zncc);
+		return true;
+	}
+
+	inline void setTermCrit(int maxIter=5, double mprec=2) {
+		this->maxIter = maxIter>0?maxIter:0;
+		this->mprec = mprec;
+		setDeltaRMSLimit(1.0/mprec);
+	}
 
 	//set this value smaller will give more iterations, but also more accurate
 	inline void setDeltaRMSLimit(double val) { delatRMSLimit=val; }
@@ -55,14 +70,10 @@ public:
 			xx.at<double> (0, i) = i % image.cols;
 			yy.at<double> (0, i) = i / image.cols;
 		}
-
-		rect2vertices(
-			Rect(0, 0, templateImage.cols, templateImage.rows),
-			templateVertices );
 	}
 
-	inline void track(Mat &testImage, int nIters, Mat &H,
-	           double &rmsError, double&ncc,
+	inline void operator()(Mat &testImage, int nIters, Mat &H,
+	           double &rms, double&zncc,
 	           cv::Ptr<LieAlgebra> lieAlgebra = new LieAlgebraHomography(),
 	           std::vector<HomoState> *computations = 0) const
 	{
@@ -83,7 +94,7 @@ public:
 			//extract template from current frame(i.e. testImage)
 			//ATTENTION: that H maps warpedTemplateDouble -> testImage, so use flag WARP_INVERSE_MAP
 			//ATTENTION: use flag BORDER_TRANSPARENT to handle the case that template image is
-			//partially outside the view, this part won't affect NCC and RMS computation
+			//partially outside the view, this part won't affect zncc and RMS computation
 			warpPerspective(testImage,
 				warpedTemplateDouble, H,
 				templateImage.size(), INTER_LINEAR|WARP_INVERSE_MAP, BORDER_TRANSPARENT);
@@ -92,21 +103,21 @@ public:
 			Mat warpedTemplateRowDouble = warpedTemplateDouble.reshape(0, 1);
 			Mat errorRow = warpedTemplateRowDouble - templateImageRowDouble;
 
-			rmsError=computeRMSError(errorRow);
-			double deltarms = oldrms-rmsError;
-			oldrms=rmsError;
+			rms=computeRMSError(errorRow);
+			double deltarms = std::abs(oldrms-rms);
+			oldrms=rms;
 			cout<<"->"<<deltarms;
 
 			if (computations) {
 				HomoState state;
 				H.copyTo(state.H);
-				state.error = rmsError;
+				state.error = rms;
 				computations->push_back(state);
 			}
 
 			if (iter == nIters || deltarms<delatRMSLimit) {
-				ncc=computeNCC(warpedTemplateRowDouble,templateImageRowDouble);
-				cout<<"|RMS="<<rmsError<<"|NCC="<<ncc<<endl;
+				zncc=computeZNCC(warpedTemplateRowDouble,templateImageRowDouble);
+				cout<<"|RMS="<<rms<<"|ZNCC="<<zncc<<endl;
 				break;
 			}
 
@@ -128,49 +139,19 @@ public:
 		}
 	}
 
-	inline void visualizeTracking(const Mat &H, Mat &visualization) const
-	{
-		assert(!visualization.empty());
-
-		vector<Point2f> vertices;
-		projectVertices(H, vertices);
-
-		Scalar color = Scalar(0, 255, 0);
-		int thickness = 2;
-		for (size_t i = 0; i < vertices.size(); i++) {
-			line( visualization, 
-				vertices[i], vertices[(i + 1) % vertices.size()],
-				color, thickness );
-		}
-	}
-
 private:
 	double delatRMSLimit;
 	Mat templateImage, templateImageRowDouble;
 	Mat templateDxRow, templateDyRow;
 	Mat xx, yy;
 
-	std::vector<cv::Point2f> templateVertices;
-
 private:
-	static inline void rect2vertices(const Rect &rect, vector<Point2f> &vertices)
-	{
-		vertices.clear();
-		vertices.push_back(Point2f(rect.x, rect.y));
-		vertices.push_back(Point2f(rect.x + rect.width, rect.y));
-		vertices.push_back(Point2f(rect.x + rect.width, rect.y + rect.height));
-		vertices.push_back(Point2f(rect.x, rect.y + rect.height));
-	}
-
-
 	static inline void computeGradient(const Mat &image, Mat &dx, Mat &dy)
 	{
-		Sobel(image, dx, CV_64FC1, 1, 0);
-		Sobel(image, dy, CV_64FC1, 0, 1);
-
-		//normalize to get derivative
-		dx /= 8.;
-		dy /= 8.;
+//		Sobel(image, dx, CV_64FC1, 1, 0, 3, 0.125);
+//		Sobel(image, dy, CV_64FC1, 0, 1, 3, 0.125);
+		Sobel(image, dx, CV_64FC1, 1, 0, 1, 0.5);
+		Sobel(image, dy, CV_64FC1, 0, 1, 1, 0.5);
 	}
 
 	static inline double computeRMSError(const Mat &error)
@@ -178,9 +159,9 @@ private:
 		return norm(error) / sqrt((double)error.size().area());
 	}
 
-	//calc normalized cross-correlation (NCC)
+	//calc zero mean normalized cross-correlation (ZNCC)
 	//between the warped image and the template image
-	static inline double computeNCC(const Mat& w, const Mat& t)
+	static inline double computeZNCC(const Mat& w, const Mat& t)
 	{
 		Scalar mw, mt, dw, dt;
 		meanStdDev(w, mw, dw);
@@ -193,8 +174,8 @@ private:
 	inline void computeJacobian(const Mat &dx, const Mat &dy,
 			Mat &Jt, cv::Ptr<LieAlgebra> lieAlgebra) const
 	{
-		assert( dx.rows == 1 );
-		assert( dy.rows == 1 );
+//		assert( dx.rows == 1 );
+//		assert( dy.rows == 1 );
 		Mat Ix = dx;
 		Mat Iy = dy;
 
@@ -218,14 +199,8 @@ private:
 
 		lieAlgebra->dot(JiJw_t, Jt);
 	}
-
-	inline void projectVertices(const Mat &H, std::vector<cv::Point2f> &vertices) const
-	{
-		vertices.clear();
-		Mat transformedVertices;
-		transform(Mat(templateVertices), transformedVertices, H);
-		convertPointsHomogeneous(transformedVertices, vertices);
-	}
-};//end of class Refiner
+};//end of class Tracker
 
 }//end of namespace esm
+
+typedef esm::Tracker ESMTracker;
