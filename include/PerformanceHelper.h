@@ -35,31 +35,75 @@ using namespace cv;
 using namespace std;
 
 /**
-computer rms error
+computer rms error, only using valid region (non-zero region)
 
-@param error error vector stored in a cv::Mat
+@param error[int] error vector stored in a cv::Mat
+@param mask[in] mask->at(i)!=0 means valid region, default is 0, means valid for all
 @return rms error
 */
-inline double rms(const Mat &error)
+template<typename MatType>
+double rms(const Mat &error, const Mat *mask=0)
 {
-	return norm(error) / sqrt((double)error.size().area());
+	Mat maskRow;
+	int validN;
+	if(mask) {
+		maskRow = mask->reshape(0,1);
+		validN = countNonZero(maskRow);
+	} else {
+		validN = error.total();
+	}
+	if(!maskRow.empty() && validN==0) return NAN;
+
+	double ret = 0;
+	Mat errorRow = error.reshape(0,1);
+	for(int i=0; i<(int)errorRow.total(); ++i) {
+		MatType ie = errorRow.at<MatType>(i);
+		bool valid = maskRow.empty() || maskRow.at<MatType>(i)!=0;
+		ret += valid*(ie*ie);
+	}
+	ret /= validN;
+	return sqrt(ret);
 }
 
 /**
-compute zero mean normalized cross-correlation (ZNCC) between vector w and t
+compute zero mean normalized cross-correlation (ZNCC) between Mat w and t,
+only using valid region (non-zero region) specified by mask
 
-@param w vector w [Nx1]
-@param t vector t [Nx1]
-@return zncc [1x1]
+@param w vector w
+@param t vector t
+@return zncc
 */
-inline double zncc(const Mat& w, const Mat& t)
+template<typename MatType>
+double zncc(const Mat& w, const Mat& t, const Mat *mask=0)
 {
+	Mat maskRow;
+	int validN;
+	if(mask) {
+		maskRow = mask->reshape(0,1);
+		validN = countNonZero(maskRow);
+	} else {
+		validN = w.total();
+	}
+	if(!maskRow.empty() && validN==0) return NAN;
+
 	Scalar mw, mt, dw, dt;
-	meanStdDev(w, mw, dw);
-	meanStdDev(t, mt, dt);
-	Mat vecw = (w - mw.val[0])/dw.val[0];
-	Mat vect = (t - mt.val[0])/dt.val[0];
-	return vecw.dot(vect)/vecw.total();
+	Mat wRow = w.reshape(0,1);
+	Mat tRow = t.reshape(0,1);
+	if(maskRow.empty()) {
+		meanStdDev(wRow, mw, dw);
+		meanStdDev(tRow, mt, dt);
+	} else {
+		meanStdDev(wRow, mw, dw, maskRow);
+		meanStdDev(tRow, mt, dt, maskRow);
+	}
+	double ret = 0;
+	for(int i=0; i<(int)w.total(); ++i) {
+		MatType iw = wRow.at<MatType>(i);
+		MatType it = tRow.at<MatType>(i);
+		ret+= (iw!=0)*(iw-mw.val[0])*(it-mt.val[0]);
+	}
+	ret/=dw.val[0]*dt.val[0]*validN;
+	return ret;
 }
 
 struct PerformanceMeasurer {

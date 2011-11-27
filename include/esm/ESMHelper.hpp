@@ -22,8 +22,7 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
-//opencv include
-#include "opencv2/opencv.hpp"
+#include "OpenCVHelper.h"
 
 extern "C" {
 #include "ESMlibry.h"
@@ -31,12 +30,20 @@ extern "C" {
 
 #include "ESMInterface.h"
 
+namespace esm {
+
+#define ESM_DEBUG
+
 using namespace cv;
 using namespace std;
 
-namespace esm {
+/**
+convert cv::Mat to imageStruct, data still stored in cv::Mat, but m will be
+changed to CV_32F if it is not
 
-//!!! data still stored in m, and m will be changed to CV_32F if it is not
+@param m cv::Mat which is responsible for deallocate the real data block
+@see I imageStruct for ESMlibry
+*/
 inline void Mat2imageStruct(Mat &m, imageStruct &I)
 {
 	if(m.type()!=CV_32FC1) {
@@ -54,12 +61,16 @@ inline void Mat2imageStruct(Mat &m, imageStruct &I)
 	I.cols = m.cols;
 }
 
-//!!! data will be copied to m
+/**
+convert imageStruct to cv::Mat, data will be copied to m
+
+@param I imageStruct
+@see m CV_32FC1 type of image, value between [0,255]
+*/
 inline void imageStruct2Mat(imageStruct &I, Mat &m)
 {
 	Mat mI(I.rows,I.cols,CV_32FC1,I.data);
 	mI.copyTo(m);
-	m.convertTo(m,CV_8U);
 }
 
 struct Tracker : public Interface {
@@ -71,6 +82,10 @@ struct Tracker : public Interface {
 	~Tracker() { if(inited) FreeTrack(&T); }
 
 	inline bool init(const Mat& refimg) {
+#ifdef ESM_DEBUG
+		namedWindow("warp");
+		namedWindow("error");
+#endif
 		return init(refimg, 0,0, refimg.cols,refimg.rows);
 	}
 
@@ -79,14 +94,39 @@ struct Tracker : public Interface {
 		for(int i=0; i<3; ++i)
 			for(int j=0; j<3; ++j)
 				T.homog[i*3+j] = H.at<double>(i,j);
-		bool ret = this->run(curimg);
-		if(ret) { //update internal homography
-			for(int i=0; i<3; ++i)
-				for(int j=0; j<3; ++j)
-					H.at<double>(i,j) = T.homog[i*3+j];
+		bool ret = true;
+		if( this->maxIter >0 ) {
+			ret = this->run(curimg);
+			if(ret) { //update internal homography
+				for(int i=0; i<3; ++i)
+					for(int j=0; j<3; ++j)
+						H.at<double>(i,j) = T.homog[i*3+j];
+			}
 		}
-		zncc = GetZNCC(&T);
-		rms = NAN; //TODO
+
+		Mat warp;
+		if(this->maxIter>0) {
+				imageStruct2Mat(*GetPatc(&T),warp);
+		} else {
+			warpPerspective(curimg,
+				warp, H,
+				RefImg.size(), INTER_LINEAR|WARP_INVERSE_MAP);
+			warp.convertTo(warp,CV_32F);
+		}
+		Mat error = warp-RefImg;
+		Mat mask = warp!=0;
+		rms = helper::rms<float>(error, &mask);
+		if(this->maxIter>0) {
+			zncc = GetZNCC(&T);
+		} else {
+			zncc = helper::zncc<float>(warp,RefImg,&mask);
+		}
+
+		cout<<"[ESM] RMS="<<rms<<"|ZNCC="<<zncc<<endl;
+#ifdef ESM_DEBUG
+		cv::imshow("warp", warp/255.0);
+		cv::imshow("error", error/255.0);
+#endif
 		return ret;
 	}
 

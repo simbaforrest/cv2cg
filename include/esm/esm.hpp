@@ -11,19 +11,16 @@ namespace Eigen { using namespace Eigen; }
 #include <stdio.h>
 #include <stdlib.h>
 //opencv include
-#include "opencv2/opencv.hpp"
+#include "OpenCVHelper.h"
 
 #include "lie_algebra.hpp"
 
 namespace esm {
 
+#define ESM_DEBUG 1
+
 using namespace std;
 using namespace cv;
-
-struct HomoState {
-	Mat H;
-	double error;//rms error
-};
 
 class Tracker : public Interface
 {
@@ -42,7 +39,7 @@ public:
 	inline void setTermCrit(int maxIter=5, double mprec=2) {
 		this->maxIter = maxIter>0?maxIter:0;
 		this->mprec = mprec;
-		setDeltaRMSLimit(1.0/mprec);
+		setDeltaRMSLimit(0.01/mprec);
 	}
 
 	//set this value smaller will give more iterations, but also more accurate
@@ -50,17 +47,17 @@ public:
 
 	inline void setTemplateImage(const Mat &image)
 	{
-		templateImage = image;
+		image.copyTo(templateImage);
 		if( templateImage.type() != CV_8UC1 ) {
 			cvtColor(templateImage, templateImage, CV_RGB2GRAY);
 		}
 
 		Mat templateImageDouble;
-		templateImage.convertTo(templateImageDouble, CV_64FC1);
+		templateImage.convertTo(templateImageDouble, CV_64F);
 		templateImageRowDouble = templateImageDouble.reshape(0, 1);
 
 		Mat templateDx, templateDy;
-		computeGradient(templateImage, templateDx, templateDy);
+		computeGradient(templateImageDouble, templateDx, templateDy);
 		templateDxRow = templateDx.reshape(0, 1);
 		templateDyRow = templateDy.reshape(0, 1);
 
@@ -70,53 +67,51 @@ public:
 			xx.at<double> (0, i) = i % image.cols;
 			yy.at<double> (0, i) = i / image.cols;
 		}
+#if ESM_DEBUG
+		namedWindow("error");
+		namedWindow("warp");
+		namedWindow("templateImage");
+		cv::imshow("templateImage", templateImage);
+#endif
 	}
 
-	inline void operator()(Mat &testImage, int nIters, Mat &H,
+	inline void operator()(Mat &curimg, int nIters, Mat &H,
 	           double &rms, double&zncc,
-	           cv::Ptr<LieAlgebra> lieAlgebra = new LieAlgebraHomography(),
-	           std::vector<HomoState> *computations = 0) const
+	           cv::Ptr<LieAlgebra> lieAlgebra = new LieAlgebraHomography()) const
 	{
-		if( testImage.type() != CV_8UC1 ) {
-			cvtColor(testImage, testImage, CV_RGB2GRAY);
-		}
-
-		if (computations) {
-			assert( computations != 0 );
-			computations->clear();
+		if( curimg.type() != CV_8UC1 ) {
+			cvtColor(curimg, curimg, CV_RGB2GRAY);
 		}
 
 		double oldrms=1000000;
 		cout<<"[ESM] delta RMS";
 		for (int iter = 0; iter <= nIters; iter++) {
 			Mat warpedTemplateDouble;
-			templateImage.copyTo(warpedTemplateDouble);
-			//extract template from current frame(i.e. testImage)
-			//ATTENTION: that H maps warpedTemplateDouble -> testImage, so use flag WARP_INVERSE_MAP
-			//ATTENTION: use flag BORDER_TRANSPARENT to handle the case that template image is
+			//extract template from current frame(i.e. curimg)
+			//ATTENTION: that H maps warpedTemplateDouble -> curimg, so use flag WARP_INVERSE_MAP
+			//DEPRECATED //ATTENTION: use flag BORDER_TRANSPARENT to handle the case that template image is
 			//partially outside the view, this part won't affect zncc and RMS computation
-			warpPerspective(testImage,
+			//DEPRECATED //templateImage.copyTo(warpedTemplateDouble);
+			warpPerspective(curimg,
 				warpedTemplateDouble, H,
-				templateImage.size(), INTER_LINEAR|WARP_INVERSE_MAP, BORDER_TRANSPARENT);
+				templateImage.size(), INTER_LINEAR|WARP_INVERSE_MAP);
 			warpedTemplateDouble.convertTo(warpedTemplateDouble,CV_64F);
 
 			Mat warpedTemplateRowDouble = warpedTemplateDouble.reshape(0, 1);
 			Mat errorRow = warpedTemplateRowDouble - templateImageRowDouble;
-
-			rms=computeRMSError(errorRow);
-			double deltarms = std::abs(oldrms-rms);
+#if ESM_DEBUG
+			cv::imshow("error", errorRow.reshape(0,templateImage.rows)/255.0);
+			cv::imshow("warp", warpedTemplateDouble/255.0);
+#endif
+			Mat mask = warpedTemplateDouble!=0;
+			rms=helper::rms<double>(errorRow, &mask);
+			double deltarms = oldrms-rms;
 			oldrms=rms;
 			cout<<"->"<<deltarms;
 
-			if (computations) {
-				HomoState state;
-				H.copyTo(state.H);
-				state.error = rms;
-				computations->push_back(state);
-			}
-
 			if (iter == nIters || deltarms<delatRMSLimit) {
-				zncc=computeZNCC(warpedTemplateRowDouble,templateImageRowDouble);
+				zncc=helper::zncc<double>(warpedTemplateRowDouble,
+						templateImageRowDouble,&mask);
 				cout<<"|RMS="<<rms<<"|ZNCC="<<zncc<<endl;
 				break;
 			}
@@ -133,6 +128,7 @@ public:
 			mulTransposed(Jt, JtJ, false);
 			//TODO: Is JtJ always non-singular?
 			Mat d = -2 * JtJ.inv(DECOMP_CHOLESKY) * Jt * errorRow.t();
+			//Mat d = -2 * JtJ.inv(DECOMP_SVD) * Jt * errorRow.t();
 
 			Mat delta = lieAlgebra->algebra2group(d);
 			H = H * delta;
@@ -148,27 +144,10 @@ private:
 private:
 	static inline void computeGradient(const Mat &image, Mat &dx, Mat &dy)
 	{
-//		Sobel(image, dx, CV_64FC1, 1, 0, 3, 0.125);
-//		Sobel(image, dy, CV_64FC1, 0, 1, 3, 0.125);
-		Sobel(image, dx, CV_64FC1, 1, 0, 1, 0.5);
-		Sobel(image, dy, CV_64FC1, 0, 1, 1, 0.5);
-	}
-
-	static inline double computeRMSError(const Mat &error)
-	{
-		return norm(error) / sqrt((double)error.size().area());
-	}
-
-	//calc zero mean normalized cross-correlation (ZNCC)
-	//between the warped image and the template image
-	static inline double computeZNCC(const Mat& w, const Mat& t)
-	{
-		Scalar mw, mt, dw, dt;
-		meanStdDev(w, mw, dw);
-		meanStdDev(t, mt, dt);
-		Mat vecw = (w - mw.val[0])/dw.val[0];
-		Mat vect = (t - mt.val[0])/dt.val[0];
-		return vecw.dot(vect)/vecw.total();
+		Sobel(image, dx, CV_64FC1, 1, 0, 3, 0.125);
+		Sobel(image, dy, CV_64FC1, 0, 1, 3, 0.125);
+//		Sobel(image, dx, CV_64FC1, 1, 0, 1, 0.5);
+//		Sobel(image, dy, CV_64FC1, 0, 1, 1, 0.5);
 	}
 
 	inline void computeJacobian(const Mat &dx, const Mat &dy,

@@ -204,8 +204,6 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 			Log::level = Log::LOG_INFO; break;
 		case '3':
 			Log::level = Log::LOG_DEBUG; break;
-//		case 'd':
-//			tracker.doDraw = !tracker.doDraw; break;
 		case ' ':
 			needToInit=true; break;
 		case 'c':
@@ -322,7 +320,7 @@ int main( int argc, char **argv )
 		case 4: //AprilTag
 			processor.onlyApril=true; break;
 		case 5: //E + AprilTag
-			processor.tracker.refiner.setTermCrit(20,10);
+			processor.tracker.refiner.setTermCrit(8,4);
 			processor.tracker.doKstep = false;
 			processor.tracker.doGstep = false; break;
 		}
