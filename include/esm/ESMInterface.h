@@ -86,10 +86,10 @@ struct Interface {
 	virtual bool operator()(Mat& curimg, Mat& H, double& zncc, double& rms) = 0;
 
 	/**
-	set termination criterion
+	set termination criterion, smaller maxIter and smaller mprec means less computations
 	
 	@param maxIter max number of iterations
-	@param mprec terminate when abs(RMS(new)-RMS(old))<1/mprec
+	@param mprec terminate when abs(RMS(new)-RMS(old))<0.01/mprec
 	*/
 	virtual void setTermCrit(int maxIter=5, double mprec=2) = 0;
 };

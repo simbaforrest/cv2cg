@@ -54,7 +54,7 @@
 #include "Log.h"
 #include "OpenCVHelper.h"
 
-//#define ESM_ORIGINAL //define this if you have original implementation of ESM
+#define ESM_ORIGINAL //define this if you have original implementation of ESM
 #include "esm/ESMInterface.h"
 
 using namespace cv;
@@ -145,7 +145,7 @@ struct Tracker {
 	Tracker(int winW=8, int winH=8,
 	           int termIter=5, int termEps=0.3,
 	           int maxlevel=3, double lambda=0.3,
-	           double nccT=0.2, double ransacT=2, int validT=15) :
+	           double nccT=0.5, double ransacT=2, int validT=15) :
 		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
 		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
 		ransacThresh(ransacT), inlierNumThresh(validT), nccThresh(nccT)
@@ -216,7 +216,7 @@ struct Tracker {
 		refiner.setTermCrit(maxiter,1/deltaRMS);
 		refiner(gray, initH, ncc, rms);
 		refiner.setTermCrit(miter,mprec);
-		if(cvIsNaN(ncc) || ncc<0.5) return false;
+		if(cvIsNaN(ncc) || ncc<nccThresh) return false;
 		initH.copyTo(this->H);
 
 		if(doKstep) {
@@ -267,7 +267,7 @@ struct Tracker {
 		H = findHomography(Mat(tpts), Mat(npts),
 		                   match_mask, RANSAC, ransacThresh);
 		refiner(gray, H, ncc, rms);
-		if(cvIsNaN(ncc) || ncc<=nccThresh) return false;
+		if(cvIsNaN(ncc) || ncc<nccThresh) return false;
 
 		Mat nptsmat(npts);
 		perspectiveTransform(Mat(tpts), nptsmat, H);
@@ -305,21 +305,19 @@ struct Tracker {
 			calcOpticalFlowPyrLK(oframe, nframe, opts, npts,
 				                 status, err, winSize,
 				                 maxLevel, termcrit, derivedLambda);
+			int cnt=0;
 			for(int i=0; i<(int)npts.size(); ++i) {
 				//to make these points rejected by RANSAC
 				npts[i] = status[i]?npts[i]:Point2f(0,0);
-			}
-			//no enough inlier, tracking lost
-			if((int)npts.size()<2*inlierNumThresh ||
-				tpts.size()!=npts.size()) {
-				oframe.release();
-				return false;
+				cnt += status[i];
 			}
 
-			//2. RANSAC, rough estimation of Homography
-			match_mask.clear();
-			H = findHomography(Mat(tpts), Mat(npts),
-				               match_mask, RANSAC, ransacThresh);
+			if(cnt>=inlierNumThresh) {
+				//2. RANSAC, rough estimation of Homography
+				match_mask.clear();
+				H = findHomography(Mat(tpts), Mat(npts),
+						           match_mask, RANSAC, ransacThresh);
+			}
 		}
 
 		//3. ESM refinement of Homography
@@ -333,7 +331,6 @@ struct Tracker {
 				perspectiveTransform(Mat(tpts), nptsmat, H);
 			}
 
-			//validation, TODO do we still need this?
 			ret=validateH(nframe);
 			if(ret && image) {
 				if(doKstep) drawTrail(*image);
@@ -367,17 +364,7 @@ struct Tracker {
 		double d23 = helper::cross2D(tmpdir[1],tmpdir[2]) * 0.5;
 		double area = abs(d12+d23);
 		bool s123 = d12*d23>0;
-		bool ret = s123 && area>64; /*&&
-				(!doKstep || countNonZero(Mat(match_mask)) > inlierNumThresh );
-		if(ret || !doKstep ) {
-			int cnt=0;//number of inliers within current frame
-			for(int i=0; i<(int)npts.size(); ++i) {
-				cnt+=(int)(status[i] && match_mask[i]
-				           && withinFrame(npts[i],nframe));
-			}
-			ret = (int)(cnt>inlierNumThresh);
-		}*/
-		return ret;
+		return s123 && area>=64;
 	}
 
 	/**
