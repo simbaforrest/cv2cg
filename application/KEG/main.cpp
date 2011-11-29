@@ -57,6 +57,9 @@
 #include "OpenCV2OSG.h"
 #include "CV2CG.h"
 
+#define ESM_DEBUG 1
+#define KEG_DEBUG 1
+
 #include "keg/KEGTracker.hpp"
 
 #include "apriltag/apriltag.hpp"
@@ -140,6 +143,10 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 /////// Override
 	void operator()(cv::Mat& frame) {
 		if(frame.empty()) return;
+#if KEG_DEBUG
+		static helper::PerformanceMeasurer PM(1000);
+		PM.tic();
+#endif
 
 		cvtColor(frame, gray, CV_BGR2GRAY);
 		double rms=-1, ncc=-1;
@@ -151,7 +158,11 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 			needToInit = true;
 			if( findAprilTag(frame, tmpH, true) ) {
 				Mat initH = tmpH * iHI;
-				needToInit = !tracker.init(gray, initH, rms, ncc, 0, 1);
+#if !USE_INTERNAL_DETECTOR
+				needToInit = !tracker.init(gray, initH, rms, ncc, 0, 1); //estimate rms and ncc
+#else
+				needToInit = false;
+#endif
 				if(!needToInit) tracker.draw3D(frame);
 			}
 		} else { // KEG
@@ -160,14 +171,22 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 				Mat tmpH;
 				if( findAprilTag(frame, tmpH, true) ) {
 					Mat initH = tmpH * iHI;
+#if !USE_INTERNAL_DETECTOR
 					needToInit = !tracker.init(gray, initH, rms, ncc);
-//					needToInit=!tracker.init(gray,rms,ncc);
+#else
+					needToInit=!tracker.init(gray,rms,ncc);
+#endif
 					if(!needToInit) loglni("[KEGprocessor] ...INITed");
+					if(!needToInit) tracker.draw3D(frame);
 				}
 			} else {
 				needToInit=!tracker(gray, &frame, rms, ncc);
 			}
 		}
+#if KEG_DEBUG
+		double dur = PM.toc();
+		cout<<"process duration="<<dur<<endl;
+#endif
 
 		if(!needToInit)
 			tracker.GetCameraPose(camR,camT);
@@ -182,7 +201,11 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 		if (doCapFrame) {
 			if(!videoFromWebcam) {//if file, then save each frame
 				std::copy(camT,camT+3,lastT);
-				tracker.CapKeyFrame(framecnt++, frame, camR, camT, rms, ncc);
+				tracker.CapKeyFrame(framecnt++, frame, camR, camT, rms, ncc
+#if KEG_DEBUG
+				, dur
+#endif
+				);
 			} else if (!needToInit) {
 				double diff[3]={camT[0]-lastT[0],camT[1]-lastT[1],camT[2]-lastT[2]};
 				double dist = helper::normL2(3,1,diff);
@@ -318,9 +341,11 @@ int main( int argc, char **argv )
 			processor.tracker.doGstep=false;
 			processor.tracker.refiner.setTermCrit(0, 1); break;
 		case 4: //AprilTag
+			processor.tracker.doKstep = false;
+			processor.tracker.doGstep = false;
+			processor.tracker.refiner.setTermCrit(0, 1);
 			processor.onlyApril=true; break;
 		case 5: //E + AprilTag
-			processor.tracker.refiner.setTermCrit(8,4);
 			processor.tracker.doKstep = false;
 			processor.tracker.doGstep = false; break;
 		}

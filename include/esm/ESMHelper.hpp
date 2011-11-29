@@ -32,7 +32,9 @@ extern "C" {
 
 namespace esm {
 
-#define ESM_DEBUG
+#ifndef ESM_DEBUG
+	#define ESM_DEBUG 0
+#endif
 
 using namespace cv;
 using namespace std;
@@ -82,9 +84,11 @@ struct Tracker : public Interface {
 	~Tracker() { if(inited) FreeTrack(&T); }
 
 	inline bool init(const Mat& refimg) {
-#ifdef ESM_DEBUG
-		namedWindow("warp");
-		namedWindow("error");
+#if ESM_DEBUG
+	namedWindow("error");
+	cvMoveWindow("error",660,10);
+	namedWindow("warp");
+	cvMoveWindow("warp",660,270);
 #endif
 		return init(refimg, 0,0, refimg.cols,refimg.rows);
 	}
@@ -96,34 +100,29 @@ struct Tracker : public Interface {
 				T.homog[i*3+j] = H.at<double>(i,j);
 		bool ret = true;
 		if( this->maxIter >0 ) {
-			ret = this->run(curimg);
-			if(ret) { //update internal homography
+			ret = this->run(curimg); //true tracking
+			if(ret) {
 				for(int i=0; i<3; ++i)
 					for(int j=0; j<3; ++j)
 						H.at<double>(i,j) = T.homog[i*3+j];
+			} else {
+				zncc = rms = NAN; return false;
 			}
 		}
 
+		//evaluation of tracking quality
 		Mat warp;
-		if(this->maxIter>0) {
-				imageStruct2Mat(*GetPatc(&T),warp);
-		} else {
-			warpPerspective(curimg,
-				warp, H,
-				RefImg.size(), INTER_LINEAR|WARP_INVERSE_MAP);
-			warp.convertTo(warp,CV_32F);
-		}
+		warpPerspective(curimg,
+			warp, H,
+			RefImg.size(), INTER_LINEAR|WARP_INVERSE_MAP);
+		warp.convertTo(warp,CV_32F);
 		Mat error = warp-RefImg;
 		Mat mask = warp!=0;
 		rms = helper::rms<float>(error, &mask);
-		if(this->maxIter>0) {
-			zncc = GetZNCC(&T);
-		} else {
-			zncc = helper::zncc<float>(warp,RefImg,&mask);
-		}
+		zncc = helper::zncc<float>(warp,RefImg,&mask);
 
 		cout<<"[ESM] RMS="<<rms<<"|ZNCC="<<zncc<<endl;
-#ifdef ESM_DEBUG
+#if ESM_DEBUG
 		cv::imshow("warp", warp/255.0);
 		cv::imshow("error", error/255.0);
 #endif

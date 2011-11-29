@@ -187,6 +187,7 @@ public:
 		pause(pa);
 		loop(lo);
 		cv::namedWindow("frame");
+		cvMoveWindow("frame",10,10);
 		bool openFromWebcam = (this->classname() == "ImageSource_Camera");
 		PerformanceHelper::PerformanceMeasurer PM;
 		PM.scale = 1000;

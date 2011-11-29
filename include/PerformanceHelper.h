@@ -96,6 +96,7 @@ double zncc(const Mat& w, const Mat& t, const Mat *mask=0)
 		meanStdDev(wRow, mw, dw, maskRow);
 		meanStdDev(tRow, mt, dt, maskRow);
 	}
+
 	double ret = 0;
 	for(int i=0; i<(int)w.total(); ++i) {
 		MatType iw = wRow.at<MatType>(i);
@@ -106,24 +107,48 @@ double zncc(const Mat& w, const Mat& t, const Mat *mask=0)
 	return ret;
 }
 
+/**
+\class PerformanceHelper::PerformanceMeasurer PerformanceHelper.h "PerformanceHelper.h"
+\brief helper class for measuring time elapse
+*/
 struct PerformanceMeasurer {
 	int scale;
 	double startTick;
 
-	PerformanceMeasurer() {
-		scale = 1;
+	/**
+	constructor
+	
+	@param scale time scale, 1 means second, 1000 means milli-second,
+	             1/60.0 means minutes, etc.
+	*/
+	PerformanceMeasurer(int scale=1) {
+		this->scale = scale;
 		startTick=0;
 	}
 
+	/**
+	start record time, similar to matlab function "tic";
+	
+	@return the start tick
+	*/
 	inline double tic() {
 		return startTick = (double)getTickCount();
 	}
-	//return duration from last tic, in (second * scale)
+
+	/**
+	return duration from last tic, in (second * scale), similar to matlab function "toc"
+	
+	@return duration from last tic,  in (second * scale)
+	*/
 	inline double toc() {
 		return ((double)getTickCount()-startTick)/getTickFrequency() * scale;
 	}
 
-	//equivalent to { toc(); tic(); }
+	/**
+	equivalent to { toc(); tic(); }
+	
+	@return duration from last tic,  in (second * scale)
+	*/
 	inline double toctic() {
 		double ret = ((double)getTickCount()-startTick)/getTickFrequency() * scale;
 		tic();
