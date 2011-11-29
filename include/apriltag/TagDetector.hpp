@@ -61,8 +61,13 @@
 #include "TagUtils.hpp"
 #include "TagGridder.hpp"
 
-#define TAG_DEBUG_DRAW 0
-#define TAG_DEBUG_PERFORMANCE 0
+#ifndef TAG_DEBUG_DRAW
+	#define TAG_DEBUG_DRAW 0
+#endif
+
+#ifndef TAG_DEBUG_PERFORMANCE
+	#define TAG_DEBUG_PERFORMANCE 0
+#endif
 
 namespace april
 {

@@ -17,7 +17,9 @@ namespace Eigen { using namespace Eigen; }
 
 namespace esm {
 
-#define ESM_DEBUG 1
+#ifndef ESM_DEBUG
+	#define ESM_DEBUG 1
+#endif
 
 using namespace std;
 using namespace cv;
@@ -69,9 +71,11 @@ public:
 		}
 #if ESM_DEBUG
 		namedWindow("error");
+		cvMoveWindow("error",660,10);
 		namedWindow("warp");
-		namedWindow("templateImage");
-		cv::imshow("templateImage", templateImage);
+		cvMoveWindow("warp",660,270);
+//		namedWindow("templateImage");
+//		cv::imshow("templateImage", templateImage);
 #endif
 	}
 
