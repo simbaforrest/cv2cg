@@ -56,25 +56,22 @@
 
 #define ESM_ORIGINAL //define this if you have original implementation of ESM
 
-#ifndef KEG_DEBUG
-	#define KEG_DEBUG 0
-#endif
-
-#ifndef USE_INTERNAL_DETECTOR
-	#define USE_INTERNAL_DETECTOR 0 //do not use internal detector (SurfDetector)
-#endif
-
-#ifndef USE_DYNAMIC_PYRAMID_FAST
+#ifndef USE_DYNAMIC_PYRAMID_FAST // 0 - Surf; 1 - FAST
 	#define USE_DYNAMIC_PYRAMID_FAST 0 //not a big deal on PC
 #endif
 
+#include "KLTTracker.hpp"
 #include "esm/ESMInterface.h"
+#include "KeyFrame.hpp"
+#include "apriltag/apriltag.hpp"
 
 namespace keg {
 
 using namespace cv;
 using namespace std;
-using namespace esm;
+using april::tag::TagFamily;
+using april::tag::TagDetector;
+using april::tag::TagDetection;
 
 double defaultK[9] = {
 	9.1556072719327040e+02, 0., 3.1659567931197148e+02,
@@ -83,32 +80,17 @@ double defaultK[9] = {
 };
 
 /**
-\class keg::KeyFrame
-\brief contains keyframe id, image, rotation, translation, and quality measure
-*/
-struct KeyFrame {
-	int id;
-	Mat frame;
-	double R[3][3];
-	double T[3];
-	double rms,ncc;
-#if KEG_DEBUG
-	double duration; //time to track
-#endif
-};
-
-/**
 \class keg::Tracker KEGTracker.h "keg/KEGTracker.h"
 \brief KLT+ESM+Global Geometric Constraint Enhancement Tracking framework
 
-\par Coordinate_System:
+\par Coordinate System:
 
 \par Right-hand 3D coordinate system attached to the marker image :
 origin: left-top corner of the image
 x-axis: top to bottom of marker image
 y-axis: left to right of marker image
-
 z-axis: marker image to face
+
 \par Right-hand 2D image coordinate system (used when estimate homography) :
 origin: left-top corner of the image
 x-axis: left to right of marker image
@@ -118,118 +100,110 @@ y-axis: top to bottom of marker image
 */
 struct Tracker {
 public:
-	// for KLT
-	vector<uchar> status;
-	vector<float> err;
-	TermCriteria termcrit;
-	Size winSize;
-	int maxLevel;
-	double derivedLambda;
-	Mat oframe; //previous gray frame
+	struct TemplateData {
+		int id; //correspond to which april tag
+		vector<KeyPoint> keys;
+		vector<Point2f> X; //template points, get from recognizer/detector
+		vector<Point2f> crns; //corners of template image
+		Mat img; //template image, CV_8UC1
+		Mat iHI; //inverse of init Homography, X_tag = iHI * X_keg
+	};
+	vector<TemplateData> tdata;
+	int curT; //current template being tracked
 
-	// thresholds
-	int threshUp, threshLow; //#template keypoints thresholds
-	double ransacThresh;
-	double inlierThresh; //percentage of inlier to be considered as valid
+	klt::Tracker roughTracker;
+	esm::Tracker refiner;
 	double nccThresh;
 
-	vector<Point2f> opts; //old pts to track
-	vector<Point2f> npts; //new pts being tracked
-	vector<Point2f> tpts; //template points, get from recognizer
-	vector<Point2f> cpts; //corners of template image
-	Mat H; //current homography that maps tpts -> npts
-
-	Mat timg; //template image
-
-	//RANSAC
-	vector<unsigned char> match_mask;
-
-	// embeded detector, slow
-	Ptr<FeatureDetector> detector;
-	vector<KeyPoint> tkeys;
-#if USE_INTERNAL_DETECTOR
-	Ptr<DescriptorExtractor> descriptor;
-	Ptr<DescriptorMatcher> matcher;
-	Mat tdes;
-#endif
-
-	esm::Tracker refiner;
-
-	vector<KeyFrame> keyframes;
+	Mat H; //current homography that maps template points -> current points
+	double K[9];
 
 	bool doKstep; //whether to perform KLT
 	bool doGstep; //whether to perform geometric constraint enhancement
 
-	double K[9];
-
-	Tracker(int winW=8, int winH=8,
-	           int termIter=5, int termEps=0.3,
-	           int maxlevel=3, double lambda=0.3,
-	           double nccT=0.5, double ransacT=2, double inlierT=0.2) :
-		termcrit(CV_TERMCRIT_ITER|CV_TERMCRIT_EPS,termIter,termEps),
-		winSize(winW,winH), maxLevel(maxlevel), derivedLambda(lambda),
-		ransacThresh(ransacT), inlierThresh(inlierT), nccThresh(nccT)
-	{
+public:
+	Tracker(double nccT=0.5) {
+		nccThresh = nccT;
 		loadK(defaultK);
 		this->H = Mat::eye(3,3,CV_64FC1);
 		doGstep = true;
 		doKstep = true;
 		refiner.setTermCrit(5, 4);
-		threshLow= 800;
-		threshUp = 1000;
+		curT = -1;
 	}
 
 	/**
-	load template image, extract SURF keypoints
+	load multiple templates
+	*/
+	inline void loadTemplateList(TagDetector& detector,
+		vector<string> templatelist,
+		int threshLow=800, int threshUp=1000)
+	{
+		for(int i=0; i<(int)templatelist.size(); ++i)
+			loadTemplate(templatelist[i]);
+		for(int i=0; i<(int)tdata.size(); ++i) {
+			TemplateData& td = tdata[i];
+			vector<int> ids;
+			vector<Mat> HIs;
+			recognize(detector, td.img, HIs, ids);
+			if((int)ids.size() != 1) {
+				cout<<"[loadTemplateList] found none/multiple apriltag"
+					" on template image #"<<i<<", erase it."<<endl;
+				tdata.erase(tdata.begin()+i);
+			} else {
+				td.iHI = HIs.front().inv();
+				td.id = ids.front();
+			}
+		}
+	}
+
+	/**
+	load a single template image, extract keypoints using SURF/FAST
 	
 	@param templatename file path to the template image
+	@param threshLow lower bound for #template points
+	@param threshUp upper bound for #template points
 	*/
-	inline void loadTemplate(string templatename) {
+	inline void loadTemplate(string templatename,
+		int threshLow=800, int threshUp=1000)
+	{
+		tdata.push_back(TemplateData());
+		TemplateData& td = tdata.back();
 		//load template
-		timg = imread(templatename, 0);
-		cpts.push_back(Point2f(0,0));
-		cpts.push_back(Point2f(timg.cols,0));
-		cpts.push_back(Point2f(timg.cols,timg.rows));
-		cpts.push_back(Point2f(0,timg.rows));
-		//GaussianBlur(timg, timg, Size(5,5), 4);
+		td.img = imread(templatename, 0);
+		td.crns.push_back(Point2f(0,0));
+		td.crns.push_back(Point2f(td.img.cols,0));
+		td.crns.push_back(Point2f(td.img.cols,td.img.rows));
+		td.crns.push_back(Point2f(0,td.img.rows));
+		//GaussianBlur(td.img, td.img, Size(5,5), 4);
 
 		//limit the number of keypoints to track to [800,1000]
-#if USE_INTERNAL_DETECTOR
-		detector=new DynamicAdaptedFeatureDetector(
-			new SurfAdjuster, threshLow, threshUp, 100000);
-		descriptor=DescriptorExtractor::create("SURF");
-		matcher=DescriptorMatcher::create("FlannBased");
-		detector->detect(timg, tkeys);
-#else
-	#if USE_DYNAMIC_PYRAMID_FAST
+		const int mitr = 100000;
+		Ptr<FeatureDetector> detector;
+#if USE_DYNAMIC_PYRAMID_FAST
 		int fastThresh=15;
-		for(int i=0; i<100000; ++i) {
+		for(int i=0; i<mitr; ++i) {
 			detector=new PyramidAdaptedFeatureDetector(
 				new FastFeatureDetector(fastThresh) );
-			detector->detect(timg, tkeys);
+			detector->detect(td.img, td.keys);
 
-			int curNum = (int)tkeys.size();
+			int curNum = (int)td.keys.size();
 			if(curNum<threshLow) --fastThresh;
 			else if(curNum>threshUp) ++fastThresh;
 			else break;
 		}
 		cout<<"[KEG] Final fastThresh="<<fastThresh<<endl;
-	#else
+#else //use dynamic surf
 		detector=new DynamicAdaptedFeatureDetector(
-			new SurfAdjuster, threshLow, threshUp, 100000);
-		detector->detect(timg, tkeys);
-	#endif //end of USE_DYNAMIC_PYRAMID_FAST
-#endif //end of USE_INTERNAL_DETECTOR
-		cout<<"[KEG] #template keypoints="<<tkeys.size()<<endl;
+			new SurfAdjuster, threshLow, threshUp, mitr);
+		detector->detect(td.img, td.keys);
+#endif //end of USE_DYNAMIC_PYRAMID_FAST
+		cout<<"[KEG] #template keypoints="<<td.keys.size()<<endl;
 
-#if USE_INTERNAL_DETECTOR
-		descriptor->compute(timg, tkeys, tdes);
-		//now use just surf, rather than the dynamic one
-		detector = new SurfFeatureDetector;
-#endif
-
-		// init esm
-		refiner.init(timg);
+		td.X.resize(td.keys.size());//fill tpts by all td.keys
+		for(int i=0; i<(int)td.keys.size(); ++i) {
+			td.X[i] = td.keys[i].pt;
+		}
 	}
 
 	/**
@@ -238,194 +212,114 @@ public:
 	@param[in] Kmat, calibration matrix, <3x3>
 	*/
 	inline void loadK(double const Kmat[9]) {
-		for(int i=0; i<9; ++i) {
-			K[i]=Kmat[i];
+		for(int i=0; i<9; ++i) K[i]=Kmat[i];
+	}
+
+	/**
+	using apriltag to initH
+	*/
+	static void recognize(TagDetector& detector, Mat &nframe,
+		vector<Mat>& retH, vector<int>& retId,
+		int errorThresh=0)
+	{
+		retH.clear(); retId.clear();
+		vector<TagDetection> detections;
+		double opticalCenter[2] = { nframe.cols/2.0, nframe.rows/2.0 };
+		detector.process(nframe, opticalCenter, detections);
+
+		for(int id=0; id<(int)detections.size(); ++id) {
+			TagDetection &dd = detections[id];
+			if(dd.hammingDistance>errorThresh) continue; //very strict!
+
+			retId.push_back(dd.id);
+			cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
+			double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
+			retH.push_back( cv::Mat(3,3,CV_64FC1,vm) * tmp );
 		}
 	}
 
-#if !USE_INTERNAL_DETECTOR
 	/**
 	init by initH estimated from outside, such as an apriltag recognizer
 	
-	@param[in,out] gray input current frame, maybe turned into gray if RGB
+	@param[in,out] nframe input current frame, maybe turned into gray if RGB
 	@param[in,out] init Homography estimated from outside
 	@param[out] rms root-mean-square error
 	@param[out] ncc normalize cross correlation
+	@param[in] current template id, 0 by default
 	@param[in] maxiter max number of iterations for ESM refinement, 20 by default
 	@param[in] delta rms limit for ESM refinement, 0.001 by default
 	@return true if init success
 	*/
-	inline bool init(Mat &gray, Mat &initH,
+	inline bool init(Mat &nframe, Mat &initH,
 			double& rms, double & ncc,
-			int maxiter=20, double deltaRMS=0.001) {
-		gray.copyTo(oframe);
+			int tid=0,
+			int maxiter=20, double deltaRMS=0.001)
+	{
+		if(tid<0 || tid >= (int)tdata.size()) return false;
+		const TemplateData& td = tdata[tid];
+		//init esm only if different template is found
+		if(curT!=tid) refiner.init(td.img);
+
 		//use ESM to refine and check ncc
 		int miter = refiner.maxIter;
 		double mprec = refiner.mprec;
 		refiner.setTermCrit(maxiter,0.01/deltaRMS);
-		refiner(gray, initH, ncc, rms);
+		refiner(nframe, initH, ncc, rms);
 		refiner.setTermCrit(miter,mprec);
 		if(cvIsNaN(ncc) || ncc<nccThresh) return false;
+		curT = tid;
 		initH.copyTo(this->H);
 
-		if(doKstep) {
-			npts.resize(tkeys.size());
-			tpts.resize(tkeys.size());//fill tpts by all tkeys
-			for(int i=0; i<(int)tkeys.size(); ++i) {
-				tpts[i] = tkeys[i].pt;
-			}
-			Mat nptsmat(npts);
-			perspectiveTransform(Mat(tpts), nptsmat, H);
-			cornerSubPix(gray, npts, winSize, Size(-1,-1), termcrit);
-			opts.resize(npts.size());
-			std::copy(npts.begin(), npts.end(), opts.begin());
-		}
+		if(doKstep) roughTracker.init(nframe, td.X, H);
 		return true;
 	}
-#else
-	/**
-	init by SURF, very slow! only use this if you have no other recognizer
-	
-	@param[in,out] gray input current frame, maybe turned into gray if RGB
-	@param[in,out] rms root-mean-square error
-	@param[in,out] ncc normalize cross correlation
-	@return true if success
-	*/
-	inline bool init(Mat &gray, double& rms, double& ncc) {
-		const int minNumPts = inlierThresh*tkeys.size();
-		gray.copyTo(oframe);
-		vector<KeyPoint> keys;
-		Mat des;
-		vector<DMatch> matches;
-		detector->detect(gray, keys);
-		if((int)keys.size()<minNumPts) return false;
-
-		descriptor->compute(gray, keys, des);
-		matcher->clear();
-		matcher->match(des, tdes, matches);
-		if((int)matches.size()<minNumPts) return false;
-
-		npts.resize(matches.size());
-		tpts.resize(matches.size());
-		for(int i=0; i<(int)matches.size(); ++i) {
-			const DMatch &m = matches[i];
-			npts[i] = keys[m.queryIdx].pt;
-			tpts[i] = tkeys[m.trainIdx].pt;
-		}
-		match_mask.clear();
-		H = findHomography(Mat(tpts), Mat(npts),
-		                   match_mask, RANSAC, ransacThresh);
-		refiner(gray, H, ncc, rms);
-		if(cvIsNaN(ncc) || ncc<nccThresh) return false;
-
-		Mat nptsmat(npts);
-		perspectiveTransform(Mat(tpts), nptsmat, H);
-		int inlierNum = countNonZero(Mat(match_mask));
-		if(inlierNum>minNumPts) {
-			cornerSubPix(gray, npts, winSize, Size(-1,-1), termcrit);
-			opts.resize(npts.size());
-			std::copy(npts.begin(), npts.end(), opts.begin());
-		}
-		return inlierNum>minNumPts;
-	}
-#endif
 
 	/**
 	main tracking procedure
 	
 	@param[in,out] nframe new frame, i.e. current frame, maybe turned gray if RGB
-	@param[in,out] image target image to be drawed on if valid
 	@param[out] rms
 	@param[out] ncc
+	@param[in,out] image visualization target, default 0 means do not draw
 	@return false if loss-of-track
 	*/
-	inline bool operator()(Mat &nframe, Mat *image, double& rms, double& ncc) {
+	inline bool operator()(Mat &nframe, double& rms, double& ncc, Mat *image=0) {
+		if(curT<0 || curT>=(int)tdata.size()) return false;
+		const TemplateData& td = tdata[curT];
 		bool ret;
-		status.clear();
-		err.clear();
 
-		//1. KLT
-		if(doKstep) {
-			if(opts.empty()) return false;
-			if(oframe.empty()) nframe.copyTo(oframe);
+		//1. KLT + RANSAC
+		if(doKstep) roughTracker(nframe, td.X, H, image);
 
-			calcOpticalFlowPyrLK(oframe, nframe, opts, npts,
-				                 status, err, winSize,
-				                 maxLevel, termcrit, derivedLambda);
-
-			if(validateKLT()) {
-				//2. RANSAC, rough estimation of Homography
-				match_mask.assign(npts.size(),0);
-				Mat tmpH = findHomography(Mat(tpts), Mat(npts),
-						           match_mask, RANSAC, ransacThresh);
-				if(validateRANSAC(nframe.size())) tmpH.copyTo(H);
-			}
-		}
-
-		//3. ESM refinement of Homography
+		//2. ESM refinement of Homography
 		refiner(nframe, H, ncc, rms);
 		ret = !cvIsNaN(ncc) && ncc>nccThresh;
 
 		if(ret) {//image similarity check passed
-			//4. Global Geometric Constraint Enhancement
-			if(doGstep) {
-				Mat nptsmat(npts);
-				perspectiveTransform(Mat(tpts), nptsmat, H);
-			}
+			//3. Global Geometric Constraint Enhancement
+			if(doGstep)
+				roughTracker.globalGeometricConstraintEhancement(td.X, H);
 
-			ret=validateH(nframe);
+			ret=validateH(td.crns);
 		}
 
 		if(ret && image) { //visualization
-			if(doKstep) drawTrail(*image);
 			drawHomo(*image);
 			draw3D(*image);
 		}
 
-		std::swap(oframe, nframe);
-		std::swap(npts, opts);
-		return ret && (!doKstep || !opts.empty());
+		roughTracker.update(nframe);
+		return ret;
 	}
 
 protected: //internal helper functions
 	/**
-	validate KLT result, by checking #(non-zero status points)
-	
-	@return true if KLT valid
-	*/
-	inline bool validateKLT() {
-		int cnt=0;
-		for(int i=0; i<(int)npts.size(); ++i) {
-			//to make these points rejected by RANSAC
-			npts[i] = status[i]?npts[i]:Point2f(0,0);
-			cnt += status[i];
-		}
-		return cnt >= inlierThresh*tkeys.size();
-	}
-
-	/**
-	validate RANSAC result, by checking #(ransac inlier within current frame)
-	
-	@param s size of current frame
-	@return true if RANSAC valid
-	*/
-	inline bool validateRANSAC(const Size& s) {
-		int cnt = 0;
-		for(int i=0; i<(int)npts.size(); ++i) {
-			const Point2f& p = npts[i];
-			cnt += match_mask[i] &&
-				p.x>0 && p.y>0 && p.x<s.width && p.y<s.height;
-		}
-		return cnt >= inlierThresh*tkeys.size();
-	}
-
-	/**
 	validation of estimated homography, check geometric consistency
 	
-	@param nframe current frame
+	@param[in] cpts 4 corner points on template image
 	@return true if estimated homography is valid
 	*/
-	inline bool validateH(const Mat& nframe) const {
+	inline bool validateH(const vector<Point2f>& cpts) const {
 		vector<Point2f> tmp(4);
 		Mat tmpmat(tmp);
 		perspectiveTransform(Mat(cpts), tmpmat, H);
@@ -468,138 +362,33 @@ public:
 		}
 	}
 
-	inline void drawTrail(Mat& image) {
-		//draw track trail
-		for(int i=0; i<(int)npts.size(); ++i) {
-			if( status[i] ) {
-				circle(image, npts[i], 2, CV_GREEN, -1);
-				line(image, npts[i], opts[i], CV_BLUE );
-			}
-			if(match_mask[i]) {
-				circle( image, npts[i], 1, CV_RED, -1);
-			}
-		}
-	}
-
 	inline void drawHomo(Mat& image) {
-		const double crns[4][2]={
-				{0, timg.rows},
-				{timg.cols, timg.rows},
-				{timg.cols, 0},
+		const TemplateData& td = tdata[curT];
+		double crns[4][2]={
+				{0, td.img.rows},
+				{td.img.cols, td.img.rows},
+				{td.img.cols, 0},
 				{0, 0}
 		};
 		helper::drawHomography(image, this->H, crns);
 	}
 
 	inline void draw3D(Mat &image) {
-		static double crns[8][3] = {
+		const TemplateData& td = tdata[curT];
+		double crns[8][3] = {
 			{0, 0, 0},
-			{0, timg.cols, 0},
-			{timg.rows, timg.cols, 0},
-			{timg.rows, 0, 0},
-			{timg.rows*0.4, timg.cols*0.4, timg.rows*0.5},
-			{timg.rows*0.4, timg.cols*0.6, timg.rows*0.5},
-			{timg.rows*0.6, timg.cols*0.6, timg.rows*0.5},
-			{timg.rows*0.6, timg.cols*0.4, timg.rows*0.5}
+			{0, td.img.cols, 0},
+			{td.img.rows, td.img.cols, 0},
+			{td.img.rows, 0, 0},
+			{td.img.rows*0.4, td.img.cols*0.4, td.img.rows*0.5},
+			{td.img.rows*0.4, td.img.cols*0.6, td.img.rows*0.5},
+			{td.img.rows*0.6, td.img.cols*0.6, td.img.rows*0.5},
+			{td.img.rows*0.6, td.img.cols*0.4, td.img.rows*0.5}
 		};
 		//homo to P
 		double R[3][3],T[3];
 		GetCameraPose(R,T,false,true);
 		helper::drawPyramid(image,K,R[0],T,crns);
-	}
-
-	inline void CapKeyFrame(int id, Mat const& frame,
-			double const R[3][3], double const T[3],
-			double const rms=NAN, double const ncc=NAN
-#if KEG_DEBUG
-			, double const dur=NAN
-#endif
-) {
-		KeyFrame newkf;
-		newkf.id = id;
-		newkf.frame = frame.clone();
-#if KEG_DEBUG
-		newkf.duration = dur;
-#endif
-		for(int i=0; i<3; ++i) {
-			newkf.T[i] = T[i];
-			for(int j=0; j<3; ++j) {
-				newkf.R[i][j]=R[i][j];
-			}
-		}
-		newkf.rms = rms;
-		newkf.ncc = ncc;
-		keyframes.push_back(newkf);
-	}
-
-	inline bool SaveKeyFrames(string name) {
-		cout<<"[SaveKeyFrames] "<<(int)keyframes.size()<<" frame(s) total!"<<endl;
-		if(keyframes.size()<=0) return true;
-		name = DirHelper::getFileDir(name);
-		string mainname = helper::legalDir(name) + string("frames.main");
-		string rmsnccname = name + string("frames.rmsncc");
-		string framesRname = name + string("frames.R");
-		string framesTname = name + string("frames.T");
-#if KEG_DEBUG
-		string framesDURname = name + string("frames.DUR");
-#endif
-		std::ofstream mainout(mainname.c_str());
-		mainout << "CAMERAFRUSTUM "<<keyframes.size()<<" 1"<< endl;
-		mainout << name << endl;
-		std::ofstream rmsncc(rmsnccname.c_str());
-//		rmsncc <<"#format: frame_id rms ncc"<<endl;
-		std::ofstream framesR(framesRname.c_str());
-//		framesR <<"#format: frame_id R[0][0] R[0][1] ... R[2][2]"<<endl;
-		std::ofstream framesT(framesTname.c_str());
-//		framesT <<"#format: frame_id T[0] T[1] T[2]"<<endl;
-#if KEG_DEBUG
-		std::ofstream framesDUR(framesDURname.c_str());;
-//		framesDUR <<"#format: frame_id dur"<<endl;
-#endif
-		for(int i=0; i<(int)keyframes.size(); ++i) {
-			const KeyFrame& kf = keyframes[i];
-			if(kf.frame.empty()) {
-				continue;
-			}
-			string num;
-			helper::num2str(kf.id,num);
-			string prefix = name + string("frame") + num;
-			string relativePrefix = string("frame") + num;
-
-			string parname = prefix + string(".par");
-			std::ofstream par(parname.c_str());
-			par << "n=0.1\nf=10000\n" << endl;
-			par << "K=\n" << helper::PrintMat<>(3,3,K) << endl;
-			par << "R=\n" << helper::PrintMat<>(3,3,kf.R[0]) << endl;
-			par << "T=\n" << helper::PrintMat<>(3,1,kf.T) << endl;
-			par.close();
-			cout<<"[SaveKeyFrames] "<<parname<<" saved."<<endl;
-
-			string imgname = prefix + string(".jpg");
-			imwrite(imgname, kf.frame);
-			cout<<"[SaveKeyFrames] "<<imgname<<" saved."<<endl;
-
-			string relativeParname = relativePrefix + string(".par");
-			string relativeImgname = relativePrefix + string(".jpg");
-			mainout << relativeImgname << endl;
-			mainout << relativeParname << endl;
-
-			rmsncc <<kf.id<<" "<<kf.rms<<" "<<kf.ncc<<endl;
-			framesR <<kf.id<<" "<<helper::PrintMat<>(1,9,kf.R[0]);
-			framesT <<kf.id<<" "<<helper::PrintMat<>(1,3,kf.T);
-#if KEG_DEBUG
-			framesDUR <<kf.id<<" "<<kf.duration<<endl;
-#endif
-		}
-		rmsncc.close();
-		framesR.close();
-		framesT.close();
-		mainout.close();
-#if KEG_DEBUG
-		framesDUR.close();
-#endif
-		cout<<"[SaveKeyFrames] DONE!"<<endl;
-		return true;
 	}
 };//end of struct Tracker
 

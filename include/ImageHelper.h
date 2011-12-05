@@ -168,19 +168,52 @@ using std::cout;
 using std::endl;
 using std::vector;
 
+/**
+\class ImageSource ImageHelper.h "ImageHelper.h"
+\brief Interface for easier access to different image sources such as videos,
+       set of images or camera
+*/
 struct ImageSource {
 public:
+	/**
+	whether finished
+	
+	@return true if finished
+	*/
 	virtual bool done() = 0;
+
+	/**
+	fill dst with current image
+	
+	@param dst mat to be filled with current image
+	*/
 	virtual void get(cv::Mat& dst) = 0;
+
 	virtual string classname() = 0;
 
+	/**
+	report information of the image source to console
+	*/
 	virtual void reportInfo() {}
 
+	/**
+	\class ImageSource::Processor
+	\brief Callback for process one frame of image and handle key input
+	*/
 	struct Processor {
 		virtual void operator()(cv::Mat& frame) = 0; //main process
 		virtual void handle(char key) = 0; //handle user input
 	};
 
+	/**
+	run processor on image source
+	
+	@param processor given processor to process one frame of image
+	@param idealfps ideal fps for ImageSource_Photo/ImageSource_Video
+	@param verbose whether to output to console
+	@param pa init pause or not
+	@param lo init loop or not
+	*/
 	virtual void run(Processor& processor,
 		double idealfps = 20, bool verbose=false,
 		bool pa=false, bool lo=false) {
@@ -202,7 +235,7 @@ public:
 			cv::imshow("frame",frame);
 
 			lastdur = PM.toc();
-			if(verbose) cout<<"[loop] dur = "<<lastdur<<endl;
+			if(verbose) cout<<"[run] process duration = "<<lastdur<<endl;
 			double waitdur = openFromWebcam?8:std::max(idealdur-lastdur, 8.0);
 			char key = cv::waitKey(waitdur);
 			processor.handle(key);
@@ -240,7 +273,10 @@ protected:
 	bool isPause;
 };
 
-//image source from video files
+/**
+\class ImageSource_Video
+\brief image source from video files
+*/
 struct ImageSource_Video : public ImageSource {
 private:
 	cv::VideoCapture cap;
@@ -305,7 +341,10 @@ public:
 	}
 };
 
-//image source from camera
+/**
+\class ImageSource_Camera
+\brief image source from camera
+*/
 struct ImageSource_Camera : public ImageSource {
 private:
 	cv::VideoCapture cap;
@@ -325,8 +364,6 @@ public:
 
 		isDone = false;
 		isPause = false;
-
-		next();
 	}
 
 	inline string classname() {
@@ -337,17 +374,18 @@ public:
 
 	inline bool done() { return isDone; }
 
-	inline void next() {
-		if( !cap.read(current) ) {
+	inline void get(cv::Mat& dst) {
+		if(isPause) {
+			if( current.empty() && cap.read(dst) ) {
+				dst.copyTo(current);
+			} else 
+				current.copyTo(dst);
+			return;
+		} else if ( !cap.read(dst) ) {
 			cout<<"[ImageSource_Camera] capture error, exit!"<<endl;
 			exit(-1);
 		}
-	}
-
-	inline void get(cv::Mat& dst) {
-		current.copyTo(dst);
-		if(isPause) return;
-		next();
+		current.release();
 	}
 
 	~ImageSource_Camera() {
@@ -363,6 +401,10 @@ public:
 	}
 };
 
+/**
+\class ImageSource_Photo
+\brief image source from set of images
+*/
 struct ImageSource_Photo : public ImageSource {
 private:
 	vector<string> imnames;
@@ -435,11 +477,17 @@ public:
 	}
 };
 
-//url format example:
-//	video:///home/simbaforrest/Videos/Webcam/keg_april.ogv
-//	camera://0
-//	photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img00000.jpg
-//	photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img*.jpg
+/**
+helper function for create an ImageSource from url
+url format example:
+video:///home/simbaforrest/Videos/Webcam/keg_april.ogv
+camera://0
+photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img00000.jpg
+photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img*.jpg
+
+@param url url for image source
+@return created ImageSource
+*/
 inline ImageSource* createImageSource(string url) {
 	size_t pos = url.find("://");
 	if(pos == string::npos) {

@@ -85,10 +85,10 @@ struct Tracker : public Interface {
 
 	inline bool init(const Mat& refimg) {
 #if ESM_DEBUG
-	namedWindow("error");
-	cvMoveWindow("error",660,10);
-	namedWindow("warp");
-	cvMoveWindow("warp",660,270);
+		namedWindow("error");
+		cvMoveWindow("error",660,10);
+		namedWindow("warp");
+		cvMoveWindow("warp",660,270);
 #endif
 		return init(refimg, 0,0, refimg.cols,refimg.rows);
 	}
