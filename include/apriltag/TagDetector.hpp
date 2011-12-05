@@ -326,7 +326,9 @@ struct TagDetector {
 			}
 		}
 		if (segDecimate) {
-			pyrDown(fimseg, fimseg);
+			Mat tmp;
+			pyrDown(fimseg, tmp);
+			fimseg = tmp;
 		}
 
 		Mat fimTheta(fimseg.size(), fimseg.type());

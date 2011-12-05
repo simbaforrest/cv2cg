@@ -84,60 +84,21 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 	bool doCapFrame;
 	bool needToCapframe;
 	bool videoFromWebcam;
-	bool onlyApril;
 	double threshKeydistance;
 	int framecnt;
+	vector<keg::KeyFrame> keyframes;
 
 	cv::Ptr<TagFamily> tagFamily;
 	cv::Ptr<TagDetector> detector;
-	cv::Mat HI;
-	cv::Mat iHI; //inverse of init Homography, X_tag = iHI * X_keg
-	int targetid; //default target tag0
 
 /////// Constructor
 	KEGprocessor() {
-		onlyApril = false;
 		needToInit = true;
 		doCapFrame = true;
 		needToCapframe = false;
 		videoFromWebcam = false;
 		threshKeydistance = 200;
 		framecnt = 0;
-		targetid = 0;
-	}
-
-	bool findAprilTag(Mat &image, Mat &ret,
-		bool draw=false, int errorThresh=0) {
-		vector<TagDetection> detections;
-		double opticalCenter[2] = { image.cols/2.0, image.rows/2.0 };
-		detector->process(image, opticalCenter, detections);
-
-		loglnd("[findAprilTag] #detections="<<detections.size());
-		for(int id=0; id<(int)detections.size(); ++id) {
-			TagDetection &dd = detections[id];
-			if(dd.id!=targetid) continue;
-			if(dd.hammingDistance>errorThresh) continue; //very strict!
-
-			cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
-			double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
-			ret = cv::Mat(3,3,CV_64FC1,vm) * tmp;
-
-			if(draw) {
-				cv::putText( image, helper::num2str(dd.id),
-					cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL,
-					1, helper::CV_BLUE, 2 );
-				static double crns[4][2]={
-					{-1, -1},
-					{ 1, -1},
-					{ 1,  1},
-					{-1,  1}
-				};
-				helper::drawHomography(image, ret, crns);
-			}
-			loglnd("[findAprilTag] find target with id="<<targetid);
-			return true;
-		}
-		return false;
 	}
 
 /////// Override
@@ -151,38 +112,33 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 		cvtColor(frame, gray, CV_BGR2GRAY);
 		double rms=-1, ncc=-1;
 		double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0};
-		static double lastT[3]={0};
 
-		if( onlyApril ) { //for test
-			Mat tmpH;
-			needToInit = true;
-			if( findAprilTag(frame, tmpH, true) ) {
-				Mat initH = tmpH * iHI;
-#if !USE_INTERNAL_DETECTOR
-				needToInit = !tracker.init(gray, initH, rms, ncc, 0, 1); //estimate rms and ncc
-#else
-				needToInit = false;
-#endif
-				if(!needToInit) tracker.draw3D(frame);
-			}
-		} else { // KEG
-			if( needToInit ) {
-				loglni("[KEGprocessor] INITing...");
-				Mat tmpH;
-				if( findAprilTag(frame, tmpH, true) ) {
-					Mat initH = tmpH * iHI;
-#if !USE_INTERNAL_DETECTOR
-					needToInit = !tracker.init(gray, initH, rms, ncc);
-#else
-					needToInit=!tracker.init(gray,rms,ncc);
-#endif
-					if(!needToInit) loglni("[KEGprocessor] ...INITed");
-					if(!needToInit) tracker.draw3D(frame);
+		if( needToInit ) {
+			loglni("[KEGprocessor] INITing...");
+			vector<Mat> tmpH;
+			vector<int> tmpid;
+			tracker.recognize(*detector, gray, tmpH, tmpid);
+			if((int)tmpid.size() == 1) {
+				int id=tmpid.front();
+				if(id<(int)tracker.tdata.size() && id>=0) {
+					Mat initH = tmpH.front() * tracker.tdata[id].iHI;
+					needToInit = !tracker.init(gray, initH, rms, ncc, id);
+					if(!needToInit) {
+						loglni("[KEGprocessor] ...INITed");
+						tracker.draw3D(frame);
+					}
 				}
-			} else {
-				needToInit=!tracker(gray, &frame, rms, ncc);
 			}
+		} else {
+			needToInit=!tracker(gray, rms, ncc, &frame);
 		}
+
+		if(!needToInit) {
+			cv::putText( frame, string("Currently around location ")+helper::num2str(tracker.curT),
+					cv::Point(10,30), CV_FONT_NORMAL,
+					1, helper::CV_GREEN, 2 );
+		}
+
 #if KEG_DEBUG
 		double dur = PM.toc();
 		cout<<"process duration="<<dur<<endl;
@@ -198,22 +154,13 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 			}
 			rms = ncc = numeric_limits<double>::quiet_NaN();
 		}
-		if (doCapFrame) {
-			if(!videoFromWebcam) {//if file, then save each frame
-				std::copy(camT,camT+3,lastT);
-				tracker.CapKeyFrame(framecnt++, frame, camR, camT, rms, ncc
+		if (doCapFrame && !videoFromWebcam) {//if file, then save each frame
+			keg::CapKeyFrame(keyframes,
+				tracker.curT, Mat(), camR, camT, rms, ncc
 #if KEG_DEBUG
 				, dur
 #endif
-				);
-			} else if (!needToInit) {
-				double diff[3]={camT[0]-lastT[0],camT[1]-lastT[1],camT[2]-lastT[2]};
-				double dist = helper::normL2(3,1,diff);
-				if(dist>=threshKeydistance && needToCapframe) {
-					std::copy(camT,camT+3,lastT);
-					tracker.CapKeyFrame(framecnt++, frame, camR, camT, rms, ncc);
-				}
-			}
+			);
 		}
 	}
 
@@ -245,10 +192,9 @@ void usage( int argc, char **argv ) {
 		" <url>" //1
 		" <K matrix file>" //2
 		" <template file>" //3
-		" [Target tag ID=0]" //4
-		" [AprilTag Family ID=0]" //5
-		" [keyframe saving path]"//6
-		" [ExperimentMode=0]"<<endl;
+		" [AprilTag Family ID=0]" //4
+		" [keyframe saving path]"//5
+		<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
@@ -257,13 +203,6 @@ void usage( int argc, char **argv ) {
 	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
 	cout<<"camera://0\n";
 	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
-	cout<<"ExperimentMode:"<<endl;
-	cout<<"\t0 - KEG+AprilTag\n"
-		  "\t1 - KG +AprilTag\n"
-		  "\t2 - KE +AprilTag\n"
-		  "\t3 - K  +AprilTag\n"
-		  "\t4 -     AprilTag\n"
-		  "\t5 -  E +AprilTag"<<endl;
 }
 
 int main( int argc, char **argv )
@@ -299,13 +238,9 @@ int main( int argc, char **argv )
 	loglni("[main] K matrix loaded:");
 	loglni(helper::PrintMat<>(3,3,K));
 
-	loglni("[main] load template image from: "<<argv[3]);
-	processor.tracker.loadTemplate(argv[3]);
-
 	//// TagDetector
 	int familyid = 0; //default tag16h5
-	if(argc>4) processor.targetid = atoi(argv[4]);
-	if(argc>5) familyid = atoi(argv[5]);
+	if(argc>4) familyid = atoi(argv[4]);
 	processor.tagFamily = TagFamilyFactory::create(familyid);
 	if(processor.tagFamily.empty()) {
 		loglne("[main] create TagFamily fail!");
@@ -317,47 +252,24 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
-	// find apriltag on the template, calc iHI
-	Mat temp = imread(argv[3]);
-	if( processor.findAprilTag(temp, processor.HI, true) ) {
-		namedWindow("template");
-		imshow("template", temp);
-		processor.iHI = processor.HI.inv();
-	} else {
-		loglne("[main error] detector did not find any apriltag on template image!");
-		return -1;
+	loglni("[main] load template image from: "<<argv[3]);
+	std::ifstream tin(argv[3]);
+	string line;
+	vector<string> tlist;
+	while(helper::readValidLine(tin, line)) {
+		tlist.push_back(line);
 	}
+	processor.tracker.loadTemplateList(*(processor.detector), tlist);
 
-	processor.doCapFrame = argc>6;
-
-	if(argc>7) {
-		int experiment = atoi(argv[7]);
-		switch(experiment) {
-		case 1: //KG + AprilTag
-			processor.tracker.refiner.setTermCrit(0, 1); break;
-		case 2: //KE + AprilTag
-			processor.tracker.doGstep=false; break;
-		case 3: //K + AprilTag
-			processor.tracker.doGstep=false;
-			processor.tracker.refiner.setTermCrit(0, 1); break;
-		case 4: //AprilTag
-			processor.tracker.doKstep = false;
-			processor.tracker.doGstep = false;
-			processor.tracker.refiner.setTermCrit(0, 1);
-			processor.onlyApril=true; break;
-		case 5: //E + AprilTag
-			processor.tracker.doKstep = false;
-			processor.tracker.doGstep = false; break;
-		}
-	}
+	processor.doCapFrame = argc>5;
 
 	//// Main Loop
 	is->run(processor,-1);
 
 	//// Finish
 	if(processor.doCapFrame) {
-		loglni("[main] saving keyframes to: "<<argv[6]);
-		processor.tracker.SaveKeyFrames(argv[6]);
+		loglni("[main] saving keyframes to: "<<argv[5]);
+		keg::SaveKeyFrames(processor.keyframes, argv[5]);
 	}
 
 	loglni("[main] DONE...exit!");
