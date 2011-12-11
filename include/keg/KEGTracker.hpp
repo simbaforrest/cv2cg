@@ -63,15 +63,12 @@
 #include "KLTTracker.hpp"
 #include "esm/ESMInterface.h"
 #include "KeyFrame.hpp"
-#include "apriltag/apriltag.hpp"
+#include "Recognizer.hpp"
 
 namespace keg {
 
 using namespace cv;
 using namespace std;
-using april::tag::TagFamily;
-using april::tag::TagDetector;
-using april::tag::TagDetection;
 
 double defaultK[9] = {
 	9.1556072719327040e+02, 0., 3.1659567931197148e+02,
@@ -83,9 +80,14 @@ double defaultK[9] = {
 \class keg::Tracker KEGTracker.h "keg/KEGTracker.h"
 \brief KLT+ESM+Global Geometric Constraint Enhancement Tracking framework
 
+\par Recognizer must implement the following function:
+void recognize(Mat &nframe, vector<Mat>& retH, vector<int>& retId,int errorThresh)
+which takes a gray image nframe as input and output recognized markers' IDs and
+corresponding Hs.
+
 \par Coordinate System:
 
-\par Right-hand 3D coordinate system attached to the marker image :
+\par Right-hand 3D coordinate system attached to the marker image (used to render AR):
 origin: left-top corner of the image
 x-axis: top to bottom of marker image
 y-axis: left to right of marker image
@@ -121,6 +123,11 @@ public:
 	bool doKstep; //whether to perform KLT
 	bool doGstep; //whether to perform geometric constraint enhancement
 
+	inline void doEstep(bool val) {
+		if(val) refiner.setTermCrit(5,4);
+		else refiner.setTermCrit(0,1);//no refine, only quality measure
+	}
+
 public:
 	Tracker(double nccT=0.5) {
 		nccThresh = nccT;
@@ -133,31 +140,6 @@ public:
 	}
 
 	/**
-	load multiple templates
-	*/
-	inline void loadTemplateList(TagDetector& detector,
-		vector<string> templatelist,
-		int threshLow=800, int threshUp=1000)
-	{
-		for(int i=0; i<(int)templatelist.size(); ++i)
-			loadTemplate(templatelist[i]);
-		for(int i=0; i<(int)tdata.size(); ++i) {
-			TemplateData& td = tdata[i];
-			vector<int> ids;
-			vector<Mat> HIs;
-			recognize(detector, td.img, HIs, ids);
-			if((int)ids.size() != 1) {
-				cout<<"[loadTemplateList] found none/multiple apriltag"
-					" on template image #"<<i<<", erase it."<<endl;
-				tdata.erase(tdata.begin()+i);
-			} else {
-				td.iHI = HIs.front().inv();
-				td.id = ids.front();
-			}
-		}
-	}
-
-	/**
 	load a single template image, extract keypoints using SURF/FAST
 	
 	@param templatename file path to the template image
@@ -167,6 +149,7 @@ public:
 	inline void loadTemplate(string templatename,
 		int threshLow=800, int threshUp=1000)
 	{
+		cout<<"[KEG] loading: "<<templatename<<endl;
 		tdata.push_back(TemplateData());
 		TemplateData& td = tdata.back();
 		//load template
@@ -216,29 +199,6 @@ public:
 	}
 
 	/**
-	using apriltag to initH
-	*/
-	static void recognize(TagDetector& detector, Mat &nframe,
-		vector<Mat>& retH, vector<int>& retId,
-		int errorThresh=0)
-	{
-		retH.clear(); retId.clear();
-		vector<TagDetection> detections;
-		double opticalCenter[2] = { nframe.cols/2.0, nframe.rows/2.0 };
-		detector.process(nframe, opticalCenter, detections);
-
-		for(int id=0; id<(int)detections.size(); ++id) {
-			TagDetection &dd = detections[id];
-			if(dd.hammingDistance>errorThresh) continue; //very strict!
-
-			retId.push_back(dd.id);
-			cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
-			double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
-			retH.push_back( cv::Mat(3,3,CV_64FC1,vm) * tmp );
-		}
-	}
-
-	/**
 	init by initH estimated from outside, such as an apriltag recognizer
 	
 	@param[in,out] nframe input current frame, maybe turned into gray if RGB
@@ -275,7 +235,7 @@ public:
 	}
 
 	/**
-	main tracking procedure
+	main tracking framework
 	
 	@param[in,out] nframe new frame, i.e. current frame, maybe turned gray if RGB
 	@param[out] rms
