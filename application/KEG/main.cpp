@@ -78,27 +78,55 @@ using helper::ImageSource;
 
 struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 /////// Vars
-	KEGTracker tracker;
+	Ptr<keg::AprilTagRecognizer> recognizer;
+	keg::Tracker tracker;
 	Mat gray;
 	bool needToInit;
 	bool doCapFrame;
 	bool needToCapframe;
 	bool videoFromWebcam;
+	bool onlyApril;
 	double threshKeydistance;
 	int framecnt;
+	int expMode;
 	vector<keg::KeyFrame> keyframes;
-
-	cv::Ptr<TagFamily> tagFamily;
-	cv::Ptr<TagDetector> detector;
 
 /////// Constructor
 	KEGprocessor() {
+		expMode = 0;
 		needToInit = true;
 		doCapFrame = true;
 		needToCapframe = false;
 		videoFromWebcam = false;
+		onlyApril = false;
 		threshKeydistance = 200;
 		framecnt = 0;
+	}
+
+	/**
+	load multiple templates into the tracker
+	TODO currently no detection of multiple id error, user is responsible for this
+	*/
+	inline void loadTemplateList(vector<string> templatelist,
+		int threshLow=800, int threshUp=1000)
+	{
+		for(int i=0; i<(int)templatelist.size(); ++i)
+			tracker.loadTemplate(templatelist[i]);
+		for(int i=0; i<(int)tracker.tdata.size(); ++i) {
+			keg::Tracker::TemplateData& td = tracker.tdata[i];
+			vector<int> ids;
+			vector<Mat> HIs;
+			(*recognizer)(td.img, HIs, ids);
+			if((int)ids.size() != 1) {
+				loglni("[loadTemplateList] found none/multiple apriltag"
+					" on template image #"<<i<<", erase it.");
+				tracker.tdata.erase(tracker.tdata.begin()+i);
+			} else {
+				td.iHI = HIs.front().inv();
+				td.id = ids.front();
+				loglni("[loadTemplateList] found tag "<<td.id);
+			}
+		}
 	}
 
 /////// Override
@@ -113,30 +141,40 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 		double rms=-1, ncc=-1;
 		double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0};
 
-		if( needToInit ) {
+		if( needToInit || onlyApril ) {
 			loglni("[KEGprocessor] INITing...");
 			vector<Mat> tmpH;
 			vector<int> tmpid;
-			tracker.recognize(*detector, gray, tmpH, tmpid);
-			if((int)tmpid.size() == 1) {
-				int id=tmpid.front();
-				if(id<(int)tracker.tdata.size() && id>=0) {
+			(*recognizer)(gray, tmpH, tmpid);
+			for(int itr=0; itr<(int)tmpid.size(); ++itr) {
+				int id = tmpid[itr];
+				bool foundtag=false;
+				for(int jtr=0; jtr<(int)tracker.tdata.size(); ++jtr)
+					if( foundtag = (id == tracker.tdata[jtr].id) ) break;
+
+				if(foundtag) {
+					loglni("[April] find tag "<<id);
 					Mat initH = tmpH.front() * tracker.tdata[id].iHI;
-					needToInit = !tracker.init(gray, initH, rms, ncc, id);
+					//onlyApril means no refine, just measure quality
+					int maxiter = onlyApril?0:20;
+					needToInit = !tracker.init(gray, initH, rms, ncc, id, maxiter);
 					if(!needToInit) {
 						loglni("[KEGprocessor] ...INITed");
 						tracker.draw3D(frame);
 					}
+					break;
 				}
 			}
 		} else {
 			needToInit=!tracker(gray, rms, ncc, &frame);
 		}
 
-		if(!needToInit) {
-			cv::putText( frame, string("Currently around location ")+helper::num2str(tracker.curT),
-					cv::Point(10,30), CV_FONT_NORMAL,
-					1, helper::CV_GREEN, 2 );
+		if(!needToInit && expMode==-1) {
+			cv::putText( frame,
+				string("Currently around location ")
+				+helper::num2str(tracker.curT),
+				cv::Point(10,30), CV_FONT_NORMAL,
+				1, helper::CV_GREEN, 2 );
 		}
 
 #if KEG_DEBUG
@@ -156,13 +194,14 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 		}
 		if (doCapFrame && !videoFromWebcam) {//if file, then save each frame
 			keg::CapKeyFrame(keyframes,
-				tracker.curT, Mat(), camR, camT, rms, ncc
+				tracker.curT, expMode==-1?Mat():frame, camR, camT, rms, ncc
 #if KEG_DEBUG
 				, dur
 #endif
 			);
 		}
-	}
+		++framecnt;
+	}//end of operator()
 
 	void handle(char key) {
 		switch (key) {
@@ -192,8 +231,9 @@ void usage( int argc, char **argv ) {
 		" <url>" //1
 		" <K matrix file>" //2
 		" <template file>" //3
-		" [AprilTag Family ID=0]" //4
+		" [experiment mode=0]"//4
 		" [keyframe saving path]"//5
+		" [AprilTag Family ID=0]"//6
 		<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
@@ -203,6 +243,14 @@ void usage( int argc, char **argv ) {
 	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
 	cout<<"camera://0\n";
 	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
+	cout<<"Experiment Mode:\n";
+	cout<<"0 - A+KEG\n"
+		  "1 - A+K G\n"
+		  "2 - A+KE \n"
+		  "3 - A+K  \n"
+		  "4 - A    \n"
+		  "5 - A+ E \n"
+		  "-1 - APP DEMO"<<endl;
 }
 
 int main( int argc, char **argv )
@@ -239,18 +287,23 @@ int main( int argc, char **argv )
 	loglni(helper::PrintMat<>(3,3,K));
 
 	//// TagDetector
+	processor.recognizer = new keg::AprilTagRecognizer;
+	Ptr<TagFamily> tagFamily;
+	Ptr<TagDetector> detector;
 	int familyid = 0; //default tag16h5
-	if(argc>4) familyid = atoi(argv[4]);
-	processor.tagFamily = TagFamilyFactory::create(familyid);
-	if(processor.tagFamily.empty()) {
+	if(argc>6) familyid = atoi(argv[6]);
+	tagFamily = TagFamilyFactory::create(familyid);
+	if(tagFamily.empty()) {
 		loglne("[main] create TagFamily fail!");
 		return -1;
 	}
-	processor.detector = new TagDetector(processor.tagFamily);
-	if(processor.detector.empty()) {
+	detector = new TagDetector(tagFamily);
+	if(detector.empty()) {
 		loglne("[main] create TagDetector fail!");
 		return -1;
 	}
+	processor.recognizer->tagFamily = tagFamily;
+	processor.recognizer->detector = detector;
 
 	loglni("[main] load template image from: "<<argv[3]);
 	std::ifstream tin(argv[3]);
@@ -259,7 +312,32 @@ int main( int argc, char **argv )
 	while(helper::readValidLine(tin, line)) {
 		tlist.push_back(line);
 	}
-	processor.tracker.loadTemplateList(*(processor.detector), tlist);
+	processor.loadTemplateList(tlist);
+
+	//// Experiment set up
+	int& expMode = processor.expMode;
+	if(argc>4) expMode = atoi(argv[4]);
+	switch(expMode) {
+	case 1://A+K G
+		processor.tracker.doEstep(false); break;
+	case 2://A+KE
+		processor.tracker.doGstep = false; break;
+	case 3://A+K
+		processor.tracker.doGstep = false;
+		processor.tracker.doEstep(false); break;
+	case 4://A
+		processor.tracker.doKstep = false;
+		processor.tracker.doGstep = false;
+		processor.tracker.doEstep(false);
+		processor.onlyApril=true; break;
+	case 5://A+ E
+		processor.tracker.doKstep = false;
+		processor.tracker.doGstep = false; break;
+	case -1://APP DEMO using A+KEG
+		processor.expMode = -1; break;
+	default:
+		expMode = 0;
+	}
 
 	processor.doCapFrame = argc>5;
 
@@ -269,7 +347,8 @@ int main( int argc, char **argv )
 	//// Finish
 	if(processor.doCapFrame) {
 		loglni("[main] saving keyframes to: "<<argv[5]);
-		keg::SaveKeyFrames(processor.keyframes, argv[5]);
+		keg::SaveKeyFrames(processor.keyframes,
+			argv[5], processor.tracker.K, expMode!=-1);
 	}
 
 	loglni("[main] DONE...exit!");

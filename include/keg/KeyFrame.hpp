@@ -67,7 +67,7 @@ using namespace std;
 \brief contains keyframe id, image, rotation, translation, and quality measure
 */
 struct KeyFrame {
-	int id;
+	int id; //store the apriltag id
 	Mat frame;
 	double R[3][3];
 	double T[3];
@@ -102,7 +102,12 @@ inline void CapKeyFrame(vector<KeyFrame>& keyframes,
 	keyframes.push_back(newkf);
 }
 
-inline bool SaveKeyFrames(const vector<KeyFrame>& keyframes, string name)
+//	rmsncc <<"#format: frame_id rms ncc"<<endl;
+//	framesR <<"#format: frame_id R[0][0] R[0][1] ... R[2][2]"<<endl;
+//	framesT <<"#format: frame_id T[0] T[1] T[2]"<<endl;
+//	framesDUR <<"#format: frame_id dur"<<endl;
+inline bool SaveKeyFrames(const vector<KeyFrame>& keyframes, string name,
+		double K[9], bool saveimg=true)
 {
 	cout<<"[SaveKeyFrames] "<<(int)keyframes.size()<<" frame(s) total!"<<endl;
 	if(keyframes.size()<=0) return true;
@@ -118,14 +123,10 @@ inline bool SaveKeyFrames(const vector<KeyFrame>& keyframes, string name)
 	mainout << "CAMERAFRUSTUM "<<keyframes.size()<<" 1"<< endl;
 	mainout << name << endl;
 	std::ofstream rmsncc(rmsnccname.c_str());
-//	rmsncc <<"#format: frame_id rms ncc"<<endl;
 	std::ofstream framesR(framesRname.c_str());
-//	framesR <<"#format: frame_id R[0][0] R[0][1] ... R[2][2]"<<endl;
 	std::ofstream framesT(framesTname.c_str());
-//	framesT <<"#format: frame_id T[0] T[1] T[2]"<<endl;
 #if KEG_DEBUG
 	std::ofstream framesDUR(framesDURname.c_str());;
-//	framesDUR <<"#format: frame_id dur"<<endl;
 #endif
 	for(int i=0; i<(int)keyframes.size(); ++i) {
 		const KeyFrame& kf = keyframes[i];
@@ -136,18 +137,18 @@ inline bool SaveKeyFrames(const vector<KeyFrame>& keyframes, string name)
 		framesDUR <<kf.id<<" "<<kf.duration<<endl;
 #endif
 
-		if(kf.frame.empty())
+		if(kf.frame.empty() || !saveimg)
 			continue;
 
 		string num;
-		helper::num2str(kf.id,num);
+		helper::num2str(i,num);
 		string prefix = name + string("frame") + num;
 		string relativePrefix = string("frame") + num;
 
 		string parname = prefix + string(".par");
 		std::ofstream par(parname.c_str());
 		par << "n=0.1\nf=10000\n" << endl;
-//		par << "K=\n" << helper::PrintMat<>(3,3,K) << endl;
+		par << "K=\n" << helper::PrintMat<>(3,3,K) << endl;
 		par << "R=\n" << helper::PrintMat<>(3,3,kf.R[0]) << endl;
 		par << "T=\n" << helper::PrintMat<>(3,1,kf.T) << endl;
 		par.close();
