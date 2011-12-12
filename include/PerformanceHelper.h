@@ -26,6 +26,7 @@
 #include <vector>
 #include <stdio.h>
 #include <time.h>
+#include <limits.h>
 //opencv include
 #include "OpenCVHelper.h"
 
@@ -52,7 +53,8 @@ double rms(const Mat &error, const Mat *mask=0)
 	} else {
 		validN = error.total();
 	}
-	if(!maskRow.empty() && validN==0) return NAN;
+	if(!maskRow.empty() && validN==0)
+		return numeric_limits<double>::quiet_NaN();
 
 	double ret = 0;
 	Mat errorRow = error.reshape(0,1);
@@ -84,7 +86,8 @@ double zncc(const Mat& w, const Mat& t, const Mat *mask=0)
 	} else {
 		validN = w.total();
 	}
-	if(!maskRow.empty() && validN==0) return NAN;
+	if(!maskRow.empty() && validN==0)
+		return numeric_limits<double>::quiet_NaN();
 
 	Scalar mw, mt, dw, dt;
 	Mat wRow = w.reshape(0,1);

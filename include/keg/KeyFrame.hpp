@@ -80,9 +80,9 @@ struct KeyFrame {
 inline void CapKeyFrame(vector<KeyFrame>& keyframes,
 		int id, Mat const& frame,
 		double const R[3][3], double const T[3],
-		double const rms=NAN, double const ncc=NAN
+		double const rms, double const ncc
 #if KEG_DEBUG
-		, double const dur=NAN
+		, double const dur
 #endif
 ) {
 	KeyFrame newkf;

@@ -197,8 +197,8 @@ struct FERNSprocessor : public ImageSource::Processor {
 
 	inline void CapKeyFrame(int id, Mat const& frame,
 			double const R[3][3], double const T[3],
-			double const rms=NAN, double const ncc=NAN
-			, double const dur=NAN) {
+			double const rms, double const ncc
+			, double const dur) {
 		KeyFrame newkf;
 		newkf.id = id;
 		newkf.frame = frame.clone();

@@ -30,7 +30,7 @@ SET(extLinkerOption
 )
 
 ADD_EXECUTABLE(${APP_NAME} ${lib_SRCS})
-TARGET_LINK_LIBRARIES(${APP_NAME} ${extLinkerOption} ${CMAKE_SOURCE_DIR}/include/esm/ESMlib.a)
+TARGET_LINK_LIBRARIES(${APP_NAME} ${extLinkerOption} ${ESM_LIB})
 TARGET_LINK_LIBRARIES(${APP_NAME} ${extLinkerOption})
 
 INSTALL(TARGETS ${APP_NAME} DESTINATION bin)
