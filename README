@@ -1,0 +1,25 @@
+				cv2cg
+A lightweight library for computer vision and computer graphics interactions.
+
+1. Download Source
+	hg clone https://cv2cg.googlecode.com/hg/ cv2cg
+
+2. Compile
+
+	2.1 Install Dependency Libraries and Tools
+		Eigen3
+		OpenCV >=2.2
+		OpenSceneGraph >=2.8.0
+		CMake >=2.8
+		
+	2.2 Make a directory named "build" inside cv2cg main directory.
+	
+	2.3 If in Windows, set a environment variable "OSG_DIR" to your osg main
+directory, make sure that $OSG_DIR/include and $OSG_DIR/lib make sense.
+
+	2.4 CMake it!
+	
+	2.5 Enjoy compiling it!
+	
+3. Usage
+	TODO

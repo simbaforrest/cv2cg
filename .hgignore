@@ -1,0 +1,2 @@
+syntax: regexp
+.*\.(?!cpp$|h$|hpp$|c$)

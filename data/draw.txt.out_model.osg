@@ -1,0 +1,557 @@
+Group {
+  name "CameraSimulator.SceneRoot"
+  nodeMask 0xffffffff
+  cullingActive TRUE
+  num_children 1
+  Geode {
+    name "CameraSimulator.VertexLineGeode"
+    nodeMask 0xffffffff
+    cullingActive TRUE
+    StateSet {
+      rendering_hint DEFAULT_BIN
+      renderBinMode INHERIT
+      GL_LIGHTING OFF
+    }
+    num_drawables 18
+    Geometry {
+      StateSet {
+        rendering_hint DEFAULT_BIN
+        renderBinMode INHERIT
+        GL_POINT_SMOOTH ON
+        Point {
+          size 3
+          fade_threshold_size  1
+          distance_attenuation  1 0 0
+        }
+      }
+      useDisplayList TRUE
+      useVertexBufferObjects FALSE
+      PrimitiveSets 1
+      {
+        DrawArrays POINTS 0 16
+      }
+      VertexArray UniqueID Vec3Array_0 Vec3Array 16
+      {
+        0 0 0
+        1 0 0
+        1 1 0
+        0 1 0
+        0 0 1
+        1 0 1
+        1 1 1
+        0 1 1
+        1 1 1
+        2 1 1
+        2 2 1
+        1 2 1
+        1 1 2
+        2 1 2
+        2 2 2
+        1 2 2
+      }
+      ColorBinding OVERALL
+      ColorArray Vec4Array 1
+      {
+        1 0 0 1
+      }
+    }
+    Geometry {
+      useDisplayList TRUE
+      useVertexBufferObjects FALSE
+      PrimitiveSets 1
+      {
+        DrawElementsUInt LINES 48
+        {
+          0 1 3 2 4 5 7 6 0 3
+          1 2 4 7 5 6 0 4 1 5
+          2 6 3 7 8 9 11 10 12 13
+          15 14 8 11 9 10 12 15 13 14
+          8 12 9 13 10 14 11 15 
+        }
+      }
+      VertexArray Use Vec3Array_0
+      ColorBinding PER_PRIMITIVE
+      ColorArray Vec4Array 24
+      {
+        1 0 0 1
+        1 0 0 1
+        1 0 0 1
+        1 0 0 1
+        0 1 0 1
+        0 1 0 1
+        0 1 0 1
+        0 1 0 1
+        1 1 1 1
+        1 1 1 1
+        1 1 1 1
+        1 1 1 1
+        1 0 0 1
+        1 0 0 1
+        1 0 0 1
+        1 0 0 1
+        0 1 0 1
+        0 1 0 1
+        0 1 0 1
+        0 1 0 1
+        1 1 1 1
+        1 1 1 1
+        1 1 1 1
+        1 1 1 1
+      }
+    }
+    osgText::Text {
+      StateSet {
+        UniqueID StateSet_1
+        rendering_hint TRANSPARENT_BIN
+        renderBinMode USE
+        binNumber 10
+        binName DepthSortedBin
+      }
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 0 0 0
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "0"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 1 0 0
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "1"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 1 1 0
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "2"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 0 1 0
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "3"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 0 0 1
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "4"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 1 0 1
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "5"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 1 1 1
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "6"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 0 1 1
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "7"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 1 1 1
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "8"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 2 1 1
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "9"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 2 2 1
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "10"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 1 2 1
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "11"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 1 1 2
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "12"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 2 1 2
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "13"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 2 2 2
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "14"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+    osgText::Text {
+      Use StateSet_1
+      supportsDisplayList FALSE
+      useDisplayList FALSE
+      useVertexBufferObjects FALSE
+      color 1 1 1 1
+      fontResolution 32 32
+      characterSize 24 1
+      characterSizeMode SCREEN_COORDS
+      alignment LEFT_BASE_LINE
+      autoRotateToScreen TRUE
+      layout LEFT_TO_RIGHT
+      position 1 2 2
+      drawMode 1
+      BoundingBoxMargin 0
+      BoundingBoxColor 0 0 0 0.5
+      text "15"
+      backdropType NONE
+      backdropHorizontalOffset 0.07
+      backdropVerticalOffset 0.07
+      backdropColor 0 0 0 1
+      backdropImplementation 
+      colorGradientMode SOLID
+      colorGradientTopLeft 1 0 0 1
+      colorGradientBottomLeft 0 1 0 1
+      colorGradientBottomRight 0 0 1 1
+      colorGradientTopRight 1 1 1 1
+    }
+  }
+}
