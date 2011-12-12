@@ -57,6 +57,7 @@
 #include "OpenCV2OSG.h"
 #include "CV2CG.h"
 
+#define ESM_ORIGINAL //define this if you have original implementation of ESM
 #define ESM_DEBUG 1
 #define KEG_DEBUG 1
 
