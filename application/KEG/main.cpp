@@ -142,6 +142,7 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 		double camR[3][3]={{1,0,0},{0,1,0},{0,0,1}},camT[3]={0};
 
 		if( needToInit || onlyApril ) {
+			needToInit = true;
 			loglni("[KEGprocessor] INITing...");
 			vector<Mat> tmpH;
 			vector<int> tmpid;

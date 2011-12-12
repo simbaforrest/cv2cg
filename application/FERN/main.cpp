@@ -133,6 +133,7 @@ struct FERNSprocessor : public ImageSource::Processor {
 		vector<Point2f> dstCrns(4);
 		Mat tmpmat(dstCrns);
 		perspectiveTransform(Mat(cpts), tmpmat, H);
+		return validateH(dstCrns);
 	}
 
 	inline bool validateH(const vector<Point2f>& dstCrns) const {
@@ -150,14 +151,17 @@ struct FERNSprocessor : public ImageSource::Processor {
 
 	void evaluateH(const Mat& gray, const Mat& temp,
 			double& rms, double& zncc) {
+		Mat fltemp;
+		temp.convertTo(fltemp,CV_32F);
 		Mat warp;
 		warpPerspective(gray,
 			warp, H,
 			temp.size(), INTER_LINEAR|WARP_INVERSE_MAP);
-		Mat error = warp-temp;
+		warp.convertTo(warp,CV_32F);
+		Mat error = warp-fltemp;
 		Mat mask = warp!=0;
-		rms = helper::rms<uchar>(error, &mask);
-		zncc = helper::zncc<uchar>(warp,temp,&mask);
+		rms = helper::rms<float>(error, &mask);
+		zncc = helper::zncc<float>(warp,fltemp,&mask);
 	}
 
 	inline void GetCameraPose(double R[3][3], double T[3],
