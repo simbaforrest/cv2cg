@@ -18,15 +18,20 @@
    wrapper for ESM homography tracking refinement algorithm */
 
 #include <iostream>
+#include <limits>
 #include <vector>
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
 #include "OpenCVHelper.h"
 
+#ifndef _WIN32 //ESMlibry.lib under windows seems to be compiled as cpp code rather than c code
 extern "C" {
-#include "ESMlibry.h"
+#endif
+	#include "ESMlibry.h"
+#ifndef _WIN32
 }
+#endif
 
 #include "ESMInterface.h"
 
@@ -106,7 +111,8 @@ struct Tracker : public Interface {
 					for(int j=0; j<3; ++j)
 						H.at<double>(i,j) = T.homog[i*3+j];
 			} else {
-				zncc = rms = NAN; return false;
+				zncc = rms = numeric_limits<double>::quiet_NaN();
+				return false;
 			}
 		}
 

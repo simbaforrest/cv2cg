@@ -54,8 +54,6 @@
 #include "Log.h"
 #include "OpenCVHelper.h"
 
-#define ESM_ORIGINAL //define this if you have original implementation of ESM
-
 #ifndef USE_DYNAMIC_PYRAMID_FAST // 0 - Surf; 1 - FAST
 	#define USE_DYNAMIC_PYRAMID_FAST 0 //not a big deal on PC
 #endif

@@ -271,14 +271,12 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				mz-=5;
 				manipMat->setMatrix(osg::Matrix::translate(mx,my,mz)*osg::Matrix::scale(sx,sy,sz));
 				break;
-			case 'p':
+			case 'p': {
 				static bool pa=false;
-				is->pause(pa); pa = !pa; break;
-				break;
-			case 'l':
+				is->pause(pa); pa = !pa; break; }
+			case 'l': {
 				static bool lo=false;
-				is->loop(lo); lo = !lo; break;
-				break;
+				is->loop(lo); lo = !lo; break; }
 			}//end of switch
 		}
 		return true;
