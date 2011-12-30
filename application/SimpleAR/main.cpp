@@ -56,8 +56,9 @@
 #include "OpenCV2OSG.h"
 #include "CV2CG.h"
 
-#include "keg/KEGTracker.hpp"
 #define ESM_DEBUG 0
+#define ESM_ORIGINAL //define this if you have original implementation of ESM
+#include "keg/KEGTracker.hpp"
 
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
