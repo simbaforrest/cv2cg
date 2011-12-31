@@ -63,11 +63,15 @@
 #include "OpenCVHelper.h"
 #include "SearchHelper.h"
 
+#ifndef FAST_DEBUG
+	#define FAST_DEBUG 0
+#endif
+
 namespace fast {
 
 using namespace cv;
 using namespace std;
-using namespace SearchHelper::Gridder;
+using SearchHelper::Gridder;
 
 struct TrackParam {
 	double gridCellSize;
@@ -76,9 +80,17 @@ struct TrackParam {
 	int fastThresh;
 	int fastUp,fastLow;
 	int fastMaxIter;
+
+	TrackParam() {
+		gridCellSize=32;
+		searchRange=16;
+		cmpWinSize=8;
+		fastThresh=30;
+		fastMaxIter=3;
+	}
 };
 
-inline void dynamicThresh(Mat& frame, vector<KeyPoint>& keys, TrackParam& tp) {
+inline void dynamicThresh(const Mat& frame, vector<KeyPoint>& keys, TrackParam& tp) {
 	Ptr<FeatureDetector> detector;
 	for(int i=0; i<tp.fastMaxIter; ++i) {
 		detector=new FastFeatureDetector(tp.fastThresh);
@@ -91,10 +103,8 @@ inline void dynamicThresh(Mat& frame, vector<KeyPoint>& keys, TrackParam& tp) {
 	}
 }
 
-inline double compare(Mat& oldF, Mat& newF,
-		Point2f& ox, Point2f& nx, double winsize) {
-	assert(oldF.rows==newF.rows &&
-		oldF.cols==newF.cols);
+inline double compare(const Mat& oldF, const Mat& newF,
+		const Point2f& ox, const Point2f& nx, double winsize) {
 	int W = oldF.cols, H = oldF.rows;
 	double err=0;
 	for(int i=-winsize; i<=winsize; ++i) {
@@ -111,62 +121,55 @@ inline double compare(Mat& oldF, Mat& newF,
 	return err;
 }
 
-inline void pyrTrack(Mat& oldF, Mat& newF,
-		vector<KeyPoint>& oldX, vector<KeyPoint>& newX,
+inline void track(const Mat& oldF, const Mat& newF,
+		const vector<KeyPoint>& oldX, vector<KeyPoint>& newX,
 		vector<bool>& status, vector<double> err, TrackParam& tp) {
-	Mat coF = oldF, cnF = newF;
-	newX.resize(oldX.size());
-	status.resize(oldX.size());
-	err.resize(oldX.size());
-	tp.fastThresh=30;
-	double multiplier = 1;
-	for(int curlevel=0, ix=0; ix<(int)oldX.size(); ++curlevel, multiplier *= 0.5) {
-		int curcnt=0, lastix=ix;
-		for(;oldX[ix].octave==curlevel;++ix,++curcnt);
-		tp.fastUp = curcnt*2; tp.fastLow = curcnt; tp.fastMaxIter=3*multiplier;
-		vector<KeyPoint> curX;
-		dynamicThresh(cnF, curX, tp);
+#if FAST_DEBUG
+	assert(oldF.rows==newF.rows && oldF.cols==newF.cols
+		&& oldF.channels()==1 && newF.channels()==1);
+	helper::PerformanceMeasurer PM(1000);
+#endif
+	int nX=(int)oldX.size();
+	newX.resize(nX);
+	status.resize(nX);
+	err.resize(nX);
+	tp.fastUp = nX*1.5; tp.fastLow = nX*1.2;
+	vector<KeyPoint> curX;
+#if FAST_DEBUG
+	PM.tic();
+#endif
+	dynamicThresh(newF, curX, tp);
+#if FAST_DEBUG
+	loglni("[fast::track] dynamicThresh time="<<PM.toctic());
+#endif
 
-		Gridder<KeyPoint> gridder(0,0, coF.cols, coF.rows, tp.gridCellSize*multiplier);
-		for(int i=0; i<(int)curX.size(), ++i) {
-			KeyPoint& kp = curX[i];
-			gridder.add(kp.pt.x, kp.pt.y, &kp);
-		}//fill gridder
+	Gridder<KeyPoint> gridder(0,0, oldF.cols, oldF.rows, tp.gridCellSize);
+	for(int i=0; i<(int)curX.size(); ++i) {
+		KeyPoint& kp = curX[i];
+		gridder.add(kp.pt.x, kp.pt.y, &kp);
+	}//fill gridder
 
-		double csearchrange=tp.searchRange*multiplier;
-		for(int i=lastix+1; i<ix; ++i) {
-			KeyPoint& kp = oldX[i];
-			Point2f op = kp.pt; op.x*=multiplier; op.y*=multiplier;
-			vector<KeyPoint*> sl;
-			int slsize=gridder.findAll(op.x, op.y, csearchrange, sl);
-			int minj=-1;
-			double minerr = DBL_MAX;
-			for(int j=0; j<slsize; ++j) {
-				KeyPoint& tkp = *sl[j];
-				Point2f np = tkp.pt;
-				if( fabs(np.x - op.x) > csearchrange ||
-					fabs(np.y - op.y) > csearchrange ) continue;
-				double err = compare(coF, cnF, op, np, tp.cmpWinSize*multiplier);
-				if(diff<minerr) mingj=j, minerr=err;
-			}
-			newX[i] = kp;
-			status[i] = minj!=-1;
-			err[i] = minerr;
-			if(status[i]) newX[i].pt = sl[minj]->pt;
-		}//end of track each keypoint
-
-		Mat tmp1; pyrDown(coF,tmp1); coF = tmp1;
-		Mat tmp2; pyrDown(cnF,tmp2); cnF = tmp2;
-	}//end curlevel
+	for(int i=0; i<nX; ++i) {
+		const Point2f& op = oldX[i].pt;
+		vector<KeyPoint*> sl;
+		int slsize=gridder.findAll(op.x, op.y, tp.searchRange, sl);
+		int minj=-1;
+		double minerr = DBL_MAX;
+		for(int j=0; j<slsize; ++j) {
+			const Point2f& np = sl[j]->pt;
+			if( fabs(np.x - op.x) > tp.searchRange ||
+				fabs(np.y - op.y) > tp.searchRange ) continue;
+			double err = compare(oldF, newF, op, np, tp.cmpWinSize);
+			if(err<minerr) minj=j, minerr=err;
+		}
+		newX[i] = oldX[i];
+		status[i] = minj!=-1;
+		err[i] = minerr;
+		if(status[i]) newX[i].pt = sl[minj]->pt;
+	}//end of track each keypoint
+#if FAST_DEBUG
+	loglni("[fast::track] search time="<<PM.toc());
+#endif
 }
 
-class Tracker {
-	int fastThresh;
-	Ptr<FeatureDetector> detector;
-	vector<KeyPoint> keys;
-public:
-};//end of class fast::Tracker
-
 }//end of namespace fast
-
-typedef fast::Tracker FastTracker;
