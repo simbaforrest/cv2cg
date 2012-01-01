@@ -59,7 +59,6 @@
 #include "Log.h"
 
 #include "TagUtils.hpp"
-#include "TagGridder.hpp"
 
 #ifndef TAG_DEBUG_DRAW
 	#define TAG_DEBUG_DRAW 0
@@ -78,6 +77,7 @@ using cv::Ptr;
 using cv::Mat;
 using std::vector;
 using std::map;
+using SearchHelper::Gridder;
 
 struct TagDetector {
 	Ptr<TagFamily> tagFamily;
