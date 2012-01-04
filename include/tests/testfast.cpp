@@ -7,7 +7,7 @@
 #include "OpenCVHelper.h"
 #include "SearchHelper.h"
 
-#define FAST_DEBUG 1
+//#define FAST_DEBUG 1
 #include "keg/FastTracker.hpp"
 
 using helper::ImageSource;
@@ -18,7 +18,7 @@ Log::Level Log::level = Log::LOG_INFO;
 
 struct Myprocessor : public ImageSource::Processor {
 	Mat oldF;
-	vector<KeyPoint> oldX;
+	vector<Point2f> oldX;
 	fast::TrackParam tp;
 
 	inline void operator()(cv::Mat& frame) {
@@ -27,22 +27,22 @@ struct Myprocessor : public ImageSource::Processor {
 
 		helper::PerformanceMeasurer PM(1000);
 
-		vector<KeyPoint> newX;
-		vector<bool> status;
-		vector<double> err;
+		vector<Point2f> newX;
+		vector<uchar> status;
+		vector<float> err;
 		PM.tic();
 		fast::track(oldF, newF, oldX, newX, status, err, tp);
-		cout<<"fast::pryTrack time="<<PM.toc()<<endl;
+		cout<<"[fast::track] total time="<<PM.toc()<<endl;
 
 		//draw
 		for(int i=0; i<(int)oldX.size(); ++i) {
-			KeyPoint& okp=oldX[i];
-			KeyPoint& nkp=newX[i];
-			circle(frame, okp.pt, 2, CV_RG, -1);
-//			rectangle(frame, okp.pt+Point2f(-tp.searchRange,-tp.searchRange), okp.pt+Point2f(tp.searchRange,tp.searchRange), CV_GB);
+			Point2f& op=oldX[i];
+			Point2f& np=newX[i];
+			circle(frame, op, 2, CV_RG, -1);
+//			rectangle(frame, op+Point2f(-tp.searchRange,-tp.searchRange), op+Point2f(tp.searchRange,tp.searchRange), CV_GB);
 			if(status[i]) {
-				circle(frame, nkp.pt, 2, CV_RED, -1);
-				line(frame, okp.pt, nkp.pt, CV_BLUE);
+				circle(frame, np, 2, CV_RED, -1);
+				line(frame, op, np, CV_BLUE);
 			}
 		}
 
@@ -74,9 +74,11 @@ int main(int argc, char** argv) {
 	is->get(processor.oldF);
 	cv::cvtColor(processor.oldF,processor.oldF,CV_RGB2GRAY);
 	processor.tp.fastMaxIter=100000;
-	processor.tp.fastLow=400; processor.tp.fastUp=600;
-	fast::dynamicThresh(processor.oldF, processor.oldX, processor.tp);
-	processor.tp.fastMaxIter=1;
+	processor.tp.fastLow=800; processor.tp.fastUp=1000;
+	vector<KeyPoint> keys;
+	fast::dynamicThresh(processor.oldF, keys, processor.tp);
+	fast::key2pt(keys, processor.oldX);
+	processor.tp.fastMaxIter=3;
 	loglni("tp.fastThresh="<<processor.tp.fastThresh);
 	loglni("oldX.size()="<<processor.oldX.size());
 

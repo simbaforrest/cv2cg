@@ -53,6 +53,8 @@
 #include "Log.h"
 #include "OpenCVHelper.h"
 
+#include "FastTracker.hpp"
+
 namespace klt {
 
 using namespace std;
@@ -71,6 +73,7 @@ public:
 	Size winSize;
 	int maxLevel;
 	double derivedLambda;
+	fast::TrackParam tp;
 
 	double ransacThresh;
 	double inlierThresh; //percentage of inlier to be considered as valid
@@ -127,6 +130,7 @@ public:
 		status.clear();
 		err.clear();
 
+//		fast::track(oldframe, newframe, oldX, newX, status, err, tp);
 		calcOpticalFlowPyrLK(oldframe, newframe, oldX, newX,
 			                 status, err, winSize,
 			                 maxLevel, termcrit, derivedLambda);
