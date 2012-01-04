@@ -90,6 +90,13 @@ struct TrackParam {
 	}
 };
 
+inline void key2pt(const vector<KeyPoint>& src, vector<Point2f>& dst) {
+	dst.resize(src.size());
+	for(int i=0; i<(int)src.size(); ++i) {
+		dst[i] = src[i].pt;
+	}
+}
+
 inline void dynamicThresh(const Mat& frame, vector<KeyPoint>& keys, TrackParam& tp) {
 	Ptr<FeatureDetector> detector;
 	for(int i=0; i<tp.fastMaxIter; ++i) {
@@ -103,18 +110,19 @@ inline void dynamicThresh(const Mat& frame, vector<KeyPoint>& keys, TrackParam& 
 	}
 }
 
-inline double compare(const Mat& oldF, const Mat& newF,
+template<typename T>
+T compare(const Mat& oldF, const Mat& newF,
 		const Point2f& ox, const Point2f& nx, double winsize) {
 	int W = oldF.cols, H = oldF.rows;
-	double err=0;
+	T err=0;
 	for(int i=-winsize; i<=winsize; ++i) {
 		int oi=ox.x+i, ni=nx.x+i;
 		for(int j=-winsize; j<=winsize; ++j) {
 			int oj=ox.y+j, nj=nx.y+j;
 			bool ov=(oi>=0 && oi<W)&&(oj>=0 && oj<H);
 			bool nv=(ni>=0 && ni<W)&&(nj>=0 && nj<H);
-			double opix = ov?oldF.at<uchar>(oj,oi):0;
-			double npix = nv?newF.at<uchar>(nj,ni):0;
+			T opix = ov?oldF.at<uchar>(oj,oi):0;
+			T npix = nv?newF.at<uchar>(nj,ni):0;
 			err+=fabs(opix-npix);
 		}
 	}
@@ -122,8 +130,8 @@ inline double compare(const Mat& oldF, const Mat& newF,
 }
 
 inline void track(const Mat& oldF, const Mat& newF,
-		const vector<KeyPoint>& oldX, vector<KeyPoint>& newX,
-		vector<bool>& status, vector<double> err, TrackParam& tp) {
+		const vector<Point2f>& oldX, vector<Point2f>& newX,
+		vector<uchar>& status, vector<float> err, TrackParam& tp) {
 #if FAST_DEBUG
 	assert(oldF.rows==newF.rows && oldF.cols==newF.cols
 		&& oldF.channels()==1 && newF.channels()==1);
@@ -150,22 +158,22 @@ inline void track(const Mat& oldF, const Mat& newF,
 	}//fill gridder
 
 	for(int i=0; i<nX; ++i) {
-		const Point2f& op = oldX[i].pt;
+		const Point2f& op = oldX[i];
 		vector<KeyPoint*> sl;
 		int slsize=gridder.findAll(op.x, op.y, tp.searchRange, sl);
 		int minj=-1;
-		double minerr = DBL_MAX;
+		float minerr = FLT_MAX;
 		for(int j=0; j<slsize; ++j) {
 			const Point2f& np = sl[j]->pt;
 			if( fabs(np.x - op.x) > tp.searchRange ||
 				fabs(np.y - op.y) > tp.searchRange ) continue;
-			double err = compare(oldF, newF, op, np, tp.cmpWinSize);
+			float err = compare<float>(oldF, newF, op, np, tp.cmpWinSize);
 			if(err<minerr) minj=j, minerr=err;
 		}
 		newX[i] = oldX[i];
 		status[i] = minj!=-1;
 		err[i] = minerr;
-		if(status[i]) newX[i].pt = sl[minj]->pt;
+		if(status[i]) newX[i] = sl[minj]->pt;
 	}//end of track each keypoint
 #if FAST_DEBUG
 	loglni("[fast::track] search time="<<PM.toc());
