@@ -1,0 +1,27 @@
+#!/bin/sh
+
+clear
+clear
+
+APP=runtest
+
+rm -f ./${APP}
+
+SOURCE=testbrief.cpp
+
+CV2CG_INCLUDE="-I./.."
+
+OPENCV_INC_LIB=`pkg-config opencv --cflags --libs`
+
+OSG_INC_LIB=`pkg-config openscenegraph --cflags --libs`
+
+OTHER_LIBS=./../esm/ESMlib.a
+
+##check preprocessed result
+#g++ -E test.i ${SOURCE} ${OPENCV_INC_LIB} ${OSG_INC_LIB} ${CV2CG_INCLUDE} ${OTHER_LIBS} >>test.i
+
+##debug
+g++ -g -o ${APP} ${SOURCE} ${OPENCV_INC_LIB} ${OSG_INC_LIB} ${CV2CG_INCLUDE} ${OTHER_LIBS}
+
+##release
+#g++ -O3 -funroll-loops -o ${APP} ${SOURCE} ${OPENCV_INC_LIB} ${OSG_INC_LIB} ${CV2CG_INCLUDE} ${OTHER_LIBS}
