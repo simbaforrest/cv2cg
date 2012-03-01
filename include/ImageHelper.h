@@ -169,13 +169,13 @@ generate pseudocolor look up table, using opencv's own random version
 @param ncolors required number of colors
 @return pseudocolor look up table
 */
-inline std::vector<Scalar> generateColors(int ncolors) {
+/*inline std::vector<Scalar> generateColors(int ncolors) {
 	using namespace cv;
 	std::vector<Scalar> ret;
 	theRNG() = (uint64)time(0);
 	generateColors( ret, ncolors );
 	return ret;
-}
+}*/
 
 using std::string;
 using std::cout;
