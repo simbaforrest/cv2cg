@@ -777,10 +777,10 @@ struct TagDetector {
 				// orientation. Thus the order of the points in the
 				// detection object can be used to determine the
 				// orientation of the target.
-				for (int i = 0; i < 4; i++) {
-					int id = (4+i-d.rotation)%4;
-					d.p[id][0] = quad.p[i][0];
-					d.p[id][1] = quad.p[i][1];
+				for (int i4 = 0; i4 < 4; i4++) {
+					int id = (4+i4-d.rotation)%4;
+					d.p[id][0] = quad.p[i4][0];
+					d.p[id][1] = quad.p[i4][1];
 				}
 
 				// compute the homography (and rotate it appropriately)

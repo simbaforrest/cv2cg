@@ -31,8 +31,8 @@
 
 #include "CvMatHelper.h"
 #include "CameraHelper.h"
-#include "ImageHelper.h"
 #include "DirHelper.h"
+#include "ImageHelper.h"
 #include "IOHelper.h"
 #include "UtilHelper.h"
 #include "RotationHelper.h"
