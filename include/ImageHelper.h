@@ -124,44 +124,44 @@ generate pseudocolor look up table, algorithm from Szeliski's book
 @param maxcolors required max number of colors
 @return pseudocolor look up table
 */
-inline std::vector<cv::Scalar> pseudocolor(int maxcolors)
-{
-	//find proper number of bit_per_channle
-	//maxcolors = std::min(1<<30,maxcolors);
-	int bit_per_channle, bits_total, color_num;
-	for(bit_per_channle=1; bit_per_channle<11; ++bit_per_channle) {
-		bits_total = 3*bit_per_channle;
-		color_num = 1 << bits_total;
-		if(color_num>=maxcolors || bit_per_channle==10) {
-			--bit_per_channle;
-			bits_total = 3*bit_per_channle;
-			color_num = 1 << bits_total;
-			break;
-		}
-	}
-
-	std::vector<cv::Scalar> lut(color_num);
-
-	for(int c = 0; c < color_num; c++) {
-		int r = 0;
-		int g = 0;
-		int b = 0;
-		for(int k = 0; k < bits_total; ) {
-			b = (b << 1) + ((c >> k++) & 1);
-			g = (g << 1) + ((c >> k++) & 1);
-			r = (r << 1) + ((c >> k++) & 1);
-		}
-		r = r << (8 - bit_per_channle);
-		g = g << (8 - bit_per_channle);
-		b = b << (8 - bit_per_channle);
-
-		lut[c][0]=r;
-		lut[c][1]=g;
-		lut[c][2]=b;
-	}
-
-	return lut;
-}
+//inline std::vector<cv::Scalar> pseudocolor(int maxcolors)
+//{
+//	//find proper number of bit_per_channle
+//	//maxcolors = std::min(1<<30,maxcolors);
+//	int bit_per_channle, bits_total, color_num;
+//	for(bit_per_channle=1; bit_per_channle<11; ++bit_per_channle) {
+//		bits_total = 3*bit_per_channle;
+//		color_num = 1 << bits_total;
+//		if(color_num>=maxcolors || bit_per_channle==10) {
+//			--bit_per_channle;
+//			bits_total = 3*bit_per_channle;
+//			color_num = 1 << bits_total;
+//			break;
+//		}
+//	}
+//
+//	std::vector<cv::Scalar> lut(color_num);
+//
+//	for(int c = 0; c < color_num; c++) {
+//		int r = 0;
+//		int g = 0;
+//		int b = 0;
+//		for(int k = 0; k < bits_total; ) {
+//			b = (b << 1) + ((c >> k++) & 1);
+//			g = (g << 1) + ((c >> k++) & 1);
+//			r = (r << 1) + ((c >> k++) & 1);
+//		}
+//		r = r << (8 - bit_per_channle);
+//		g = g << (8 - bit_per_channle);
+//		b = b << (8 - bit_per_channle);
+//
+//		lut[c][0]=r;
+//		lut[c][1]=g;
+//		lut[c][2]=b;
+//	}
+//
+//	return lut;
+//}
 
 /**
 generate pseudocolor look up table, using opencv's own random version
@@ -169,13 +169,13 @@ generate pseudocolor look up table, using opencv's own random version
 @param ncolors required number of colors
 @return pseudocolor look up table
 */
-/*inline std::vector<Scalar> generateColors(int ncolors) {
+inline std::vector<Scalar> pseudocolor(int ncolors) {
 	using namespace cv;
 	std::vector<Scalar> ret;
 	theRNG() = (uint64)time(0);
 	generateColors( ret, ncolors );
 	return ret;
-}*/
+}
 
 using std::string;
 using std::cout;
@@ -430,6 +430,7 @@ public:
 		cout<<"[ImageSource_Photo] open images from: "<<content<<endl;
 #ifdef _WIN32
 		string cmd = string("dir /B ")+content;
+		string dirstr = DirHelper::getFileDir(content);
 		FILE* fptr = _popen(cmd.c_str(), "r");
 #else
 		string cmd = string("ls -v1 ")+content;
@@ -439,7 +440,7 @@ public:
 		while( fgets(buf,1024,fptr)!=0 ) {
 			int len = strlen(buf);
 			if(len>1) {
-				imnames.push_back(string(buf,buf+len-1));
+				imnames.push_back(dirstr+string(buf,buf+len-1));
 				memset(buf,0,sizeof(char)*1024);
 				cout<<imnames.back()<<endl;
 			}

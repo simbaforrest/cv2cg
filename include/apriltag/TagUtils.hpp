@@ -493,6 +493,7 @@ struct GrayModel {
 		helper::zeros(4,4,A[0]);
 		helper::zeros(4,1,b);
 		helper::zeros(4,1,X);
+		nobs = 0; // !!!!!!! need to init!
 	}
 
 	inline void addObservation(double x, double y, double gray) {

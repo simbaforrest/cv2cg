@@ -52,7 +52,7 @@
 
 #include "OpenCVHelper.h"
 #include "Log.h"
-
+//#define TAG_DEBUG_PERFORMANCE 1
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 
@@ -103,7 +103,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 #if TAG_DEBUG_PERFORMANCE
 		static int barH = 30;
 		static int textH = 12;
-		static vector<cv::Scalar> pclut = helper::pseudocolor(16);
+		static vector<cv::Scalar> pclut = helper::pseudocolor(10);
 		//draw performance bar
 		double total = 0;
 		for(int i=0; i<9; ++i) {
@@ -182,7 +182,7 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
-	is->run(processor,-1);
+	is->run(processor,-1, false, true, true);
 
 	cout<<"[main] DONE...exit!"<<endl;
 	return 0;
