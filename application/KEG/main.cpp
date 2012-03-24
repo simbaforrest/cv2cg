@@ -53,13 +53,10 @@
 
 #include "Log.h"
 #include "OpenCVHelper.h"
-#include "OSGHelper.h"
-#include "OpenCV2OSG.h"
-#include "CV2CG.h"
 
 #define ESM_ORIGINAL //define this if you have original implementation of ESM
-#define ESM_DEBUG 1
-#define KEG_DEBUG 1
+#define ESM_DEBUG 0
+#define KEG_DEBUG 0
 
 #include "keg/KEGTracker.hpp"
 
@@ -268,7 +265,6 @@ int main( int argc, char **argv )
 		loglne("[main] createImageSource failed or no valid imagesource!");
 		return -1;
 	}
-	is->pause(false);
 	is->reportInfo();
 	processor.videoFromWebcam = false;
 	if( is->classname() == "ImageSource_Camera" ) {
@@ -309,10 +305,11 @@ int main( int argc, char **argv )
 
 	loglni("[main] load template image from: "<<argv[3]);
 	std::ifstream tin(argv[3]);
+	std::string maindir = helper::getFileDir(argv[3]);
 	string line;
 	vector<string> tlist;
 	while(helper::readValidLine(tin, line)) {
-		tlist.push_back(line);
+		tlist.push_back(maindir+line);
 	}
 	processor.loadTemplateList(tlist);
 

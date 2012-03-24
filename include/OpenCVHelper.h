@@ -28,6 +28,10 @@
 #include <time.h>
 //opencv include
 #include "opencv2/opencv.hpp"
+#if CV_MAJOR_VERSION==2 && CV_MINOR_VERSION==3 && CV_SUBMINOR_VERSION>=3
+#include "opencv2/nonfree/nonfree.hpp"
+#include "opencv2/legacy/legacy.hpp"
+#endif
 
 #include "CvMatHelper.h"
 #include "CameraHelper.h"

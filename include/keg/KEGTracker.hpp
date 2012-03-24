@@ -175,8 +175,9 @@ public:
 		}
 		cout<<"[KEG] Final fastThresh="<<fastThresh<<endl;
 #else //use dynamic surf
-		detector=new DynamicAdaptedFeatureDetector(
-			new SurfAdjuster, threshLow, threshUp, mitr);
+		detector=new cv::SurfFeatureDetector();
+		//detector=new DynamicAdaptedFeatureDetector(
+		//	new SurfAdjuster, threshLow, threshUp, mitr);
 		detector->detect(td.img, td.keys);
 #endif //end of USE_DYNAMIC_PYRAMID_FAST
 		cout<<"[KEG] #template keypoints="<<td.keys.size()<<endl;
