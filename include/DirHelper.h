@@ -30,7 +30,7 @@
 namespace DirHelper
 {
 
-//dir
+//dir, "D:/test/test.txt" -> "D:/test/"
 inline std::string getFileDir(const std::string &fileName)
 {
 	std::string::size_type slash1 = fileName.find_last_of('/');
