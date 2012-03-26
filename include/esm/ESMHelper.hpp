@@ -66,6 +66,9 @@ inline void Mat2imageStruct(Mat &m, imageStruct &I)
 	I.data = (float *)(m.data);
 	I.rows = m.rows;
 	I.cols = m.cols;
+#ifdef _WIN32 //win version and linux version of ESMLibry.h is slightly different!
+	I.clrs = 1;
+#endif
 }
 
 /**
