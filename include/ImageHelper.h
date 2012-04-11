@@ -440,7 +440,11 @@ public:
 		while( fgets(buf,1024,fptr)!=0 ) {
 			int len = strlen(buf);
 			if(len>1) {
+#ifdef _WIN32
 				imnames.push_back(dirstr+string(buf,buf+len-1));
+#else
+				imnames.push_back(string(buf,buf+len-1));
+#endif
 				memset(buf,0,sizeof(char)*1024);
 				cout<<imnames.back()<<endl;
 			}
