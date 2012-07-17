@@ -39,7 +39,10 @@ WWW site: http://www.umich.edu/~cforrest
   acknowledge the authors of the software (Chen Feng and Vineet R. Kamat)
   by citing the authors' relevant journal publication(s) in all manuscripts
   (journal and conference papers, technical reports, theses, etc.) that result 
-  from your project.
+  from your project. The citation to this software should be in the following format:
+  
+  Feng, C. and Kamat, V.R.. CV2CG Library. 2012. University of Michigan. <https://code.google.com/p/cv2cg/>
+
 
   IN NO EVENT SHALL THE COPYRIGHT HOLDER OR THE AUTHORS BE LIABLE 
   TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL 
