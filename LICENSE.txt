@@ -32,7 +32,7 @@ WWW site: http://www.umich.edu/~cforrest
 
 
   CV2CG and its documentation are provided only for educational and 
-  unfunded research purposes. Any other use strictly requires written 
+  research purposes. Any other use strictly requires written 
   authorization from the copyright holder.
 
   If you use CV2CG in any educational or research project, you must
