@@ -32,12 +32,12 @@ WWW site: http://www.umich.edu/~cforrest
 
 
   CV2CG and its documentation are provided only for educational and research 
-  purposes under GNU General Public License (Version 3). Any other use strictly
+  purposes under the GNU General Public License (Version 3). Any other use strictly
   requires written authorization from the copyright holder.
 
   If you use CV2CG in any educational or research project, you must
-  acknowledge the authors of the software (Chen Feng and Vineet R. Kamat)
-  by citing the authors' relevant journal publication(s) in all manuscripts
+  acknowledge the authors (Chen Feng and Vineet R. Kamat)
+  by citing this software in all manuscripts
   (journal and conference papers, technical reports, theses, etc.) that result 
   from your project. The citation to this software should be in the following format:
   
