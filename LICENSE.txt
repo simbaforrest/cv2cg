@@ -31,9 +31,9 @@ Contact Addresses:
 WWW site: http://www.umich.edu/~cforrest
 
 
-  CV2CG and its documentation are provided only for educational and 
-  research purposes. Any other use strictly requires written 
-  authorization from the copyright holder.
+  CV2CG and its documentation are provided only for educational and research 
+  purposes under GNU General Public License (Version 3). Any other use strictly
+  requires written authorization from the copyright holder.
 
   If you use CV2CG in any educational or research project, you must
   acknowledge the authors of the software (Chen Feng and Vineet R. Kamat)
