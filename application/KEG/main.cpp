@@ -153,7 +153,7 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 
 				if(foundtag) {
 					loglni("[April] find tag "<<id);
-					Mat initH = tmpH.front() * tracker.tdata[id].iHI;
+					Mat initH = tmpH[itr] * tracker.tdata[id].iHI;
 					//onlyApril means no refine, just measure quality
 					int maxiter = onlyApril?0:20;
 					needToInit = !tracker.init(gray, initH, rms, ncc, id, maxiter);

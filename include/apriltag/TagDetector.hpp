@@ -269,6 +269,9 @@ struct TagDetector {
 		v.swap(newv);
 	}
 
+	/**************************************************************/
+	
+
 	/** Detect the features in the specified image. We need the
 	 * optical center, but it is usually fine to pass in (width/2,
 	 * height/2).
