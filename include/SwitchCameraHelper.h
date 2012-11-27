@@ -31,6 +31,8 @@
 
 #include <iostream>
 
+#include "Log.h"
+
 namespace SwitchCameraHelper {
 
 const unsigned int PICKED_MASK=10;
@@ -415,18 +417,18 @@ public:
 			}
 			break;}//end of KEYUP
 		case(osgGA::GUIEventAdapter::DOUBLECLICK): {//TODO why no response here?
-			loglni("here");
+			logli<<"here";
 			//now updator still have valid s/e cam, no need to pick
 			if(_updator->getStartCamera().valid() &&
 				_updator->getDestCamera().valid())
 				return true;
 
-			LogD("Double clicked...\n");
+			clogd("Double clicked...\n");
 			_updator->setStartCamera(new osg::Camera(*viewer->getCamera()));
 			_updator->setDestCamera( pick_camera(ea,viewer) );
 
 			if(!_updator->getDestCamera().valid()) {
-				LogD("No valid destination camera!\n");
+				clogd("No valid destination camera!\n");
 				_updator->setStartCamera(0);
 				_updator->setDestCamera(0);
 				return true;
@@ -443,7 +445,7 @@ public:
 
 	static void printHelp()
 	{
-		LogI("\nUsage(SwitchCameraHandler):\n"
+		printf("\nUsage(SwitchCameraHandler):\n"
 			"\tDOUBLE CLICK : double click on cameras(cam0,cam1,...),"
 				 "can smoothly change your viewpoints to that camera.\n"
 			"\tHold s and DRAG : do not change eye position, only rotate camera.\n"

@@ -71,7 +71,7 @@ SparseRec2View::SparseRec2View(
 	imgpath2 = ipath2;
 
 	dir = helper::getFileDir(imgpath1);
-	TagI("main dir = %s\n",dir.c_str());
+	ctagi("main dir = %s\n",dir.c_str());
 
 	imgname1 = helper::getNameNoExtension(imgpath1);
 	imgname2 = helper::getNameNoExtension(imgpath2);
@@ -79,13 +79,13 @@ SparseRec2View::SparseRec2View(
 	_onlymatch=onlymatch;
 
 	detector = new cv::SurfFeatureDetector();
-	TagI("detector = SURF\n");
+	ctagi("detector = SURF\n");
 
 	descriptor = new cv::SurfDescriptorExtractor();
-	TagI("descriptor = SURF\n");
+	ctagi("descriptor = SURF\n");
 
 	matcher = new cv::FlannBasedMatcher();
-	TagI("matcher = Flann\n");
+	ctagi("matcher = Flann\n");
 }
 
 SparseRec2View::~SparseRec2View()
@@ -101,7 +101,7 @@ SparseRec2View::~SparseRec2View()
 bool SparseRec2View::run()
 {
 	if( !detector || !descriptor || !matcher ) {
-		TagE("No valid detector or descriptor or matcher\n");
+		ctage("No valid detector or descriptor or matcher\n");
 		return false;
 	}
 
@@ -120,12 +120,12 @@ bool SparseRec2View::loadImage()
 {
 	img1 = imread(imgpath1.c_str());
 	if(img1.empty()) {
-		TagE("can not open image at\n  %s\n",imgpath1.c_str());
+		ctage("can not open image at\n  %s\n",imgpath1.c_str());
 		return false;
 	}
 	img2 = imread(imgpath2.c_str());
 	if(img2.empty()) {
-		TagE("can not open image at\n  %s\n",imgpath2.c_str());
+		ctage("can not open image at\n  %s\n",imgpath2.c_str());
 		return false;
 	}
 	cvtColor(img1, igrey1, CV_RGB2GRAY);
@@ -138,10 +138,10 @@ bool SparseRec2View::detect()
 	double tt = (double)getTickCount();
 	detector->detect(igrey1, key1);
 	detector->detect(igrey2, key2);
-	TagI("key number for image 1 = %d\n",(int)key1.size());
-	TagI("key number for image 2 = %d\n",(int)key2.size());
+	ctagi("key number for image 1 = %d\n",(int)key1.size());
+	ctagi("key number for image 2 = %d\n",(int)key2.size());
 	tt = (double)getTickCount() - tt;
-	TagI("detect time = %lf ms\n", tt/getTickFrequency()*1000.0);
+	ctagi("detect time = %lf ms\n", tt/getTickFrequency()*1000.0);
 
 	//draw
 	for(int i=0; i<(int)key1.size(); ++i) {
@@ -179,14 +179,14 @@ bool SparseRec2View::match()
 	descriptor->compute(igrey1, key1, des1);
 	descriptor->compute(igrey2, key2, des2);
 	tt = (double)getTickCount() - tt;
-	TagI("describe time = %lf ms\n", tt/getTickFrequency()*1000.0);
+	ctagi("describe time = %lf ms\n", tt/getTickFrequency()*1000.0);
 
 	//match
 	tt = (double)getTickCount();
 	matcher->clear();
 	matcher->match(des2, des1, matches);//img1 as train image, img2 as query image
 	tt = (double)getTickCount() - tt;
-	TagI("match time = %lf ms\n", tt/getTickFrequency()*1000.0);
+	ctagi("match time = %lf ms\n", tt/getTickFrequency()*1000.0);
 
 	p1.clear(); p2.clear();
 	p1.reserve(matches.size());
@@ -206,7 +206,7 @@ bool SparseRec2View::fmatrix()
 	double tt = (double)getTickCount();
 	Mat fmat = cv::findFundamentalMat(Mat(p1), Mat(p2), inliers);
 	tt = (double)getTickCount() - tt;
-	TagI("ransac time = %lf ms\n", tt/getTickFrequency()*1000.0);
+	ctagi("ransac time = %lf ms\n", tt/getTickFrequency()*1000.0);
 
 	std::copy(fmat.begin<double>(), fmat.end<double>(), F);
 
@@ -217,7 +217,7 @@ bool SparseRec2View::fmatrix()
 		++cnt;
 		line(combined, p1[i], Point(p2[i].x+img1.cols,p2[i].y), CV_WHITE);
 	}
-	TagI("number of inliers = %d\n",cnt);
+	ctagi("number of inliers = %d\n",cnt);
 	inliersNum = cnt;
 
 	return true;
@@ -349,7 +349,7 @@ bool SparseRec2View::estimateRelativePose()
 			memcpy(R, Rb, 9 * sizeof(double));
 			t[0] = -u3[0]; t[1] = -u3[1]; t[2] = -u3[2];
 		} else {
-			TagE("no case was found!\n");
+			ctage("no case was found!\n");
 			return false;
 		}
 	};
@@ -363,7 +363,7 @@ bool SparseRec2View::estimateRelativePose()
 	P2[4]=R[3]; P2[5]=R[4]; P2[6]=R[5]; P2[7]=t[1];
 	P2[8]=R[6]; P2[9]=R[7]; P2[10]=R[8]; P2[11]=t[2];
 	cvMatMul(&_K,&_P2,&_P2);
-	if(Log::level>=Log::LOG_DEBUG) helper::print(3,4,P2,"Final P2");
+	if(is_log_quiet) helper::print(3,4,P2,"Final P2");
 	double maxu1=-DBL_MAX,minu1=DBL_MAX,maxv1=-DBL_MAX,minv1=DBL_MAX;
 	double maxu2=-DBL_MAX,minu2=DBL_MAX,maxv2=-DBL_MAX,minv2=DBL_MAX;
 	for(int i=0; i<(int)p1.size(); ++i) {
@@ -378,17 +378,17 @@ bool SparseRec2View::estimateRelativePose()
 		double u,v;
 		helper::project(P1,X[0],X[1],X[2], u,v);
 		double du1=u-p1[i].x, dv1=v-p1[i].y;
-		LogD(">P1\t%lf\t%lf\n",du1,dv1);
+		ctagi(">P1\t%lf\t%lf\n",du1,dv1);
 		helper::project(P2,X[0],X[1],X[2], u,v);
 		double du2=u-p2[i].x, dv2=v-p2[i].y;
-		LogD(">P2\t%lf\t%lf\n",du2,dv2);
+		ctagi(">P2\t%lf\t%lf\n",du2,dv2);
 		maxu1 = std::max(maxu1,du1); minu1 = std::min(minu1,du1);
 		maxv1 = std::max(maxv1,dv1); minv1 = std::min(minv1,dv1);
 		maxu2 = std::max(maxu2,du2); minu2 = std::min(minu2,du2);
 		maxv2 = std::max(maxv2,dv2); minv2 = std::min(minv2,dv2);
 	}
-	TagI("reproject error for img1 = (%g ~ %g, %g ~ %g)\n", minu1, maxu1, minv1, maxv1);
-	TagI("reproject error for img2 = (%g ~ %g, %g ~ %g)\n", minu2, maxu2, minv2, maxv2);
+	ctagi("reproject error for img1 = (%g ~ %g, %g ~ %g)\n", minu1, maxu1, minv1, maxv1);
+	ctagi("reproject error for img2 = (%g ~ %g, %g ~ %g)\n", minu2, maxu2, minv2, maxv2);
 
 	return true;
 }
@@ -404,7 +404,7 @@ bool SparseRec2View::save()
 			o1<<results[i].x<<" "<<results[i].y<<" "<<results[i].z<<endl;
 		}
 		o1.close();
-		TagI("save reconstructed points to\n  %s\n",path1.c_str());
+		ctagi("save reconstructed points to\n  %s\n",path1.c_str());
 
 		//save cam par
 		string path7(imgpath1+string(".par"));
@@ -417,7 +417,7 @@ bool SparseRec2View::save()
 		o7 << "T=" << endl;
 		o7 << "0 0 0" << endl;
 		o7.close();
-		TagI("save camera 1's parameters to\n  %s\n",path7.c_str());
+		ctagi("save camera 1's parameters to\n  %s\n",path7.c_str());
 
 		string path8(imgpath2+string(".par"));
 		std::ofstream o8(path8.c_str());
@@ -434,7 +434,7 @@ bool SparseRec2View::save()
 		o8 << "T=" << endl;
 		o8 << t[0] <<" "<< t[1] <<" "<< t[2] << endl;
 		o8.close();
-		TagI("save camera 2's parameters to\n  %s\n",path8.c_str());
+		ctagi("save camera 2's parameters to\n  %s\n",path8.c_str());
 	}
 
 	double fontScale=0.5;
@@ -459,7 +459,7 @@ bool SparseRec2View::save()
 		putText(img2, tmp, text_origin, CV_FONT_HERSHEY_PLAIN, fontScale, CV_BLACK);
 	}
 	o2.close();
-	TagI("save matched point pairs to\n  %s\n",path2.c_str());
+	ctagi("save matched point pairs to\n  %s\n",path2.c_str());
 
 	//save images
 	string path3(imgpath1+string("-detect.jpg"));
@@ -467,21 +467,21 @@ bool SparseRec2View::save()
 	string path5(dir+imgname1+string("-")+imgname2+string(".jpg"));
 	if(!img1.empty()) cv::imwrite(path3, img1);
 	else {
-		TagE("no valid image to save!\n");
+		ctage("no valid image to save!\n");
 		return false;
 	}
 	if(!img2.empty()) cv::imwrite(path4, img2);
 	if(!combined.empty()) cv::imwrite(path5, combined);
-	TagI("save surfed image 1 to\n  %s\n",path3.c_str());
-	TagI("save surfed image 2 to\n  %s\n",path4.c_str());
-	TagI("save combined image to\n  %s\n",path5.c_str());
+	ctagi("save surfed image 1 to\n  %s\n",path3.c_str());
+	ctagi("save surfed image 2 to\n  %s\n",path4.c_str());
+	ctagi("save combined image to\n  %s\n",path5.c_str());
 
 	//save F
 	string path6(dir+imgname1+string("-")+imgname2+string(".fmatrix"));
 	std::ofstream o6(path6.c_str());
 	o6 << helper::PrintMat<>(3,3,F);
 	o6.close();
-	TagI("save fundamental matrix to\n  %s\n",path6.c_str());
+	ctagi("save fundamental matrix to\n  %s\n",path6.c_str());
 
 	return true;
 }

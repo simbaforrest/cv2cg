@@ -34,13 +34,7 @@
 namespace UtilHelper
 {
 
-/**
-rgb image -> float gray image range in [0,1], use green channel,
-fim will be re-allocated as CV_32FC1 with rgb.size() after calling this function
-
-@param rgb[in] input image, could be RGB or RGBA or gray image
-@param fim[out] output float image, taking only the green/gray channel
-*/
+//rgb image -> float gray image range in [0,1], use green channel
 inline void green2float(const cv::Mat &rgb, cv::Mat &fim)
 {
 	fim.create(rgb.size(), CV_32FC1);
@@ -71,17 +65,23 @@ if(rgb.channels()==3) {
 }
 
 template<typename TYPE>
-void num2str(TYPE num, std::string &str)
+void num2str(TYPE num, std::string &str, const int width=0, const char fill='0')
 {
 	std::stringstream ss;
+	if(width>0)
+		ss << std::setw(width) 
+			<< std::setfill(fill);
 	ss << num;
 	ss >> str;
 }
 
 template<typename TYPE>
-std::string num2str(TYPE num)
+std::string num2str(TYPE num, const int width=0, const char fill='0')
 {
 	std::ostringstream oss;
+	if(width>0)
+		oss << std::setw(width) 
+			<< std::setfill(fill);
 	oss << num;
 	return oss.str();
 }
@@ -90,14 +90,14 @@ std::string num2str(TYPE num)
 template<typename T>
 int hammingDistance(T a, T b)
 {
-	std::bitset<sizeof(T)*8> axb = a^b;
+	std::bitset<sizeof(T)*8> axb( (UINT64)a^b );
 	return axb.count();
 }
 
 template<typename T>
 int popcount(T a)
 {
-	std::bitset<sizeof(T)*8> bita = a;
+	std::bitset<sizeof(T)*8> bita( (UINT64)a );
 	return bita.count();
 }
 

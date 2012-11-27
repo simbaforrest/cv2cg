@@ -526,7 +526,7 @@ struct TagDetector {
 		}
 #if TAG_DEBUG_PERFORMANCE
 		steptime[3] = PM.toctic();
-		loglnd(">>> clusters.size()="<<clusters.size());
+		flogld(">>> clusters.size()="<<clusters.size());
 #endif
 		///////////////////////////////////////////////////////////
 		// Step five. Loop over the clusters, fitting lines (which we
@@ -606,7 +606,7 @@ struct TagDetector {
 		int width = fim.cols, height = fim.rows;
 
 #if TAG_DEBUG_PERFORMANCE
-		loglnd(">>> segments.size()="<<segments.size());
+		flogld(">>> segments.size()="<<segments.size());
 		steptime[4] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
@@ -684,7 +684,7 @@ struct TagDetector {
 		}
 #endif
 #if TAG_DEBUG_PERFORMANCE
-		loglnd(">>> quads.size()="<<quads.size());
+		flogld(">>> quads.size()="<<quads.size());
 		steptime[6] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
@@ -811,7 +811,7 @@ struct TagDetector {
 		}//end of quads[]
 
 #if TAG_DEBUG_PERFORMANCE
-		loglnd(">>> detections.size()="<<detections.size());
+		flogld(">>> detections.size()="<<detections.size());
 		steptime[7] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
@@ -864,7 +864,7 @@ struct TagDetector {
 #if TAG_DEBUG_PERFORMANCE
 		steptime[8] = PM.toctic();
 		for(int i=0; i<9; ++i) {
-			loglnd("[process] step "<<(i+1)<<" takes "<<steptime[i]<<" ms.");
+			flogld("[process] step "<<(i+1)<<" takes "<<steptime[i]<<" ms.");
 		}
 #endif
 	}

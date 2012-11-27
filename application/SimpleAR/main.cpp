@@ -64,8 +64,6 @@
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 
-Log::Level Log::level = Log::LOG_INFO;
-
 using namespace cv;
 using namespace std;
 
@@ -154,7 +152,7 @@ struct TrackThread : public OpenThreads::Thread {
 
 			is->get(frame);
 			if(frame.empty()) {
-				loglni("[TrackThread] no valid frame, exit!!!");
+				flogle("[TrackThread] no valid frame, exit!!!");
 				OpenCVneedQuit = true;
 				_mutex.unlock();
 				break;
@@ -163,7 +161,7 @@ struct TrackThread : public OpenThreads::Thread {
 			cvtColor(frame, gray, CV_BGR2GRAY);
 			double rms, ncc;
 			if( needToInit ) {
-				loglni("[TrackThread] INITing...");
+				flogli("[TrackThread] INITing...");
 				Mat tmpH;
 				if( findAprilTag(frame, 0, tmpH, true) ) {
 #if !USE_INTERNAL_DETECTOR
@@ -172,7 +170,7 @@ struct TrackThread : public OpenThreads::Thread {
 #else
 					needToInit=!tracker.init(gray,rms,ncc);
 #endif
-					if(!needToInit) loglni("[TrackThread] ...INITed");
+					if(!needToInit) flogli("[TrackThread] ...INITed");
 					if(!needToInit) tracker.draw3D(frame);
 				}
 			} else {
@@ -180,7 +178,7 @@ struct TrackThread : public OpenThreads::Thread {
 				if(!needToInit) tracker.GetCameraPose(camR,camT,false,true);
 			}
 			++BkgModifyCnt;
-			loglni("[TrackThread] fps="<<1.0/PM.toctic());
+			flogli("[TrackThread] fps="<<1.0/PM.toctic());
 
 			_mutex.unlock();
 			if(OpenCVneedQuit) {
@@ -191,9 +189,9 @@ struct TrackThread : public OpenThreads::Thread {
 		}
 
 		OpenThreads::Thread::YieldCurrentThread();
-		loglni("[TrackThread] OpenCV quited...");
+		clogi("[TrackThread] OpenCV quited...\n");
 		if(!videoFromWebcam) {
-			loglni("[TrackThread] OpenCV notify OSG to quit...");
+			clogi("[TrackThread] OpenCV notify OSG to quit...\n");
 			viewer.setDone(true);
 		}
 	}
@@ -222,7 +220,7 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 			switch(ea.getKey()) {
 			case osgGA::GUIEventAdapter::KEY_Escape:
 				OpenCVneedQuit=true;
-				loglni("[QuitHandler] OSG notify OpenCV to quit...");
+				logli<<"[QuitHandler] OSG notify OpenCV to quit...";
 				break;
 			case ' ':
 				needToInit=true;
@@ -240,8 +238,8 @@ struct QuitHandler : public osgGA::GUIEventHandler {
 				break;
 			case 'c':
 				needToCapframe = !needToCapframe;
-				if(needToCapframe) loglni("[Capture Frame] Begin.");
-				else loglni("[Capture Frame] End.");
+				if(needToCapframe) logli<<"[Capture Frame] Begin.";
+				else logli<<"[Capture Frame] End.";
 				break;
 			case 'h':
 				QuitHandler::usage(); break;
@@ -328,13 +326,14 @@ void usage( int argc, char **argv ) {
 
 int main( int argc, char **argv )
 {
+	LogHelper::GLogControl::Instance().level=LogHelper::LOG_INFO;
 	if(argc<4) {
 		usage(argc,argv);
 		return 1;
 	}
 	is = helper::createImageSource(argv[1]);
 	if(is.empty() || is->done()) {
-		loglne("[main] createImageSource failed or no valid imagesource!");
+		logle<<"[main] createImageSource failed or no valid imagesource!";
 		return -1;
 	}
 	is->pause(false);
@@ -346,15 +345,15 @@ int main( int argc, char **argv )
 		videoFromWebcam = true;
 	}
 
-	loglni("[main] loading K matrix from: "<<argv[2]);
+	logli<<"[main] loading K matrix from: "<<argv[2];
 	double K[9];
 	std::ifstream kfile(argv[2]);
 	for(int i=0; i<9; ++i) kfile >> K[i];
 	tracker.loadK(K);
-	loglni("[main] K matrix loaded:");
-	loglni(helper::PrintMat<>(3,3,K));
+	logli<<"[main] K matrix loaded:";
+	logli<<helper::PrintMat<>(3,3,K);
 
-	loglni("[main] load template image from: "<<argv[3]);
+	logli<<"[main] load template image from: "<<argv[3];
 	tracker.loadTemplate(argv[3]);
 
 	//////////////// TagDetector /////////////////////////////////////////
@@ -362,12 +361,12 @@ int main( int argc, char **argv )
 	if(argc>5) tagid = atoi(argv[5]);
 	tagFamily = TagFamilyFactory::create(tagid);
 	if(tagFamily.empty()) {
-		loglne("[main] create TagFamily fail!");
+		logle<<"[main] create TagFamily fail!";
 		return -1;
 	}
 	detector = new TagDetector(tagFamily);
 	if(detector.empty()) {
-		loglne("[main] create TagDetector fail!");
+		logle<<"[main] create TagDetector fail!";
 		return -1;
 	}
 	Mat temp = imread(argv[3]);
@@ -376,7 +375,7 @@ int main( int argc, char **argv )
 		imshow("template", temp);
 		iHI = HI.inv();
 	} else {
-		loglne("[main error] detector did not find any apriltag on template image!");
+		logle<<"[main error] detector did not find any apriltag on template image!";
 		return -1;
 	}
 
@@ -414,6 +413,6 @@ int main( int argc, char **argv )
 	viewer.run();
 
 	delete thr;
-	loglni("[main] DONE...exit!");
+	logli<<"[main] DONE...exit!";
 	return 0;
 }

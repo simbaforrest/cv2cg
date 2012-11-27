@@ -60,16 +60,14 @@
 
 using namespace std;
 
-Log::Level Log::level = Log::LOG_INFO;
-
 int main(int argc, char** argv)
 {
-	
+	LogHelper::GLogControl::Instance().level=LogHelper::LOG_INFO;
 	if(argc<4) {
-		LogI("Usage:\n\tSparseRec2View <name of config file>"
+		printf("Usage:\n\tSparseRec2View <name of config file>"
 			" <name of image file 1> <name of image file 2>\n");
-		LogI("config file is composed of K and lamda\n");
-		LogI("Example:\n\tSparseRec2View cam.txt left.jpg righ.jpg\n");
+		printf("config file is composed of K and lamda\n");
+		printf("Example:\n\tSparseRec2View cam.txt left.jpg righ.jpg\n");
 		return -1;
 	}
 
@@ -77,18 +75,18 @@ int main(int argc, char** argv)
 	std::ifstream in(argv[1]);
 	for(int i=0; i<9; ++i) in >> K[i];
 	in >> lamda;
-	TagD("K=\n");
+	ctagi("K=\n");
 	for(int i=0; i<3; ++i) {
 		for(int j=0; j<3; ++j)
-			LogD("\t%lf",K[i*3+j]);
-		LogD("\n");
+			clogi("\t%lf",K[i*3+j]);
+		clogi("\n");
 	}
-	TagD("lamda=%lf\n",lamda);
+	ctagi("lamda=%lf\n",lamda);
 
 	bool onlymatch=false;
 	if(argc>4) {
 		if( argv[4] == std::string("-onlymatch") ) {
-			TagI("onlymatch turned on, no reconstruction.\n");
+			ctagi("onlymatch turned on, no reconstruction.\n");
 			onlymatch=true;
 		}
 	}
@@ -101,10 +99,10 @@ int main(int argc, char** argv)
 			    lamda,
 			    onlymatch );
 
-	TagI("Begin :\n");
+	ctagi("Begin :\n");
 	tvs.run();
 	tvs.save();
-	TagI("Done!\n");
+	ctagi("Done!\n");
 
 	return 0;
 }

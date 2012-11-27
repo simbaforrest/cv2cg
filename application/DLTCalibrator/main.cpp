@@ -36,7 +36,7 @@ namespace helper {
 		double *P)
 	{
 		if(npoints<6) {
-			TagE("require at least 6 correspondences!\n");
+			ctage("require at least 6 correspondences!\n");
 			return false;
 		}
 
@@ -122,12 +122,12 @@ namespace helper {
 	// sumsqErr, sum of squared error of ReprojectErr
 	// sd, standard deviation
 	// detail error for each points will be reported
-	// by Log
+	// by printf
 	void reprojectionError(int npoints, double const *p,
 		double const *X, double const *P, double& meanErr,
 		double& maxErr, double& sumsqErr, double& sd)
 	{
-		LogI("ReprojectionError :\n");
+		printf("ReprojectionError :\n");
 		double sumErr = 0;
 		meanErr = maxErr = sumsqErr = sd = 0;
 		for(int i=0; i<npoints; ++i) {
@@ -136,7 +136,7 @@ namespace helper {
 			double du,dv;
 			du = p[2*i+0] - pp[0];
 			dv = p[2*i+1] - pp[1];
-			LogI("(% 10f, % 10f)\n", du, dv);
+			printf("(% 10f, % 10f)\n", du, dv);
 
 			double sqErr = du*du+dv*dv;
 			double err = sqrt(sqErr);
@@ -150,11 +150,11 @@ namespace helper {
 		else
 			sd=sqrt((sumsqErr - sumErr*sumErr/npoints) / (npoints-1));
 
-		LogI("Mean Re-project Error=% 10f\n", meanErr);
-		LogI("Max  Re-project Error=% 10f\n", maxErr);
-		LogI("Sum of squared Errors=% 10f\n", sumsqErr);
-		LogI("Standard Deviation=% 10f\n", sd);
-		LogI("ReprojectionError done!\n");
+		printf("Mean Re-project Error=% 10f\n", meanErr);
+		printf("Max  Re-project Error=% 10f\n", maxErr);
+		printf("Sum of squared Errors=% 10f\n", sumsqErr);
+		printf("Standard Deviation=% 10f\n", sd);
+		printf("ReprojectionError done!\n");
 	}
 
 }
@@ -221,12 +221,11 @@ void calibrate(std::ofstream& fout)
 		meanErr, maxErr, sumsqErr, sd);
 }
 
-Log::Level Log::level = Log::LOG_INFO;
-
 int main( int argc, char **argv )
 {
+	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
 	if(argc<=1) {
-		LogI("Usage: \n\tDLTCalibrator <InputFileName>"
+		printf("Usage: \n\tDLTCalibrator <InputFileName>"
 			" [<OutPutFileName>(Without extention!)]\n"
 			"Example: \n\tDLTCalibrator test.cp\n"
 			"\tDLTCalibrator test.cp D:/Out\n");
@@ -248,14 +247,14 @@ int main( int argc, char **argv )
 		ofname += std::string(".par");
 	}
 
-	LogI("IN_FILE_NAME=%s\n",ifname.c_str());
-	LogI("OUT_FILE_NAME=%s\n",ofname.c_str());
+	printf("IN_FILE_NAME=%s\n",ifname.c_str());
+	printf("OUT_FILE_NAME=%s\n",ofname.c_str());
 
 	std::ifstream ifile(ifname.c_str());
 	std::ofstream ofile(ofname.c_str());
 
 	readCP(ifile);
-	LogI("READ_NUM_POINTS=%d\n",g_num);
+	printf("READ_NUM_POINTS=%d\n",g_num);
 	calibrate(ofile);
 	return 0;
 }

@@ -51,8 +51,8 @@
 #include <sstream>
 
 #include "OpenCVHelper.h"
-#include "Log.h"
 //#define TAG_DEBUG_PERFORMANCE 1
+#include "Log.h"
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 
@@ -77,14 +77,14 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		double opticalCenter[2] = { imgW/2.0, imgH/2.0 };
 		PM.tic();
 		detector->process(frame, opticalCenter, detections);
-		loglni("[TagDetector] process time = "<<PM.toc()<<" sec.");
+		logli<<"[TagDetector] process time = "<<PM.toc()<<" sec.";
 
-		logi(">>> find id: ");
+		logi<<">>> find id: ";
 		for(int id=0; id<(int)detections.size(); ++id) {
 			TagDetection &dd = detections[id];
 			if(dd.hammingDistance>0) continue; //very strict!
 
-			logi("#"<<dd.id<<"|"<<dd.hammingDistance<<" ");
+			logi<<"#"<<dd.id<<"|"<<dd.hammingDistance<<" ";
 			cv::putText( frame, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
 
 			cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
@@ -98,7 +98,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			};
 			helper::drawHomography(frame, Homo, crns);
 		}
-		logi(endl);
+		logli;
 
 #if TAG_DEBUG_PERFORMANCE
 		static int barH = 30;
@@ -120,7 +120,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			lasty += textH;
 		}
 		cv::putText(frame, cv::format("fps=%4.3lf",1000.0/total), cv::Point(imgW/2,barH), CV_FONT_NORMAL, 1, helper::CV_BLUE, 1);
-		loglnd("-------------------------------");
+		logld<<"-------------------------------";
 #endif
 }
 
@@ -128,7 +128,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		switch (key) {
 		case 'd':
 			detector->segDecimate = !detector->segDecimate;
-			loglni("[ProcessVideo] detector.segDecimate="<<detector->segDecimate); break;
+			logli<<"[ProcessVideo] detector.segDecimate="<<detector->segDecimate; break;
 		}
 	}
 
@@ -148,14 +148,14 @@ void usage( int argc, char **argv ) {
 	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
 }
 
-#if TAG_DEBUG_PERFORMANCE
-Log::Level Log::level = Log::LOG_DEBUG;
-#else
-Log::Level Log::level = Log::LOG_INFO;
-#endif
-
 int main( int argc, char **argv )
 {
+#if TAG_DEBUG_PERFORMANCE
+	LogHelper::GLogControl::Instance().level = LogHelper::LOG_DEBUG;
+#else
+	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
+#endif
+
 	if(argc<2) {
 		usage(argc,argv);
 		return -1;
@@ -163,7 +163,7 @@ int main( int argc, char **argv )
 
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
 	if(is.empty()) {
-		loglne("[main] createImageSource failed!");
+		tagle<<"createImageSource failed!";
 		return -1;
 	}
 	is->reportInfo();
@@ -173,12 +173,12 @@ int main( int argc, char **argv )
 	if(argc>2) tagid = atoi(argv[2]);
 	tagFamily = TagFamilyFactory::create(tagid);
 	if(tagFamily.empty()) {
-		loglne("[main] create TagFamily fail!");
+		tagle<<"create TagFamily fail!";
 		return -1;
 	}
 	detector = new TagDetector(tagFamily);
 	if(detector.empty()) {
-		loglne("[main] create TagDetector fail!");
+		tagle<<"create TagDetector fail!";
 		return -1;
 	}
 

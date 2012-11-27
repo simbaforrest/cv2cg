@@ -74,10 +74,9 @@ void usage( int argc, char **argv ) {
 	cout<<"default Scale: 1.0"<<endl;
 }
 
-Log::Level Log::level = Log::LOG_INFO;
-
 int main( int argc, char **argv )
 {
+	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
 	if(argc<2) {
 		usage(argc,argv);
 		return -1;
@@ -88,7 +87,7 @@ int main( int argc, char **argv )
 	if(argc>2) tagid = atoi(argv[2]);
 	cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(tagid);
 	if(tagFamily.empty()) {
-		loglne("[main] create TagFamily fail!");
+		tagle<<"create TagFamily fail!";
 		return -1;
 	}
 
@@ -99,6 +98,6 @@ int main( int argc, char **argv )
 	tagFamily->writeAllImagesMosaic(dir+"mosaic.png");
 	tagFamily->writeAllImagesPostScript(dir+"all.ps");
 
-	loglni("[main] DONE!");
+	std::cout<<"DONE!"<<std::endl;
 	return 0;
 }

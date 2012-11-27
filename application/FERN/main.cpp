@@ -57,8 +57,6 @@ using helper::ImageSource;
 using namespace std;
 using namespace cv;
 
-Log::Level Log::level = Log::LOG_INFO;
-
 struct FERNSprocessor : public ImageSource::Processor {
 	Mat object; //template
 	LDetector ldetector;
@@ -99,25 +97,25 @@ struct FERNSprocessor : public ImageSource::Processor {
 	void loadtemplate(std::string name) {
 		object = imread( name, CV_LOAD_IMAGE_GRAYSCALE );
 		if(object.empty()) {
-			loglne("Can not load template image, exit!");
+			logle<<"Can not load template image, exit!";
 			exit(-1);
 		}
 		buildPyramid(object, objpyr, ldetector.nOctaves-1);
 
 		string model_filename = name + "_model.xml.gz";
-		loglni("[loadtemplate] try to load "<<model_filename<<"...");
+		logli<<"[loadtemplate] try to load "<<model_filename<<"...";
 		FileStorage fs(model_filename, FileStorage::READ);
 		if( fs.isOpened() ) {
 			detector.read(fs.getFirstTopLevelNode());
-			loglni("[loadtemplate] successfully loaded "<<model_filename.c_str());
+			logli<<"[loadtemplate] successfully loaded "<<model_filename.c_str();
 		} else {
-			loglni("[loadtemplate] try to train the model...");
+			logli<<"[loadtemplate] try to train the model...";
 			ldetector.setVerbose(true);
 			ldetector.getMostStable2D(object, objKeypoints, 100, gen);
 			detector.setVerbose(true);
 			detector.train(objpyr, objKeypoints, patchSize.width,
 				100, 11, 10000, ldetector, gen);
-			loglni("[loadtemplate] training DONE! saving...");
+			logli<<"[loadtemplate] training DONE! saving...";
 			if( fs.open(model_filename, FileStorage::WRITE) )
 				detector.write(fs, "ferns_model");
 		}
@@ -333,6 +331,7 @@ struct FERNSprocessor : public ImageSource::Processor {
 FERNSprocessor processor;
 
 int main(int argc, char** argv) {
+	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
 	if(argc<4) {
 		cout<<"[usage] "<<argv[0]<<" <url>" //1
 			" <K matrix file>" //2
@@ -347,20 +346,20 @@ int main(int argc, char** argv) {
 
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
 	if(is.empty()) {
-		loglne("[main] createImageSource failed!");
+		cout<<"[main] createImageSource failed!"<<endl;
 		return -1;
 	}
 	is->reportInfo();
 
-	loglni("[main] loading K matrix from: "<<argv[2]);
+	logli<<"[main] loading K matrix from: "<<argv[2];
 	double K[9];
 	std::ifstream kfile(argv[2]);
 	for(int i=0; i<9; ++i) kfile >> K[i];
 	processor.loadK(K);
-	loglni("[main] K matrix loaded:");
-	loglni(helper::PrintMat<>(3,3,K));
+	logli<<"[main] K matrix loaded:";
+	logli<<helper::PrintMat<>(3,3,K);
 
-	loglni("[main] loading template image from: "<<argv[3]);
+	logli<<"[main] loading template image from: "<<argv[3];
 	processor.loadtemplate(argv[3]);
 
 	if(argc>4) processor.savekeys = true;

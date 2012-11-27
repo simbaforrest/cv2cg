@@ -27,15 +27,14 @@
 #include "CaptureSceneHelper.h"
 #include "SwitchCameraHelper.h"
 
-Log::Level Log::level = Log::LOG_INFO;
-
 int main( int argc, char **argv )
 {
+	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
 	if(argc<=1) {
-		LogI("Usage: \n\tCameraSimulator <InputFileName>"
+		printf("Usage: \n\tCameraSimulator <InputFileName>"
 			" [OutPut Dir]\n");
-		LogI("Example: \n\tCameraSimulator draw.txt D:/Out/\n");
-		LogI("Example: \n\tCameraSimulator draw.txt\n");
+		printf("Example: \n\tCameraSimulator draw.txt D:/Out/\n");
+		printf("Example: \n\tCameraSimulator draw.txt\n");
 		return -1;
 	}
 

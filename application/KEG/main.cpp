@@ -51,7 +51,9 @@
 #include <fstream>
 #include <sstream>
 
+#include "config.hpp"
 #include "Log.h"
+
 #include "OpenCVHelper.h"
 
 #define ESM_ORIGINAL //define this if you have original implementation of ESM
@@ -63,8 +65,6 @@
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 
-Log::Level Log::level = Log::LOG_INFO;
-
 using namespace cv;
 using namespace std;
 using april::tag::INT64;
@@ -73,6 +73,8 @@ using april::tag::TagFamilyFactory;
 using april::tag::TagDetector;
 using april::tag::TagDetection;
 using helper::ImageSource;
+using helper::GConfig;
+using ConfigHelper::Config;
 
 struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 /////// Vars
@@ -116,13 +118,13 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 			vector<Mat> HIs;
 			(*recognizer)(td.img, HIs, ids);
 			if((int)ids.size() != 1) {
-				loglni("[loadTemplateList] found none/multiple apriltag"
-					" on template image #"<<i<<", erase it.");
+				logle<<"[loadTemplateList] found none/multiple apriltag"
+					" on template image #"<<i<<", erase it.";
 				tracker.tdata.erase(tracker.tdata.begin()+i);
 			} else {
 				td.iHI = HIs.front().inv();
 				td.id = ids.front();
-				loglni("[loadTemplateList] found tag "<<td.id);
+				logli<<"[loadTemplateList] found tag "<<td.id;
 			}
 		}
 	}
@@ -141,7 +143,7 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 
 		if( needToInit || onlyApril ) {
 			needToInit = true;
-			loglni("[KEGprocessor] INITing...");
+			flogli("[KEGprocessor] INITing...");
 			vector<Mat> tmpH;
 			vector<int> tmpid;
 			(*recognizer)(gray, tmpH, tmpid);
@@ -152,13 +154,13 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 					if( foundtag = (id == tracker.tdata[jtr].id) ) break;
 
 				if(foundtag) {
-					loglni("[April] find tag "<<id);
+					flogli("[April] find tag "<<id);
 					Mat initH = tmpH[itr] * tracker.tdata[id].iHI;
 					//onlyApril means no refine, just measure quality
 					int maxiter = onlyApril?0:20;
 					needToInit = !tracker.init(gray, initH, rms, ncc, id, maxiter);
 					if(!needToInit) {
-						loglni("[KEGprocessor] ...INITed");
+						flogli("[KEGprocessor] ...INITed");
 						tracker.draw3D(frame);
 					}
 					break;
@@ -205,19 +207,19 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 	void handle(char key) {
 		switch (key) {
 		case '0':
-			Log::level = Log::LOG_QUIET; break;
+			LogHelper::GLogControl::Instance().level=LogHelper::LOG_QUIET; break;
 		case '1':
-			Log::level = Log::LOG_ERROR; break;
+			LogHelper::GLogControl::Instance().level=LogHelper::LOG_ERROR; break;
 		case '2':
-			Log::level = Log::LOG_INFO; break;
+			LogHelper::GLogControl::Instance().level=LogHelper::LOG_INFO; break;
 		case '3':
-			Log::level = Log::LOG_DEBUG; break;
+			LogHelper::GLogControl::Instance().level=LogHelper::LOG_DEBUG; break;
 		case ' ':
 			needToInit=true; break;
 		case 'c':
 			needToCapframe = !needToCapframe;
-			if(needToCapframe) loglni("[Capture Frame] Begin.");
-			else loglni("[Capture Frame] End.");
+			if(needToCapframe) logli<<"[Capture Frame] Begin.";
+			else logli<<"[Capture Frame] End.";
 			break;
 		}
 	}
@@ -226,14 +228,15 @@ KEGprocessor processor;
 
 ////////////////////////////////////////////////////////////////////////
 void usage( int argc, char **argv ) {
-	cout<< "[usage] " <<argv[0]<<
-		" <url>" //1
-		" <K matrix file>" //2
-		" <template file>" //3
-		" [experiment mode=0]"//4
-		" [keyframe saving path]"//5
-		" [AprilTag Family ID=0]"//6
-		<<endl;
+	cout<< "[usage] " <<argv[0]<< " <config file>"<<endl;
+	cout<< "config file format:"<<
+		" <url>=\n"
+		" <kMatrixFile>=\n"
+		" <templateFile>=\n"
+		" [experimentMode=0]=\n"
+		" [keyframeSavingPath=\"\"]=\n"
+		" [apriltagFamilyID=0]=\n" << std::endl;
+
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
@@ -254,15 +257,32 @@ void usage( int argc, char **argv ) {
 
 int main( int argc, char **argv )
 {
-	if(argc<4) {
+	LogHelper::GLogControl::Instance().level=LogHelper::LOG_INFO;
+	if(argc<2) {
 		usage(argc,argv);
-		return 1;
+		return -1;
 	}
 
+	static Config& cfg = GConfig::Instance();
+	if(!cfg.load(argv[1])) {
+		tagle<<"fail to load config file: "<<argv[1];
+		exit(-1);
+	}
+	
+	static const std::string url = cfg.get<std::string>("url");
+	static const std::string kMatrixFile = cfg.get<std::string>("kMatrixFile");
+	static const std::string templateFile = cfg.get<std::string>("templateFile");
+	int& experimentMode = processor.expMode;
+	std::string keyframeSavingPath;
+	int apriltagFamilyID = 0;
+	cfg.get("experimentMode", experimentMode);
+	processor.doCapFrame = cfg.get("keyframeSavingPath",keyframeSavingPath);
+	cfg.get("apriltagFamilyID",apriltagFamilyID);
+
 	//// ImageSource
-	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
+	cv::Ptr<ImageSource> is = helper::createImageSource(url);
 	if(is.empty() || is->done()) {
-		loglne("[main] createImageSource failed or no valid imagesource!");
+		tagle<<"createImageSource failed or no valid imagesource!";
 		return -1;
 	}
 	is->reportInfo();
@@ -276,47 +296,59 @@ int main( int argc, char **argv )
 	}
 
 	//// KEGTracker
-	loglni("[main] loading K matrix from: "<<argv[2]);
+	tagli<<"loading K matrix from: "<<kMatrixFile;
 	double K[9];
-	std::ifstream kfile(argv[2]);
+	std::ifstream kfile(kMatrixFile.c_str());
+	if(!kfile.is_open()) {
+		tagle<<"fail to load K matrix!";
+		exit(-1);
+	}
 	for(int i=0; i<9; ++i) kfile >> K[i];
 	processor.tracker.loadK(K);
-	loglni("[main] K matrix loaded:");
-	loglni(helper::PrintMat<>(3,3,K));
+	tagli<<"K matrix loaded:";
+	logli<<helper::PrintMat<>(3,3,K);
 
 	//// TagDetector
 	processor.recognizer = new keg::AprilTagRecognizer;
 	Ptr<TagFamily> tagFamily;
 	Ptr<TagDetector> detector;
-	int familyid = 0; //default tag16h5
-	if(argc>6) familyid = atoi(argv[6]);
-	tagFamily = TagFamilyFactory::create(familyid);
+	tagFamily = TagFamilyFactory::create(apriltagFamilyID);
 	if(tagFamily.empty()) {
-		loglne("[main] create TagFamily fail!");
+		tagle<<"create TagFamily fail!";
 		return -1;
 	}
 	detector = new TagDetector(tagFamily);
 	if(detector.empty()) {
-		loglne("[main] create TagDetector fail!");
+		tagle<<"create TagDetector fail!";
 		return -1;
 	}
 	processor.recognizer->tagFamily = tagFamily;
 	processor.recognizer->detector = detector;
 
-	loglni("[main] load template image from: "<<argv[3]);
-	std::ifstream tin(argv[3]);
-	std::string maindir = helper::getFileDir(argv[3]);
+	tagli<<"load template image from: "<<templateFile;
+	std::ifstream tin(templateFile.c_str());
+	if(!tin.is_open()) {
+		tagle<<"fail to load template image!";
+		exit(-1);
+	}
+	try {
+	std::string maindir = helper::getFileDir(templateFile);	
 	string line;
 	vector<string> tlist;
 	while(helper::readValidLine(tin, line)) {
 		tlist.push_back(maindir+line);
 	}
 	processor.loadTemplateList(tlist);
+	} catch(std::exception& e) {
+		tagle<<e.what();
+		exit(-1);
+	} catch(...) {
+		tagle<<" when loading template image!";
+		exit(-1);
+	}
 
 	//// Experiment set up
-	int& expMode = processor.expMode;
-	if(argc>4) expMode = atoi(argv[4]);
-	switch(expMode) {
+	switch(experimentMode) {
 	case 1://A+K G
 		processor.tracker.doEstep(false); break;
 	case 2://A+KE
@@ -335,21 +367,20 @@ int main( int argc, char **argv )
 	case -1://APP DEMO using A+KEG
 		processor.expMode = -1; break;
 	default:
-		expMode = 0;
+		processor.expMode = 0;
 	}
-
-	processor.doCapFrame = argc>5;
 
 	//// Main Loop
 	is->run(processor,-1);
 
 	//// Finish
 	if(processor.doCapFrame) {
-		loglni("[main] saving keyframes to: "<<argv[5]);
+		tagli<<"saving keyframes to: "<<keyframeSavingPath;
 		keg::SaveKeyFrames(processor.keyframes,
-			argv[5], processor.tracker.K, expMode!=-1);
+			keyframeSavingPath, processor.tracker.K,
+			processor.expMode!=-1);
 	}
 
-	loglni("[main] DONE...exit!");
+	tagli<<"DONE...exit!";
 	return 0;
 }
