@@ -34,7 +34,13 @@
 namespace UtilHelper
 {
 
-//rgb image -> float gray image range in [0,1], use green channel
+/**
+rgb image -> float gray image range in [0,1], use green channel,
+fim will be re-allocated as CV_32FC1 with rgb.size() after calling this function
+
+@param rgb[in] input image, could be RGB or RGBA or gray image
+@param fim[out] output float image, taking only the green/gray channel
+*/
 inline void green2float(const cv::Mat &rgb, cv::Mat &fim)
 {
 	fim.create(rgb.size(), CV_32FC1);

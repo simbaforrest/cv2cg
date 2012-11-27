@@ -238,10 +238,7 @@ struct TagFamily {
 		for (int i = 0; i < (int)codes.size(); i++) {
 			cv::Mat im = makeImage(i);
 			if(scale>1) {
-				static int textH=30;
-				cv::resize(im,im,cv::Size(im.rows*scale+textH+10,im.cols*scale),0,0,cv::INTER_NEAREST);
-				cv::putText(im, cv::format("ID=%03d",i),
-					cv::Point(im.cols/2,im.rows-textH-5), CV_FONT_NORMAL, 1, cv::Scalar(0,0,0), 2);
+				cv::resize(im,im,cv::Size(im.rows*scale,im.cols*scale),0,0,cv::INTER_NEAREST);
 			}
 			std::string fname = cv::format("tag%02d_%02d_%05d.png",
 			                               bits,
