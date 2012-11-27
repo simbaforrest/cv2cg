@@ -141,7 +141,7 @@ inline bool SaveKeyFrames(const vector<KeyFrame>& keyframes, string name,
 			continue;
 
 		string num;
-		helper::num2str(i,num);
+		helper::num2str(i,num,5);
 		string prefix = name + string("frame") + num;
 		string relativePrefix = string("frame") + num;
 

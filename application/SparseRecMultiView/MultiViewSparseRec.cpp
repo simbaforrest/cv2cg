@@ -24,13 +24,13 @@
 MVSR::MVSR(void)
 {
 	detector = new cv::SurfFeatureDetector();
-	TagI("detector = SURF\n");
+	ctagi("detector = SURF\n");
 
 	descriptor = new cv::SurfDescriptorExtractor();
-	TagI("descriptor = SURF\n");
+	ctagi("descriptor = SURF\n");
 
 	matcher = new cv::FlannBasedMatcher();
-	TagI("matcher = Flann\n");
+	ctagi("matcher = Flann\n");
 
 	misMatchCnt = 0;
 	matchEnhancedCnt = 0;
@@ -50,7 +50,7 @@ bool MVSR::run(vector<string>& pathlist, vector< vector<double> >& caliblist,
 			string outdir, string mainname)
 {
 	if( !detector || !descriptor || !matcher ) {
-		TagE("No valid detector or descriptor or matcher\n");
+		ctage("No valid detector or descriptor or matcher\n");
 		return false;
 	}
 
@@ -83,16 +83,16 @@ bool MVSR::loadimage(vector<string>& pathlist,
 		pic.path = name;
 		pic.img = imread(name);
 		if(pic.img.empty()) {
-			TagI("can't open %s\n", name.c_str());
+			ctage("can't open %s\n", name.c_str());
 			continue;
 		} else {
-			TagI("opened %s\n", name.c_str());
+			ctagi("opened %s\n", name.c_str());
 		}
 		cvtColor(pic.img, pic.grey, CV_RGB2GRAY);
 		++im;
 	}
 	pictures.resize(im);
-	TagI("opened images/total images = %d/%d\n", im, nimg);
+	ctagi("opened images/total images = %d/%d\n", im, nimg);
 	return im==0?false:true;
 }
 
@@ -108,7 +108,7 @@ bool MVSR::detect()
 		std::fill(pic.k2o.begin(), pic.k2o.end(), -1);
 	}
 	tt = (double)getTickCount() - tt;
-	TagI("detect+describe time = %lf s\n", tt/getTickFrequency());
+	ctagi("detect+describe time = %lf s\n", tt/getTickFrequency());
 	return true;
 }
 
@@ -116,11 +116,11 @@ bool MVSR::pairwise()
 {
 	double tt = (double)getTickCount();
 	if(pictures.size()<=1) {
-		TagE("need at least 2 images!");
+		ctage("need at least 2 images!");
 		return false;
 	}
 
-	TagI("begin {\n");
+	ctagi("begin {\n");
 	//init pairwiseInfo
 	int N = (int)pictures.size();
 	this->pwinfo.resize( (N-2)*(N-1)/2+N-1 );
@@ -133,8 +133,8 @@ bool MVSR::pairwise()
 		}
 	}
 	tt = (double)getTickCount() - tt;
-	TagI("end} time = %lf s\n", tt/getTickFrequency());
-	TagI("misMatchCnt/matchEnhancedCnt=%d/%d=%lf\n",
+	ctagi("end} time = %lf s\n", tt/getTickFrequency());
+	ctagi("misMatchCnt/matchEnhancedCnt=%d/%d=%lf\n",
 		misMatchCnt, matchEnhancedCnt,
 		(double)misMatchCnt/matchEnhancedCnt);
 	return true;
@@ -155,7 +155,7 @@ void MVSR::match(int imgi, int imgj)
 
 	//pici as query, picj as train
 	matcher->match(pici.des, picj.des, ijinfo.matches);
-	TagD("pic%d.key.size=%d,pic%d.key.size=%d,matches.size=%d\n",
+	ctagi("pic%d.key.size=%d,pic%d.key.size=%d,matches.size=%d\n",
 			imgi, (int)pici.key.size(),
 			imgj, (int)picj.key.size(),
 			(int)ijinfo.matches.size());
@@ -185,7 +185,7 @@ void MVSR::match(int imgi, int imgj)
 		ijinfo.Frms += (float)tmp*tmp;
 
 		const DMatch& m = ijinfo.matches[k];
-		TagD("addpair: (img%d, key%d)<->(img%d, key%d)\n",
+		ctagi("addpair: (img%d, key%d)<->(img%d, key%d)\n",
 				imgi, m.queryIdx, imgj, m.trainIdx);
 		addmatchpair(imgi, m.queryIdx, imgj, m.trainIdx, m.distance);
 	}
@@ -208,10 +208,10 @@ void MVSR::linkimgobj(int objIdx, int imgi, int keyi, float dist)
 				pictures[imgi].k2o[existkey] = -1;
 				obj.obs[i].keyj = keyi;
 				obj.obs[i].dist = dist;
-				TagD("modify obj%d-<img%d,key%d> to key%d\n",
+				ctagi("modify obj%d-<img%d,key%d> to key%d\n",
 						objIdx,imgi,existkey,keyi);
 			} else {
-				TagD("match no strong enough, ignore...\n");
+				ctagi("match no strong enough, ignore...\n");
 			}
 			return;
 		}
@@ -245,13 +245,13 @@ void MVSR::addmatchpair(int imgi, int keyi, int imgj, int keyj, float dist)
 		if(oiIdx!=ojIdx) {
 			//temporary ignor, TODO : fix mismatch by dist
 			++misMatchCnt;
-			LogD("%d : mismatch may exist: "
+			ctagi("%d : mismatch may exist: "
 					"(img%d, key%d)<->(img%d, key%d), ignore!\n",
 				misMatchCnt, imgi, keyi, imgj, keyj);
 		} else {
 			enhanceLink(oiIdx, dist);
 			++matchEnhancedCnt;
-			LogD("%d : (img%d, key%d)<->(img%d, key%d) enhanced!\n",
+			ctagi("%d : (img%d, key%d)<->(img%d, key%d) enhanced!\n",
 				matchEnhancedCnt, imgi, keyi, imgj, keyj);
 		}
 	}
@@ -268,7 +268,7 @@ bool MVSR::initbest()
 {
 	float min1=DBL_MAX,min2=DBL_MAX;
 	//TODO remove i2,j2
-	int i1,i2,j1,j2;
+	int i1=-1,i2=-1,j1=-1,j2=-1;
 	for(int i=0; i<(int)pictures.size(); ++i) {
 		for(int j=i+1; j<(int)pictures.size(); ++j) {
 			const PairwiseInfo& info = this->getPairwiseInfo(i,j);
@@ -290,11 +290,11 @@ bool MVSR::initbest()
 			}
 		}
 	}
-	TagI("<%d,%d> has min Frms=%lf\n",i1,j1,min1);
-	TagI("<%d,%d> has second min Frms=%lf\n",i2,j2,min2);
+	ctagi("<%d,%d> has min Frms=%lf\n",i1,j1,min1);
+	ctagi("<%d,%d> has second min Frms=%lf\n",i2,j2,min2);
 
 	// set R of pic i1 as I
-	helper::identity(3,pictures[i1].R);
+	CvMatHelper::identity(3,pictures[i1].R);
 	// set R of other pic
 	for(int i=0; i<i1; ++i) {
 		PairwiseInfo& info = this->getPairwiseInfo(i,i1);
@@ -331,18 +331,18 @@ bool MVSR::initbest()
 		double u,v;
 		helper::project(Pi,X[0],X[1],X[2], u,v);
 		double du1=u-pi.x, dv1=v-pi.y;
-		LogD(">P1\t%lf\t%lf\n",du1,dv1);
+		ctagi(">P1\t%lf\t%lf\n",du1,dv1);
 		helper::project(Pj,X[0],X[1],X[2], u,v);
 		double du2=u-pj.x, dv2=v-pj.y;
-		LogD(">P2\t%lf\t%lf\n",du2,dv2);
+		ctagi(">P2\t%lf\t%lf\n",du2,dv2);
 		maxu1 = std::max(maxu1,du1); minu1 = std::min(minu1,du1);
 		maxv1 = std::max(maxv1,dv1); minv1 = std::min(minv1,dv1);
 		maxu2 = std::max(maxu2,du2); minu2 = std::min(minu2,du2);
 		maxv2 = std::max(maxv2,dv2); minv2 = std::min(minv2,dv2);
 	}
-	TagI("reproject error for img1 = (%g ~ %g, %g ~ %g)\n",
+	ctagi("reproject error for img1 = (%g ~ %g, %g ~ %g)\n",
 		minu1, maxu1, minv1, maxv1);
-	TagI("reproject error for img2 = (%g ~ %g, %g ~ %g)\n",
+	ctagi("reproject error for img2 = (%g ~ %g, %g ~ %g)\n",
 		minu2, maxu2, minv2, maxv2);
 
 	return true;
@@ -499,7 +499,7 @@ void MVSR::estimateRelativePose(int imgi, int imgj)
 			ijinfo.tj[1] = -u3[1];
 			ijinfo.tj[2] = -u3[2];
 		} else {
-			TagE("no case was found!\n");
+			ctage("no case was found!\n");
 			return;
 		}
 	}

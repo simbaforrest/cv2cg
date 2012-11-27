@@ -152,6 +152,7 @@ public:
 		TemplateData& td = tdata.back();
 		//load template
 		td.img = imread(templatename, 0);
+		if(td.img.empty()) tagle<<"load template image fail: "<<templatename;
 		td.crns.push_back(Point2f(0,0));
 		td.crns.push_back(Point2f(td.img.cols,0));
 		td.crns.push_back(Point2f(td.img.cols,td.img.rows));

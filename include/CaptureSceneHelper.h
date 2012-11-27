@@ -83,7 +83,7 @@ struct CaptureCallBack : public osg::Camera::DrawCallback
 
 		keyframes.push_back(kf);
 
-		loglni("[CaptureCallBack] Screenshot #"<<(int)keyframes.size());
+		logli<<"[CaptureCallBack] Screenshot #"<<(int)keyframes.size();
 		if(isManual) doCapture = false;
 	}
 
@@ -104,10 +104,10 @@ struct CaptureCallBack : public osg::Camera::DrawCallback
 		std::ofstream mainout((dir+header+".main").c_str());
 		mainout << "CAMERAFRUSTUM " << keyframes.size() << " 1"<< std::endl;
 		mainout << dir << std::endl;
-		loglni("[CaptureCallBack] saving keyframes...");
+		logli<<"[CaptureCallBack] saving keyframes...";
 		for(int i=0; i<(int) keyframes.size(); ++i) {
 			KeyFrame& kf = keyframes[i];
-			std::string strid = helper::num2str(i);
+			std::string strid = helper::num2str(i,5);
 			std::string imgname = header + strid + std::string(".png");
 			std::string parname = header + strid + std::string(".par");
 			osgDB::writeImageFile(*(kf.img), dir+imgname);
@@ -116,10 +116,10 @@ struct CaptureCallBack : public osg::Camera::DrawCallback
 			out.close();
 			mainout << imgname << std::endl;
 			mainout << parname << std::endl;
-			loglni(">>> "<<imgname);
-			loglni(">>> "<<parname);
+			logli<<">>> "<<imgname;
+			logli<<">>> "<<parname;
 		}
-		loglni("[CaptureCallBack] all keyframes saved.");
+		logli<<"[CaptureCallBack] all keyframes saved.";
 		mainout.close();
 		return true;
 	}
@@ -167,10 +167,10 @@ struct CaptureHandler : public osgGA::GUIEventHandler
 	}
 
 	inline void printHelp() {
-		loglni("\nUsage(CaptureHandler):\n"
+		std::cout<<"\nUsage(CaptureHandler):\n"
 			"\tPress "<<(char)manCapKey<<" : take pictures manually\n"
 			"\tPress "<<(char)autoCapKey<<" : take pictures automatically\n"
-			"\tPress h : print help information to console");
+			"\tPress h : print help information to console"<<std::endl;
 	}
 };
 

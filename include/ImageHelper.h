@@ -240,6 +240,7 @@ public:
 		PM.scale = 1000;
 		double lastdur = 0;
 		double idealdur = 1000.0/idealfps;
+		bool step=false;
 		while(!this->done()) {
 			PM.tic();
 			cv::Mat frame;
@@ -250,12 +251,19 @@ public:
 
 			lastdur = PM.toc();
 			if(verbose) cout<<"[run] process duration = "<<lastdur<<endl;
+			if(step) { step=false; pause(true); }
 			double waitdur = openFromWebcam?8:std::max(idealdur-lastdur, 8.0);
 			char key = cv::waitKey(waitdur);
 			processor.handle(key);
 			switch(key) {
 			case 'v':
 				verbose = !verbose; break;
+			case 's':
+				if(!step) {
+					step=true;
+					pause(false);
+				}
+				break;
 			case 'p':
 				pause(!isPause); if(verbose) cout<<"pause="<<isPause<<endl;
 				break;
@@ -269,6 +277,15 @@ public:
 			case '-':
 				--idealfps; if(idealfps<=0) idealfps=1;
 				idealdur = 1000/idealfps;
+				break;
+			case 'h':
+				cout<<"v: verbose\n"
+					"s: step one frame forward\n"
+					"p: pause\n"
+					"l: loop\n"
+					"=: increase fps\n"
+					"-: decrease fps\n"
+					"h: display help information"<<endl;
 				break;
 			case 27:
 			case 'q':
@@ -420,13 +437,14 @@ public:
 \brief image source from set of images
 */
 struct ImageSource_Photo : public ImageSource {
-private:
+protected:
 	vector<string> imnames;
 	cv::Mat current;
 
 	int curF; //0-based index
 public:
-	ImageSource_Photo(string content) {
+	ImageSource_Photo(string content, bool skip=false) {
+		if(skip) return;
 		cout<<"[ImageSource_Photo] open images from: "<<content<<endl;
 #ifdef _WIN32
 		string cmd = string("dir /B ")+content;
@@ -503,12 +521,48 @@ public:
 };
 
 /**
+\class ImageSource_List
+\brief image source from set of images
+*/
+struct ImageSource_List : public ImageSource_Photo {
+public:
+	ImageSource_List(string content) : ImageSource_Photo("", true) {
+		cout<<"[ImageSource_List] open images from: "<<content<<endl;
+		std::ifstream is(content.c_str());
+		if(!is.is_open()) {
+			cout<<"[ImageSource_List error] can't open file: "<<content<<endl;
+			exit(-1);
+		}
+		std::string line;
+		while( IOHelper::readValidLine(is, line) ) {
+			imnames.push_back(line);
+			cout<<imnames.back()<<endl;
+		}
+		is.close();
+
+		this->loop(true);
+		if(imnames.size()<10) {
+			this->pause(true);
+		} else {
+			this->pause(false);
+		}
+		curF = -1;
+		next();
+	}
+
+	inline string classname() {
+		return "ImageSource_List";
+	}
+};
+
+/**
 helper function for create an ImageSource from url
 url format example:
 video:///home/simbaforrest/Videos/Webcam/keg_april.ogv
 camera://0
 photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img00000.jpg
 photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img*.jpg
+list:///home/simbaforrest/Videos/Webcam/seq_UMshort/list.txt
 
 @param url url for image source
 @return created ImageSource
@@ -527,6 +581,8 @@ inline ImageSource* createImageSource(string url) {
 		return new ImageSource_Camera(content);
 	} else if(header=="photo") {
 		return new ImageSource_Photo(content);
+	} else if(header=="list") {
+		return new ImageSource_List(content);
 	} else {
 		cout<<"[ImageSource error] unknown url header: "<<header<<endl;
 	}

@@ -437,7 +437,7 @@ inline osg::ref_ptr<osg::Node> create_CAMERAFRUSTUM(std::istream& in,
 		readValidLine(in, parpath);
 		img = osgDB::readImageFile(dir+imgpath);
 		if(!img.valid()) {
-			loglni("[create_CAMERAFRUSTUM warn] skip invalid image.");
+			logli<<"[create_CAMERAFRUSTUM warn] skip invalid image.";
 			continue;
 		}
 

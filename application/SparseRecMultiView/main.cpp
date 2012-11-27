@@ -29,10 +29,9 @@
 
 using namespace std;
 
-Log::Level Log::level = Log::LOG_INFO;
-
 int main(int argc, char** argv)
 {
+	LogHelper::GLogControl::Instance().level=LogHelper::LOG_INFO;
 	if(argc<2) {
 		std::cout<<
 			"Usage: MultiViewSparseRec <input file>\n"
@@ -47,17 +46,17 @@ int main(int argc, char** argv)
 	string outdir, mainname;
 
 	if( !helper::readValidLine(in,outdir) ) {
-		TagE("input file invalid! exit...");
+		ctage("input file invalid! exit...");
 		return -1;
 	} else {
-		TagI("outdir=%s\n",outdir.c_str());
+		ctagi("outdir=%s\n",outdir.c_str());
 	}
 
 	if( !helper::readValidLine(in,mainname) ) {
-		TagE("input file invalid! exit...");
+		ctage("input file invalid! exit...");
 		return -1;
 	} else {
-		TagI("mainname=%s\n",mainname.c_str());
+		ctagi("mainname=%s\n",mainname.c_str());
 	}
 
 	std::string line;

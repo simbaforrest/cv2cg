@@ -343,7 +343,7 @@ Group {
             rendering_hint OPAQUE_BIN
             renderBinMode INHERIT
             GL_CULL_FACE OFF
-            GL_LIGHTING ON
+            GL_LIGHTING OFF
             Material {
               DataVariance STATIC
               ColorMode OFF
@@ -359,7 +359,7 @@ Group {
               GL_TEXTURE_2D ON
               Texture2D {
                 DataVariance STATIC
-                file "Images/reflect.rgb"
+                file "reflect.rgb"
                 wrap_s REPEAT
                 wrap_t REPEAT
                 wrap_r REPEAT
