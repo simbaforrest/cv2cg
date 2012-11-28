@@ -86,6 +86,15 @@ std::string num2str(TYPE num, const int width=0, const char fill='0')
 	return oss.str();
 }
 
+//make sure INT64 has 64bits, i.e. sizeof(INT64)=8
+#ifdef _WIN32
+typedef __int64 INT64;
+typedef unsigned __int64 UINT64;
+#else
+typedef int64_t INT64;
+typedef uint64_t UINT64;
+#endif
+
 /** Compute the hamming distance between two INT64s. **/
 template<typename T>
 int hammingDistance(T a, T b)
@@ -100,6 +109,9 @@ int popcount(T a)
 	std::bitset<sizeof(T)*8> bita( (UINT64)a );
 	return bita.count();
 }
+
+#undef UINT64
+#undef INT64
 
 //bits of val, e.g. "10" for val=2
 template<typename T>
