@@ -66,15 +66,15 @@ namespace tag
 {
 
 struct TagFamilyFactory {
-	enum SUPPORT_TYPE {TAG16H5, TAG25H7, TAG25H9, TAG36H9, TAG36H11, TAGTOTAL};
+	enum SUPPORT_TYPE {TAG16H5=0, TAG25H7=1, TAG25H9=2, TAG36H9=3, TAG36H11=4, TAGTOTAL};
 	static const std::string SUPPORT_NAME[];
 
 	inline static Ptr<TagFamily> create(unsigned int type) {
 		Ptr<TagFamily> ret;
-		vector<INT64> codes;
+		vector<UINT64> codes;
 		switch(type) {
 #define MacroCreate(d,m) \
-	codes.insert(codes.begin(), codes##d##h##m, codes##d##h##m+sizeof(codes##d##h##m)/sizeof(INT64)); \
+	codes.insert(codes.begin(), codes##d##h##m, codes##d##h##m+sizeof(codes##d##h##m)/sizeof(UINT64)); \
 	ret = new TagFamily(d,m,codes)
 		case TAG16H5:
 			MacroCreate(16,5);
@@ -95,6 +95,7 @@ struct TagFamilyFactory {
 			std::cerr<<"[TagFamily error] Unknown type!"<<std::endl;
 #undef MacroCreate
 		}
+
 		return ret;
 	}
 };

@@ -67,7 +67,7 @@
 
 using namespace cv;
 using namespace std;
-using april::tag::INT64;
+using april::tag::UINT64;
 using april::tag::TagFamily;
 using april::tag::TagFamilyFactory;
 using april::tag::TagDetector;

@@ -234,7 +234,7 @@ struct TagDetector {
 	 * be small enough to fit in an integer. This implementation is
 	 * stable.
 	 **/
-	static void countingSortLongArray(vector<INT64>& v, int vlength, int maxv, INT64 mask) {
+	static void countingSortLongArray(vector<UINT64>& v, int vlength, int maxv, UINT64 mask) {
 		if (maxv < 0) {
 			for (int i = 0; i < vlength; i++) {
 				maxv = std::max(maxv, (int) (v[i]&mask));
@@ -259,7 +259,7 @@ struct TagDetector {
 			counts[i] += counts[i-1];
 		}
 
-		vector<INT64> newv(vlength, 0);
+		vector<UINT64> newv(vlength, 0);
 		for (int i = 0; i < vlength; i++) {
 			int w = (int) (v[i]&mask);
 			newv[counts[w]] = v[i];
@@ -373,13 +373,13 @@ struct TagDetector {
 			int width = fimseg.cols;
 			int height = fimseg.rows;
 
-			vector<INT64> edges(width*height*4, 0);
+			vector<UINT64> edges(width*height*4, 0);
 			int nedges = 0;
 
 			// for efficiency, each edge is encoded as a single
 			// long. The constants below are used to pack/unpack the
 			// long.
-			INT64 IDA_SHIFT = 40, IDB_SHIFT = 16, INDEX_MASK = (((INT64)1)<<24) - 1, WEIGHT_MASK=(((INT64)1)<<16)-1;
+			UINT64 IDA_SHIFT = 40, IDB_SHIFT = 16, INDEX_MASK = (((UINT64)1)<<24) - 1, WEIGHT_MASK=(((UINT64)1)<<16)-1;
 
 			// bounds on the thetas assigned to this group. Note that
 			// because theta is periodic, these are defined such that the
@@ -408,22 +408,22 @@ struct TagDetector {
 
 					edgecost = edgeCost(theta0, mag0, fimTheta.at<float>(y,x+1), fimMag.at<float>(y,x+1));
 					if (edgecost >= 0) {
-						edges[nedges++] = (((INT64) y*width+x)<<IDA_SHIFT) + (((INT64) y*width+x+1)<<IDB_SHIFT) + edgecost;
+						edges[nedges++] = (((UINT64) y*width+x)<<IDA_SHIFT) + (((UINT64) y*width+x+1)<<IDB_SHIFT) + edgecost;
 					}
 
 					edgecost = edgeCost(theta0, mag0, fimTheta.at<float>(y+1,x), fimMag.at<float>(y+1,x));
 					if (edgecost >= 0) {
-						edges[nedges++] = (((INT64) y*width+x)<<IDA_SHIFT) + (((INT64) (y+1)*width+x)<<IDB_SHIFT) + edgecost;
+						edges[nedges++] = (((UINT64) y*width+x)<<IDA_SHIFT) + (((UINT64) (y+1)*width+x)<<IDB_SHIFT) + edgecost;
 					}
 
 					edgecost = edgeCost(theta0, mag0, fimTheta.at<float>(y+1,x+1), fimMag.at<float>(y+1,x+1));
 					if (edgecost >= 0) {
-						edges[nedges++] = (((INT64) y*width+x)<<IDA_SHIFT) + (((INT64) (y+1)*width+x+1)<<IDB_SHIFT) + edgecost;
+						edges[nedges++] = (((UINT64) y*width+x)<<IDA_SHIFT) + (((UINT64) (y+1)*width+x+1)<<IDB_SHIFT) + edgecost;
 					}
 
 					edgecost = (x == 0) ? -1 : edgeCost(theta0, mag0, fimTheta.at<float>(y+1,x-1), fimMag.at<float>(y+1,x-1));
 					if (edgecost >= 0) {
-						edges[nedges++] = (((INT64) y*width+x)<<IDA_SHIFT) + (((INT64) (y+1)*width+x-1)<<IDB_SHIFT) + edgecost;
+						edges[nedges++] = (((UINT64) y*width+x)<<IDA_SHIFT) + (((UINT64) (y+1)*width+x-1)<<IDB_SHIFT) + edgecost;
 					}
 
 					// XXX Would 8 connectivity help for rotated tags?
@@ -738,7 +738,7 @@ struct TagDetector {
 			}
 
 			bool bad = false;
-			INT64 tagCode = 0;
+			UINT64 tagCode = 0;
 
 			// Try reading off the bits.
 			// XXX: todo: multiple samples within each cell and vote?
