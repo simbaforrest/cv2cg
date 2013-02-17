@@ -101,11 +101,11 @@ struct TagFamily {
 	int errorRecoveryBits;
 
 	/** The array of the codes. The id for a code is its index. **/
-	const vector<INT64> codes;
+	const vector<UINT64> codes;
 
 	/** The codes array is not copied internally and so must not be
 	 * modified externally. **/
-	TagFamily(int bits_, int minimumHammingDistance_, vector<INT64> codes_):
+	TagFamily(int bits_, int minimumHammingDistance_, vector<UINT64> codes_):
 		whiteBorder(1), blackBorder(1), errorRecoveryBits(1),
 		bits(bits_), d((int)sqrt((float)bits)), codes(codes_),
 		minimumHammingDistance(minimumHammingDistance_) {
@@ -128,8 +128,8 @@ struct TagFamily {
 	 *  5 4 3  ==>  1 4 7 ==>  3 4 5    (rotate90 applied twice)
 	 *  2 1 0       0 3 6      6 7 8
 	 **/
-	static INT64 rotate90(INT64 w, int dd) {
-		INT64 wr = 0;
+	static UINT64 rotate90(UINT64 w, int dd) {
+		UINT64 wr = 0;
 
 		for (int r = dd-1; r >=0; r--) {
 			for (int c = 0; c < dd; c++) {
@@ -137,7 +137,9 @@ struct TagFamily {
 
 				wr = wr << 1;
 
-				if ((w & (1L << b))!=0) {
+				//make sure to use ((UINT64)1) instead of 1 to ensure compatibility
+				//see line 218 below
+				if ((w & (((UINT64)1) << b))!=0) {
 					wr |= 1;
 				}
 
@@ -149,13 +151,13 @@ struct TagFamily {
 	/** Given an observed tag with code 'rcode', try to recover the
 	 * id. The corresponding fields of TagDetection will be filled
 	 * in. **/
-	void decode(TagDetection& det, INT64 rcode) {
+	void decode(TagDetection& det, UINT64 rcode) {
 		int  bestid = -1;
 		int  besthamming = INT_MAX;
 		int  bestrotation = 0;
-		INT64 bestcode = 0;
+		UINT64 bestcode = 0;
 
-		vector<INT64> rcodes(4);
+		vector<UINT64> rcodes(4);
 
 		rcodes[0] = rcode;
 		rcodes[1] = rotate90(rcodes[0], d);
@@ -189,7 +191,7 @@ struct TagFamily {
 	}
 
 	cv::Mat makeImage(int id) {
-		INT64 v = codes[id];
+		UINT64 v = codes[id];
 
 		int width = getTagRenderDimension();
 		int height = width;
@@ -212,9 +214,12 @@ struct TagFamily {
 		}
 
 		// Now, draw the payload.
+		//see MSDN, Microsoft use LL, ll, or i64 to define const integer
+		//so instead of (1L<<(bits-1)), use following to ensure compatibility
+		const UINT64 mask = ((UINT64)1)<<(bits-1);
 		for (int y = 0; y < d; y++) {
 			for (int x = 0; x < d; x++) {
-				if ((v&(1L<<(bits-1)))!=0) {
+				if ((v&mask)!=0) {
 					cv::Vec3b &pix = im.at<cv::Vec3b>(y + whiteBorder + blackBorder,x + whiteBorder + blackBorder);
 					pix[0]=pix[1]=pix[2]=255;
 				} else {
@@ -271,10 +276,10 @@ struct TagFamily {
 		vector<int> hammings(d*d+1);
 
 		for (int i = 0; i < (int)codes.size(); i++) {
-			INT64 r0 = codes[i];
-			INT64 r1 = rotate90(r0, d);
-			INT64 r2 = rotate90(r1, d);
-			INT64 r3 = rotate90(r2, d);
+			UINT64 r0 = codes[i];
+			UINT64 r1 = rotate90(r0, d);
+			UINT64 r2 = rotate90(r1, d);
+			UINT64 r3 = rotate90(r2, d);
 
 			for (int j = i+1; j < (int)codes.size(); j++) {
 
@@ -334,7 +339,7 @@ struct TagFamily {
 			std::string imgdata = "";
 
 			for (int y = 0; y < height; y++) {
-				INT64 v = 0;
+				UINT64 v = 0;
 				int vlen = 0;
 
 				for (int x = 0; x < width; x++) {
