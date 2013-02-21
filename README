@@ -1,0 +1,20 @@
+				cv2cg mini-version for apriltag
+A lightweight library for computer vision and computer graphics interactions.
+
+1. Download Source
+	hg clone https://cv2cg.googlecode.com/hg/ cv2cg
+
+2. Compile
+
+	2.1 Install Dependency Libraries and Tools
+		OpenCV >=2.2
+		CMake >=2.8
+		
+	2.2 Make a directory named "build" inside cv2cg main directory.
+	
+	2.3 CMake it!
+	
+	2.4 Enjoy compiling it!
+	
+3. Usage
+	TODO

@@ -1,0 +1,4 @@
+
+ADD_SUBDIRECTORY(AprilTagFinder)
+ADD_SUBDIRECTORY(AprilTagCreator)
+

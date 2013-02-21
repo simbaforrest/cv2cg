@@ -1,0 +1,4 @@
+syntax: regexp
+.*/.(?!cpp$|h$|hpp$|c$)
+.*/ESMlibry.h
+./build/*
