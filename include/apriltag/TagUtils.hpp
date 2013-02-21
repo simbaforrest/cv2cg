@@ -213,6 +213,38 @@ struct Segment {
 	}
 };
 
+/** For a set of 2D points, compute a 3x3 transform that
+ * will make the points have mean zero and unit variance.
+ **/
+struct Normalize2D {
+    double mX, mY, mXX, mYY;
+    int N;
+
+    void add(double x, double y)
+    {
+        mX += x;
+        mXX += x*x;
+        mY += y;
+        mYY += y*y;
+        N++;
+    }
+
+    void getTransform(double T[3][3])
+    {
+        double eX = mX / N;
+        double eY = mY / N;
+        double stddevX = 1; //Math.sqrt(mXX / N + eX*eX);
+        double stddevY = 1; //Math.sqrt(mYY / N + eY*eY);
+
+        double scaleX = 1.0 / stddevX;
+        double scaleY = 1.0 / stddevY;
+
+        T[0][0]=scaleX; T[0][1]=0; T[0][2]=-eX*scaleX;
+		T[1][0]=0; T[1][1]=scaleY; T[1][2]=-eY*scaleY;
+		T[2][0]=0; T[2][1]=0; T[2][2]=1;
+    }
+};
+
 /** Compute 3x3 homography using Direct Linear Transform
 
     y = Hx (y = image coordinates in homogeneous coordinates, H = 3x3
