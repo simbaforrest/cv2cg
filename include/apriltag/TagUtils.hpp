@@ -213,6 +213,53 @@ struct Segment {
 	}
 };
 
+/** For a set of 2D points, compute a 3x3 transform that
+ * will make the points have mean zero and unit variance.
+ **/
+struct Normalize2D {
+    double mX, mY, mXX, mYY;
+    int N;
+
+    inline void add(double x, double y)
+    {
+        mX += x;
+        mXX += x*x;
+        mY += y;
+        mYY += y*y;
+        N++;
+    }
+
+    inline void getTransform(double T[3][3])
+    {
+        double eX = mX / N;
+        double eY = mY / N;
+        double stddevX = 1; //Math.sqrt(mXX / N + eX*eX);
+        double stddevY = 1; //Math.sqrt(mYY / N + eY*eY);
+
+        double scaleX = 1.0 / stddevX;
+        double scaleY = 1.0 / stddevY;
+
+        T[0][0]=scaleX; T[0][1]=0; T[0][2]=-eX*scaleX;
+		T[1][0]=0; T[1][1]=scaleY; T[1][2]=-eY*scaleY;
+		T[2][0]=0; T[2][1]=0; T[2][2]=1;
+    }
+	
+	inline void getInverseTransform(double T[3][3])
+	{
+		double eX = mX / N;
+        double eY = mY / N;
+        double stddevX = 1; //Math.sqrt(mXX / N + eX*eX);
+        double stddevY = 1; //Math.sqrt(mYY / N + eY*eY);
+
+        double scaleX = stddevX;
+        double scaleY = stddevY;
+
+        T[0][0]=scaleX; T[0][1]=0; T[0][2]=eX;
+		T[1][0]=0; T[1][1]=scaleY; T[1][2]=eY;
+		T[2][0]=0; T[2][1]=0; T[2][2]=1;
+	}
+};
+
 /** Compute 3x3 homography using Direct Linear Transform
 
     y = Hx (y = image coordinates in homogeneous coordinates, H = 3x3
@@ -231,6 +278,9 @@ struct Segment {
     We will actually maintain A'A internally, which is 9x9 regardless
     of how many correspondences we're given, and has the same
     eigenvectors as A.
+	
+	//simbaforrest
+	this Homography33 class does not implement correspondence point's normalization
 **/
 struct Homography33 {
 	double A[9][9];
@@ -410,6 +460,179 @@ struct Homography33 {
 	}
 };//end of Homography33
 
+struct Homography33b
+{
+    double A[9][9];
+    double H[3][3]; // homography, once computed.
+	bool computed;
+
+    // worldx, worldy, imagex, imagey
+	std::vector<cv::Vec4d> correspondences;
+
+    Normalize2D normWorld;
+    Normalize2D normImage;
+
+    Homography33b() : computed(false) {
+		helper::zeros(9,9,A[0]);
+		helper::zeros(3,3,H[0]);
+	}
+	
+	inline void reset() {
+		helper::zeros(9,9,A[0]);
+		helper::zeros(3,3,H[0]);
+		computed = false;
+	}
+
+    inline void getH(double h[3][3]) {
+		compute();
+		std::copy((double*)H[0], (double*)H[0]+9, (double*)h[0]);
+	}
+
+    inline void addCorrespondence(double worldx, double worldy, double imagex, double imagey)
+    {
+        correspondences.push_back(cv::Vec4d(worldx, worldy, imagex, imagey));
+        normWorld.add(worldx, worldy);
+        normImage.add(imagex, imagey);
+        computed=false;
+    }
+
+    inline void compute()
+    {
+        if (computed) // already computed?
+            return;
+
+		//make sure last row is [0 0 1]
+        double normWorldT[3][3];
+		normWorld.getTransform(normWorldT);
+        double normImageT[3][3];
+		normImage.getTransform(normImageT);
+		double iNormImageT[3][3];
+		normImage.getInverseTransform(iNormImageT);
+
+        // Would it be better to compute the Nx9 matrix and compute
+        // the economy SVD of that? We'd have a smaller condition
+        // number, but a slower SVD.
+        for (int i=0; i<(int)correspondences.size(); ++i) {
+			const cv::Vec4d& corr=correspondences[i];
+
+			//assume last row is [0 0 1] in normWorldT and normImageT
+            double worldx = corr[0]*normWorldT[0][0]+normWorldT[0][2];
+            double worldy = corr[1]*normWorldT[1][1]+normWorldT[1][2];
+            double imagex = corr[2]*normImageT[0][0]+normImageT[0][2];
+            double imagey = corr[3]*normImageT[1][1]+normImageT[1][2];
+
+            // only update upper-right. A'A is symmetric, we'll finish the lower left later.
+            double a03 = -worldx;
+            double a04 = -worldy;
+            double a05 = -1;
+            double a06 = worldx*imagey;
+            double a07 = worldy*imagey;
+            double a08 = imagey;
+
+            A[3][3] += a03*a03;
+            A[3][4] += a03*a04;
+            A[3][5] += a03*a05;
+            A[3][6] += a03*a06;
+            A[3][7] += a03*a07;
+            A[3][8] += a03*a08;
+            A[4][4] += a04*a04;
+            A[4][5] += a04*a05;
+            A[4][6] += a04*a06;
+            A[4][7] += a04*a07;
+            A[4][8] += a04*a08;
+            A[5][5] += a05*a05;
+            A[5][6] += a05*a06;
+            A[5][7] += a05*a07;
+            A[5][8] += a05*a08;
+            A[6][6] += a06*a06;
+            A[6][7] += a06*a07;
+            A[6][8] += a06*a08;
+            A[7][7] += a07*a07;
+            A[7][8] += a07*a08;
+            A[8][8] += a08*a08;
+
+            double a10 = worldx;
+            double a11 = worldy;
+            double a12 = 1;
+            double a16 = -worldx*imagex;
+            double a17 = -worldy*imagex;
+            double a18 = -imagex;
+
+            A[0][0] += a10*a10;
+            A[0][1] += a10*a11;
+            A[0][2] += a10*a12;
+            A[0][6] += a10*a16;
+            A[0][7] += a10*a17;
+            A[0][8] += a10*a18;
+            A[1][1] += a11*a11;
+            A[1][2] += a11*a12;
+            A[1][6] += a11*a16;
+            A[1][7] += a11*a17;
+            A[1][8] += a11*a18;
+            A[2][2] += a12*a12;
+            A[2][6] += a12*a16;
+            A[2][7] += a12*a17;
+            A[2][8] += a12*a18;
+            A[6][6] += a16*a16;
+            A[6][7] += a16*a17;
+            A[6][8] += a16*a18;
+            A[7][7] += a17*a17;
+            A[7][8] += a17*a18;
+            A[8][8] += a18*a18;
+
+            double a20 = -worldx*imagey;
+            double a21 = -worldy*imagey;
+            double a22 = -imagey;
+            double a23 = worldx*imagex;
+            double a24 = worldy*imagex;
+            double a25 = imagex;
+
+            A[0][0] += a20*a20;
+            A[0][1] += a20*a21;
+            A[0][2] += a20*a22;
+            A[0][3] += a20*a23;
+            A[0][4] += a20*a24;
+            A[0][5] += a20*a25;
+            A[1][1] += a21*a21;
+            A[1][2] += a21*a22;
+            A[1][3] += a21*a23;
+            A[1][4] += a21*a24;
+            A[1][5] += a21*a25;
+            A[2][2] += a22*a22;
+            A[2][3] += a22*a23;
+            A[2][4] += a22*a24;
+            A[2][5] += a22*a25;
+            A[3][3] += a23*a23;
+            A[3][4] += a23*a24;
+            A[3][5] += a23*a25;
+            A[4][4] += a24*a24;
+            A[4][5] += a24*a25;
+            A[5][5] += a25*a25;
+        }
+
+        // make symmetric
+		for (int i = 0; i < 9; ++i)
+			for (int j = i+1; j < 9; ++j) {
+				A[j][i] = A[i][j];
+			}
+
+		helper::nullvector(9,9,A[0],H[0]);
+		double tmp[3][3];
+		helper::mul(3,3,3,3,iNormImageT[0],H[0],tmp[0]);
+		helper::mul(3,3,3,3,tmp[0],normWorldT[0],H[0]);
+		computed = true;
+    }
+
+    void project(double worldx, double worldy, double& ix, double& iy)
+    {
+        compute();
+
+		double zi = 1.0/(H[2][0]*worldx + H[2][1]*worldy + H[2][2]);
+        ix = (H[0][0]*worldx + H[0][1]*worldy + H[0][2])*zi;
+        iy = (H[1][0]*worldx + H[1][1]*worldy + H[1][2])*zi;        
+    }
+};//end of Homography33b
+
 /** Represents four segments that form a loop, and might be a tag. **/
 struct Quad {
 	// points for the quad (in pixel coordinates), in counter
@@ -430,14 +653,14 @@ struct Quad {
 	// point within that quad. Note that for most of the Quad's
 	// existence, we will not know the correct orientation of the
 	// tag.
-	Homography33 homography;
+	Homography33b homography;
 
 	Quad() {}
 
 	/** (x,y) are the optical center of the camera, which is
 	 * needed to correctly compute the homography.
 	 **/
-	Quad(double p[4][2], double cx, double cy) : homography(cx,cy) {
+	Quad(double p[4][2]) {
 		std::copy((double*)p[0], (double*)p[0]+8, (double*)this->p[0]);
 
 		homography.addCorrespondence(-1, -1, p[0][0], p[0][1]);
@@ -446,9 +669,9 @@ struct Quad {
 		homography.addCorrespondence(-1,  1, p[3][0], p[3][1]);
 	}
 
-	inline void reset(double p[4][2], double cx, double cy) {
+	inline void reset(double p[4][2]) {
 		std::copy(p[0], p[0]+8, this->p[0]);
-		homography.reset(cx,cy);
+		homography.reset();
 		homography.addCorrespondence(-1, -1, p[0][0], p[0][1]);
 		homography.addCorrespondence( 1, -1, p[1][0], p[1][1]);
 		homography.addCorrespondence( 1,  1, p[2][0], p[2][1]);
