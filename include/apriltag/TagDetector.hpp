@@ -787,8 +787,8 @@ struct TagDetector {
 				}
 
 				// compute the homography (and rotate it appropriately)
-				quad.homography.getH(d.homography);
-				quad.homography.getCXY(d.hxy);
+				double homo[3][3];
+				quad.homography.getH(homo);
 
 				{
 					double c = cos(d.rotation*CV_PI/2.0);
@@ -797,9 +797,7 @@ struct TagDetector {
 						{ s,  c, 0},
 						{ 0,  0, 1}
 					};
-					double homo[3][3];
-					helper::mul(3,3,3,3,d.homography[0],R[0],homo[0]);
-					std::copy((double*)homo[0], (double*)homo[0]+9, (double*)d.homography[0]);
+					helper::mul(3,3,3,3,homo[0],R[0],d.homography[0]);
 				}
 
 				if (d.good) {
@@ -960,7 +958,7 @@ struct TagDetector {
 				}
 
 				if (!bad) {
-					Quad q(p, opticalCenter[0], opticalCenter[1]);
+					Quad q(p);
 					q.observedPerimeter = observedPerimeter;
 					quads.push_back(q);
 				}
