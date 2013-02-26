@@ -92,7 +92,7 @@ struct TagFamilyFactory {
 			MacroCreate(36,11);
 			break;
 		default:
-			std::cerr<<"[TagFamily error] Unknown type!"<<std::endl;
+			std::cout<<"[TagFamily error] Unknown type!"<<std::endl; break;
 #undef MacroCreate
 		}
 
