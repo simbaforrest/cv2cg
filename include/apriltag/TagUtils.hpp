@@ -177,7 +177,7 @@ struct Segment {
 		// mostly due to avoiding a general-purpose LU decomposition in
 		// Matrix.inverse().
 		double m00, m01, m10, m11;
-		double i00, i01, i10, i11;
+		double i00, i01;//, i10, i11;
 		double b00, b10;
 
 		m00=this->x1 - this->x0;
@@ -196,9 +196,9 @@ struct Segment {
 		double idet = 1.0/det;
 		// inverse of m
 		i00=m11*idet;
-		i11=m00*idet;
+		//i11=m00*idet;
 		i01=-m01*idet;
-		i10=-m10*idet;
+		//i10=-m10*idet;
 
 		b00=s.x0 - this->x0;
 		b10=s.y0 - this->y0;

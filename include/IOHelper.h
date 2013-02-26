@@ -113,7 +113,7 @@ bool ReadFile(int m, int n, Precision const *matrix, const char *fname)
 	}
 
 	for (i = 0; i < m * n; i++) {
-		fscanf_s(f, "%lf", matrix + i);
+		fscanf(f, "%lf", matrix + i);
 	}
 
 	fclose(f);
