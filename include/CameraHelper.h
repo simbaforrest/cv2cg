@@ -131,13 +131,11 @@ inline bool triangulate(const double x1, const double y1,
 
 //compute plane pose (R and T) from K and Homography
 //H = s^(-1) * K * [r1,r2,T]
-//H maybe scaled by -1 in case det(H)<0
-inline void RTfromKH(const double K[9], double H[9],
+//this method assumes the world origin [0,0,0] lies
+//in front of the camera, i.e. T[3]>0 is ensured
+inline void RTfromKH(const double K[9], const double H[9],
                      double R[9], double T[3])
 {
-	if(CvMatHelper::det(3,H)<0) {
-		CvMatHelper::scale(3,3,H,-1,H);
-	}
 	double invK[9];
 	double A[9];
 	CvMatHelper::inv(3,K,invK);
@@ -145,8 +143,13 @@ inline void RTfromKH(const double K[9], double H[9],
 	//as suggested by AprilTag, use geometric average to scale
 	double s1 = sqrt(A[0]*A[0]+A[3]*A[3]+A[6]*A[6]);
 	double s2 = sqrt(A[1]*A[1]+A[4]*A[4]+A[7]*A[7]);
-	double s = 1.0/sqrt(s1*s2);
+	double s = (A[8]>=0?1.0:-1.0)/sqrt(s1*s2); //ensure T[3]>0
+	if(fabs(A[8])<1e-8) {
+		std::cout<<"[RTfromKH warn] T[3]~0, please check!"<<std::endl;
+	}
 	CvMatHelper::scale(3,3,A,s,A);
+	//TODO, should we normalize r1 and r2 respectively?
+	//  what's the difference between this and polar decomposition then?
 	double r1[3]= {A[0],A[3],A[6]};
 	double r2[3]= {A[1],A[4],A[7]};
 	double r3[3]= {0};
