@@ -93,23 +93,17 @@ struct TagDetection {
 	 * reflects the orientation of the target. **/
 	double homography[3][3];
 
-	/** The homography is relative to image center, whose coordinates
-	 * are below.
-	 **/
-	double hxy[2];
-
 	TagDetection() {
 		helper::zeros(4,2,p[0]);
 		cxy[0]=cxy[1]=0;
 		helper::zeros(3,3,homography[0]);
-		hxy[0]=hxy[1]=0;
 	}
 
 	/** interpolate point given (x,y) is in tag coordinate space from (-1,-1) to (1,1) **/
 	inline void interpolate(double x, double y, double ret[2]) {
 		double z = homography[2][0]*x + homography[2][1]*y + homography[2][2];
-		ret[0] = (homography[0][0]*x + homography[0][1]*y + homography[0][2])/z + hxy[0];
-		ret[1] = (homography[1][0]*x + homography[1][1]*y + homography[1][2])/z + hxy[1];
+		ret[0] = (homography[0][0]*x + homography[0][1]*y + homography[0][2])/z;
+		ret[1] = (homography[1][0]*x + homography[1][1]*y + homography[1][2])/z;
 	}
 
 	inline std::string toString() {

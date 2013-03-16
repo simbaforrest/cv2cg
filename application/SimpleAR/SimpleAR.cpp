@@ -111,8 +111,7 @@ int framecnt = 0;
 ////////////////////////////////////////////////////
 bool findAprilTag(Mat &image, int targetID, Mat &ret, bool draw=false, int errorThresh=0) {
 	vector<TagDetection> detections;
-	double opticalCenter[2] = { image.cols/2.0, image.rows/2.0 };
-	detector->process(image, opticalCenter, detections);
+	detector->process(image, detections);
 
 	for(int id=0; id<(int)detections.size(); ++id) {
 		TagDetection &dd = detections[id];
@@ -129,9 +128,7 @@ bool findAprilTag(Mat &image, int targetID, Mat &ret, bool draw=false, int error
 			cv::putText( image, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
 		}
 
-		cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
-		double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
-		ret = cv::Mat(3,3,CV_64FC1,vm) * tmp;
+		ret = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 		return true;
 	}
 	return false;
