@@ -75,7 +75,7 @@ inline double distance(double x1, double y1, double x2, double y2)
 	return sqrt( (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2) );
 }
 
-inline double distance(double p1[2], double p2[2])
+inline double distance(const double p1[2], const double p2[2])
 {
 	return distance(p1[0],p1[1], p2[0],p2[1]);
 }
@@ -101,7 +101,7 @@ inline double lineCoordinate(double x, double y, double dx, double dy)
 //return {vx,vy,x0,y0}
 //where [vx,vy] is unit direction vector
 //and [x0,y0] is closest to origin
-inline cv::Vec4d wlsq2D(std::vector<cv::Vec3d>& xyw)
+inline cv::Vec4d wlsq2D(const std::vector<cv::Vec3d>& xyw)
 {
 	double Cxx=0, Cyy=0, Cxy=0, Ex=0, Ey=0, mXX=0, mYY=0, mXY=0, mX=0, mY=0;
 	double n=0;
@@ -154,7 +154,7 @@ struct Segment {
 	//modified from april.jmat.geom.GLineSegment2D
 	//return {x1,y1,x2,y2}
 	//so line segment is [x1,y1]<-->[x2,y2]
-	inline void fitBy(std::vector<cv::Vec3d>& xyw) {
+	inline void fitBy(const std::vector<cv::Vec3d>& xyw) {
 		cv::Vec4d line = wlsq2D(xyw);
 
 		double dx=line[0], dy=line[1], xp=line[2], yp=line[3];
@@ -172,7 +172,7 @@ struct Segment {
 		length = maxcoord - mincoord;
 	}
 
-	inline bool intersectionWith(const Segment &s, double &xo, double &yo) {
+	inline bool intersectionWith(const Segment &s, double &xo, double &yo) const {
 		// this implementation is many times faster than the original,
 		// mostly due to avoiding a general-purpose LU decomposition in
 		// Matrix.inverse().
@@ -220,6 +220,9 @@ struct Normalize2D {
     double mX, mY, mXX, mYY;
     int N;
 
+	//!! do not forget default constructor for any struct !!
+	Normalize2D() : mX(0), mY(0), mXX(0), mYY(0), N(0) {}
+
     inline void add(double x, double y)
     {
         mX += x;
@@ -229,7 +232,7 @@ struct Normalize2D {
         N++;
     }
 
-    inline void getTransform(double T[3][3])
+    inline void getTransform(double T[3][3]) const
     {
         double eX = mX / N;
         double eY = mY / N;
@@ -244,7 +247,7 @@ struct Normalize2D {
 		T[2][0]=0; T[2][1]=0; T[2][2]=1;
     }
 	
-	inline void getInverseTransform(double T[3][3])
+	inline void getInverseTransform(double T[3][3]) const
 	{
 		double eX = mX / N;
         double eY = mY / N;
@@ -311,7 +314,7 @@ struct Homography33 {
 		std::copy((double*)H[0], (double*)H[0]+9, (double*)h[0]);
 	}
 
-	inline void getCXY(double cxy[2]) {
+	inline void getCXY(double cxy[2]) const {
 		cxy[0]=cx;
 		cxy[1]=cy;
 	}
@@ -660,7 +663,7 @@ struct Quad {
 	/** (x,y) are the optical center of the camera, which is
 	 * needed to correctly compute the homography.
 	 **/
-	Quad(double p[4][2]) {
+	Quad(const double p[4][2]) {
 		std::copy((double*)p[0], (double*)p[0]+8, (double*)this->p[0]);
 
 		homography.addCorrespondence(-1, -1, p[0][0], p[0][1]);
@@ -669,7 +672,7 @@ struct Quad {
 		homography.addCorrespondence(-1,  1, p[3][0], p[3][1]);
 	}
 
-	inline void reset(double p[4][2]) {
+	inline void reset(const double p[4][2]) {
 		std::copy(p[0], p[0]+8, this->p[0]);
 		homography.reset();
 		homography.addCorrespondence(-1, -1, p[0][0], p[0][1]);
@@ -744,7 +747,7 @@ struct GrayModel {
 		computed=false; // force a new solution to be computed.
 	}
 
-	inline int getNumObservations() {
+	inline int getNumObservations() const {
 		return nobs;
 	}
 
