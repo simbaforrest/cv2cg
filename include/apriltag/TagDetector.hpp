@@ -379,8 +379,8 @@ struct TagDetector {
 			vector<double> mmin(width*height, 0);
 			vector<double> mmax(width*height, 0);
 
-			for (int y = 0; y+1 < fimseg.rows; y++) {
-				for (int x = 0; x+1 < fimseg.cols; x++) {
+			for (int y = 1; y+1 < fimseg.rows; y++) {
+				for (int x = 1; x+1 < fimseg.cols; x++) {
 
 					double mag0 = fimMag.at<float>(y,x);
 					if (mag0 < minMag) {
