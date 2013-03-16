@@ -151,7 +151,7 @@ struct TagFamily {
 	/** Given an observed tag with code 'rcode', try to recover the
 	 * id. The corresponding fields of TagDetection will be filled
 	 * in. **/
-	void decode(TagDetection& det, UINT64 rcode) {
+	void decode(TagDetection& det, UINT64 rcode) const {
 		int  bestid = -1;
 		int  besthamming = INT_MAX;
 		int  bestrotation = 0;

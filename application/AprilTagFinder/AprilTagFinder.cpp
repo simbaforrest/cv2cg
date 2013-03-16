@@ -52,6 +52,7 @@
 
 #include "OpenCVHelper.h"
 //#define TAG_DEBUG_PERFORMANCE 1
+#define TAG_DEBUG_DRAW 1
 #include "Log.h"
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
@@ -127,7 +128,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	void handle(char key) {
 		switch (key) {
 		case 'd':
-			detector->segDecimate = !detector->segDecimate;
+			detector->segDecimate = !(detector->segDecimate);
 			logli<<"[ProcessVideo] detector.segDecimate="<<detector->segDecimate; break;
 		}
 	}
