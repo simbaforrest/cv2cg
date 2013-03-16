@@ -186,11 +186,11 @@ struct TagFamily {
 	}
 
 	/** Return the dimension of the tag including borders when we render it.**/
-	int getTagRenderDimension() {
+	int getTagRenderDimension() const {
 		return whiteBorder*2 + blackBorder*2 + d;
 	}
 
-	cv::Mat makeImage(int id) {
+	cv::Mat makeImage(int id) const {
 		UINT64 v = codes[id];
 
 		int width = getTagRenderDimension();
@@ -239,7 +239,7 @@ struct TagFamily {
 	 * the first block is nbits, the second block is hamming distance,
 	 * and the final block is the id.
 	 **/
-	void writeAllImages(std::string dirpath, int scale=1) {
+	void writeAllImages(std::string dirpath, int scale=1) const {
 		for (int i = 0; i < (int)codes.size(); i++) {
 			cv::Mat im = makeImage(i);
 			if(scale>1) {
@@ -253,7 +253,7 @@ struct TagFamily {
 		}
 	}
 
-	void writeAllImagesMosaic(std::string filepath) {
+	void writeAllImagesMosaic(std::string filepath) const {
 		int width = (int) sqrt((float)codes.size());
 		int height = codes.size()/width+1;
 		int dim = getTagRenderDimension();
@@ -272,7 +272,7 @@ struct TagFamily {
 		cv::imwrite(filepath, im);
 	}
 
-	void printHammingDistances() {
+	void printHammingDistances() const {
 		vector<int> hammings(d*d+1);
 
 		for (int i = 0; i < (int)codes.size(); i++) {
@@ -297,7 +297,7 @@ struct TagFamily {
 		}
 	}
 
-	void writeAllImagesPostScript(std::string filepath) {
+	void writeAllImagesPostScript(std::string filepath) const {
 		int sz = d + 2*whiteBorder + 2*blackBorder;
 
 		std::ofstream outs(filepath.c_str());
