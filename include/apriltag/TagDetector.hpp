@@ -143,20 +143,12 @@ struct TagDetector {
 	/** Early pruning of quads which have insane aspect ratios. **/
 	double maxQuadAspectRatio;
 
-#if TAG_DEBUG_DRAW
-	/** Produce debugging output. If the debugging code annoys you (or
-	 * makes porting harder) you can delete all of the code in an
-	 * if(debug) block.
-	 **/
-	Mat debugSegmentation;  // segmented image
-	Mat debugTheta, debugMag;
-#endif
 #if TAG_DEBUG_PERFORMANCE
 	double steptime[9];
 #endif
 
 	/** The optical center of the current frame, which is needed to correctly compute the homography. **/
-	double opticalCenter[2];
+	//double opticalCenter[2];
 
 	/** During segmentation, the weight of an edge is related to the
 	 * change in theta between the two pixels. This change is
@@ -190,7 +182,7 @@ struct TagDetector {
 		WEIGHT_SCALE = 100; //10000;
 	}
 
-	int edgeCost(double theta0, double mag0, double theta1, double mag1) {
+	int edgeCost(double theta0, double mag0, double theta1, double mag1) const {
 		if(mag0 < minMag || mag1 < minMag) {
 			return -1;
 		}
@@ -276,9 +268,9 @@ struct TagDetector {
 	 * optical center, but it is usually fine to pass in (width/2,
 	 * height/2).
 	 **/
-	void process(Mat im, double opticalCenter[2], vector<TagDetection>& goodDetections) {
-		this->opticalCenter[0] = opticalCenter[0];
-		this->opticalCenter[1] = opticalCenter[1];
+	void process(Mat im, double opticalCenter[2], vector<TagDetection>& goodDetections) const {
+		//this->opticalCenter[0] = opticalCenter[0];
+		//this->opticalCenter[1] = opticalCenter[1];
 
 		// This is a very long function, but it can't really be
 		// factored any more simply: it's just a long sequence of
@@ -352,8 +344,8 @@ struct TagDetector {
 #endif
 #if TAG_DEBUG_DRAW
 		{
-			debugTheta = Mat::zeros(fimseg.size(), CV_32FC1);
-			debugMag = Mat::zeros(fimseg.size(), CV_32FC1);
+			Mat debugTheta = Mat::zeros(fimseg.size(), CV_32FC1);
+			Mat debugMag = Mat::zeros(fimseg.size(), CV_32FC1);
 			cv::normalize(fimTheta, debugTheta, 0, 1, cv::NORM_MINMAX);
 			cv::normalize(fimMag, debugMag, 0, 1, cv::NORM_MINMAX);
 			std::string win = "fimTheta";
@@ -494,7 +486,7 @@ struct TagDetector {
 		// statistics for each cluster. We will soon fit lines to
 		// these points.
 #if TAG_DEBUG_DRAW
-		debugSegmentation = Mat::zeros(fimseg.size(), CV_8UC3);
+		Mat debugSegmentation = Mat::zeros(fimseg.size(), CV_8UC3);
 #endif
 		typedef cv::Vec3d Pixel;
 		typedef vector<Pixel> PixelList;
@@ -867,7 +859,7 @@ struct TagDetector {
 #endif
 	}
 
-	bool detectionsOverlapTooMuch(TagDetection &a, TagDetection &b) {
+	bool detectionsOverlapTooMuch(TagDetection &a, TagDetection &b) const {
 		// Compute a sort of "radius" of the two targets. We'll do
 		// this by computing the average length of the edges of the
 		// quads (in pixels).
@@ -893,7 +885,7 @@ struct TagDetector {
 	    parent: The first segment in the quad.
 	    depth: how deep in the search are we?
 	**/
-	void search(vector<Quad>& quads, Segment *path[5], Segment *parent, int depth) {
+	void search(vector<Quad>& quads, Segment *path[5], Segment *parent, int depth) const {
 		// terminal depth occurs when we've found four segments.
 		if (depth == 4) {
 			// Is the first segment the same as the last segment (i.e., a loop?)

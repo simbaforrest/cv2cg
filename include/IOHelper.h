@@ -161,12 +161,15 @@ struct PrintMat {
 	friend inline std::ostream &operator<<(
 	    std::ostream &o, const PrintMat &m) {
 		o.setf((std::ios_base::fmtflags)iosflag);
+		const std::streamsize ps=o.precision();
+		o.precision(15);
 		for(int i=0; i<m.rows; ++i) {
 			for(int j=0; j<m.cols; ++j) {
-				o << m.p[IDX(i,j,m.cols)] << " ";
+				o << std::setw(30) << m.p[IDX(i,j,m.cols)] << " ";
 			}
 			o << std::endl;
 		}
+		o.precision(ps);
 		o.unsetf((std::ios_base::fmtflags)iosflag);
 		return o;
 	}

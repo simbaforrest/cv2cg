@@ -59,6 +59,7 @@
 #define ESM_ORIGINAL //define this if you have original implementation of ESM
 #define ESM_DEBUG 0
 #define KEG_DEBUG 0
+#define TAG_DEBUG_DRAW 1
 
 #include "keg/KEGTracker.hpp"
 
