@@ -100,13 +100,13 @@ struct TagDetection {
 	}
 
 	/** interpolate point given (x,y) is in tag coordinate space from (-1,-1) to (1,1) **/
-	inline void interpolate(double x, double y, double ret[2]) {
+	inline void interpolate(double x, double y, double ret[2]) const {
 		double z = homography[2][0]*x + homography[2][1]*y + homography[2][2];
 		ret[0] = (homography[0][0]*x + homography[0][1]*y + homography[0][2])/z;
 		ret[1] = (homography[1][0]*x + homography[1][1]*y + homography[1][2])/z;
 	}
 
-	inline std::string toString() {
+	inline std::string toString() const {
 		return cv::format("[TagDetection code 0x%010x   id=%-5d   "
 		                  "errors=%d   position =  (%8.2f,%8.2f) @ %3d deg]",
 		                  code, id, hammingDistance, cxy[0], cxy[1], rotation*90);
