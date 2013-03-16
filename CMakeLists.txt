@@ -7,8 +7,8 @@ SET(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS true)
 ########### Project name ###########
 SET(PACKAGE cv2cg)
 PROJECT(${PACKAGE})
-SET(VERSION_MAJOR "0")
-SET(VERSION_MINOR "3")
+SET(VERSION_MAJOR "1")
+SET(VERSION_MINOR "0")
 SET(VERSION_PATCH "0")
 SET(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 
@@ -55,22 +55,6 @@ CONFIGURE_FILE(
 
 ADD_CUSTOM_TARGET(uninstall
   "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
-  
-########### Packaging info for CPack ###########
-#INCLUDE(InstallRequiredSystemLibraries)
-
-#SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "cv2cg is a lightweight library for computer vision and computer graphics interactions.")
-#SET(CPACK_PACKAGE_VENDOR "Chen Feng@Umich")
-#SET(CPACK_GENERATOR "DEB")
-#SET(CPACK_PACKAGE_CONTACT "Chen Feng <simbaforrest@gmail.com>")
-#SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "Chen Feng")
-#SET(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README")
-#SET(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/COPYING")
-#SET(CPACK_PACKAGE_VERSION_MAJOR ${VERSION_MAJOR})
-#SET(CPACK_PACKAGE_VERSION_MINOR ${VERSION_MINOR})
-#SET(CPACK_PACKAGE_VERSION_PATCH ${VERSION_PATCH})
-#SET(CPACK_SOURCE_IGNORE_FILES "/CVS/" "/.svn/" "/.git/" "/.hg/" "builds/" "~$" "\\\\.swp$" "\\\\.#" "/#")
-#INCLUDE(CPack)
 
 ########### Subdirectories ###############
 ADD_SUBDIRECTORY(application)

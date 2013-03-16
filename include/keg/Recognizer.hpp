@@ -82,17 +82,14 @@ struct AprilTagRecognizer : public Recognizer {
 	{
 		retH.clear(); retId.clear();
 		vector<TagDetection> detections;
-		double opticalCenter[2] = { nframe.cols/2.0, nframe.rows/2.0 };
-		detector->process(nframe, opticalCenter, detections);
+		detector->process(nframe, detections);
 
 		for(int id=0; id<(int)detections.size(); ++id) {
 			TagDetection &dd = detections[id];
 			if(dd.hammingDistance>errorThresh) continue;
 
 			retId.push_back(dd.id);
-			cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
-			double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
-			retH.push_back( cv::Mat(3,3,CV_64FC1,vm) * tmp );
+			retH.push_back( cv::Mat(3,3,CV_64FC1,dd.homography[0]) );
 		}
 	}
 };

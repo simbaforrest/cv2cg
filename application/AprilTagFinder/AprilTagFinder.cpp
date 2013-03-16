@@ -73,11 +73,9 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 /////// Override
 	void operator()(cv::Mat& frame) {
 		static helper::PerformanceMeasurer PM;
-		double imgW=frame.cols, imgH=frame.rows;
 		vector<TagDetection> detections;
-		double opticalCenter[2] = { imgW/2.0, imgH/2.0 };
 		PM.tic();
-		detector->process(frame, opticalCenter, detections);
+		detector->process(frame, detections);
 		logli<<"[TagDetector] process time = "<<PM.toc()<<" sec.";
 
 		logi<<">>> find id: ";
@@ -88,9 +86,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			logi<<"#"<<dd.id<<"|"<<dd.hammingDistance<<" ";
 			cv::putText( frame, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
 
-			cv::Mat tmp(3,3,CV_64FC1, (double*)dd.homography[0]);
-			double vm[] = {1,0,dd.hxy[0],0,1,dd.hxy[1],0,0,1};
-			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,vm) * tmp;
+			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 			static double crns[4][2]={
 				{-1, -1},
 				{ 1, -1},
