@@ -143,20 +143,12 @@ struct TagDetector {
 	/** Early pruning of quads which have insane aspect ratios. **/
 	double maxQuadAspectRatio;
 
-#if TAG_DEBUG_DRAW
-	/** Produce debugging output. If the debugging code annoys you (or
-	 * makes porting harder) you can delete all of the code in an
-	 * if(debug) block.
-	 **/
-	Mat debugSegmentation;  // segmented image
-	Mat debugTheta, debugMag;
-#endif
 #if TAG_DEBUG_PERFORMANCE
 	double steptime[9];
 #endif
 
 	/** The optical center of the current frame, which is needed to correctly compute the homography. **/
-	double opticalCenter[2];
+	//double opticalCenter[2];
 
 	/** During segmentation, the weight of an edge is related to the
 	 * change in theta between the two pixels. This change is
@@ -190,7 +182,7 @@ struct TagDetector {
 		WEIGHT_SCALE = 100; //10000;
 	}
 
-	int edgeCost(double theta0, double mag0, double theta1, double mag1) {
+	int edgeCost(double theta0, double mag0, double theta1, double mag1) const {
 		if(mag0 < minMag || mag1 < minMag) {
 			return -1;
 		}
@@ -276,10 +268,7 @@ struct TagDetector {
 	 * optical center, but it is usually fine to pass in (width/2,
 	 * height/2).
 	 **/
-	void process(Mat im, double opticalCenter[2], vector<TagDetection>& goodDetections) {
-		this->opticalCenter[0] = opticalCenter[0];
-		this->opticalCenter[1] = opticalCenter[1];
-
+	void process(const Mat& im, vector<TagDetection>& goodDetections) const {
 		// This is a very long function, but it can't really be
 		// factored any more simply: it's just a long sequence of
 		// sequential operations.
@@ -351,9 +340,9 @@ struct TagDetector {
 		steptime[1] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
+		Mat debugTheta = Mat::zeros(fimseg.size(), CV_32FC1);
+		Mat debugMag = Mat::zeros(fimseg.size(), CV_32FC1);
 		{
-			debugTheta = Mat::zeros(fimseg.size(), CV_32FC1);
-			debugMag = Mat::zeros(fimseg.size(), CV_32FC1);
 			cv::normalize(fimTheta, debugTheta, 0, 1, cv::NORM_MINMAX);
 			cv::normalize(fimMag, debugMag, 0, 1, cv::NORM_MINMAX);
 			std::string win = "fimTheta";
@@ -390,8 +379,8 @@ struct TagDetector {
 			vector<double> mmin(width*height, 0);
 			vector<double> mmax(width*height, 0);
 
-			for (int y = 0; y+1 < fimseg.rows; y++) {
-				for (int x = 0; x+1 < fimseg.cols; x++) {
+			for (int y = 1; y+1 < fimseg.rows; y++) {
+				for (int x = 1; x+1 < fimseg.cols; x++) {
 
 					double mag0 = fimMag.at<float>(y,x);
 					if (mag0 < minMag) {
@@ -494,7 +483,7 @@ struct TagDetector {
 		// statistics for each cluster. We will soon fit lines to
 		// these points.
 #if TAG_DEBUG_DRAW
-		debugSegmentation = Mat::zeros(fimseg.size(), CV_8UC3);
+		Mat debugSegmentation = Mat::zeros(fimseg.size(), CV_8UC3);
 #endif
 		typedef cv::Vec3d Pixel;
 		typedef vector<Pixel> PixelList;
@@ -582,14 +571,6 @@ struct TagDetector {
 				seg.swap();
 			}
 
-			if (segDecimate) {
-				seg.x0 = 2*seg.x0 + .5;
-				seg.y0 = 2*seg.y0 + .5;
-				seg.x1 = 2*seg.x1 + .5;
-				seg.y1 = 2*seg.y1 + .5;
-				seg.length *= 2;
-			}
-
 #if TAG_DEBUG_DRAW
 			double cx = (seg.x0 + seg.x1)/2, cy = (seg.y0 + seg.y1)/2;
 			double notch = std::max(2.0, 0.1*seg.length);
@@ -598,6 +579,14 @@ struct TagDetector {
 			line(debugSegmentation, cv::Point(cx,cy), cv::Point(cx+notch*sin(seg.theta),cy-notch*cos(seg.theta)), co);
 			circle(debugSegmentation, cv::Point(seg.x0,seg.y0), 2, co, -1);
 #endif
+
+			if (segDecimate) {
+				seg.x0 = 2*seg.x0 + .5;
+				seg.y0 = 2*seg.y0 + .5;
+				seg.x1 = 2*seg.x1 + .5;
+				seg.y1 = 2*seg.y1 + .5;
+				seg.length *= 2;
+			}
 
 			segments.push_back(seg);
 		}
@@ -670,12 +659,13 @@ struct TagDetector {
 		}
 
 #if TAG_DEBUG_DRAW
+		const double tmpscale=(segDecimate==0?1:0.5f);
 		for(int i=0; i<(int)quads.size(); ++i) {
 			Quad& q = quads[i];
-			cv::Point p0(q.p[0][0], q.p[0][1]);
-			cv::Point p1(q.p[1][0], q.p[1][1]);
-			cv::Point p2(q.p[2][0], q.p[2][1]);
-			cv::Point p3(q.p[3][0], q.p[3][1]);
+			cv::Point p0(q.p[0][0]*tmpscale, q.p[0][1]*tmpscale);
+			cv::Point p1(q.p[1][0]*tmpscale, q.p[1][1]*tmpscale);
+			cv::Point p2(q.p[2][0]*tmpscale, q.p[2][1]*tmpscale);
+			cv::Point p3(q.p[3][0]*tmpscale, q.p[3][1]*tmpscale);
 			cv::Scalar co = helper::CV_RG;
 			line(debugSegmentation, p0, p1, co, 2);
 			line(debugSegmentation, p1, p2, co, 2);
@@ -725,13 +715,13 @@ struct TagDetector {
 						// part of the outer white border.
 						whiteModel.addObservation(x, y, v);
 #if TAG_DEBUG_DRAW
-						circle(debugSegmentation, cv::Point(px,py), 2, helper::CV_BLUE, 2, -1);
+						circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_BLUE, 2, -1);
 #endif
 					} else if ((iy == 0 || iy == (dd-1)) || (ix == 0 || ix == (dd-1))) {
 						// part of the outer black border.
 						blackModel.addObservation(x, y, v);
 #if TAG_DEBUG_DRAW
-						circle(debugSegmentation, cv::Point(px,py), 2, helper::CV_BLUE, 2, -1);
+						circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_BLUE, 2, -1);
 #endif
 					}
 				}
@@ -760,7 +750,7 @@ struct TagDetector {
 					double threshold = (blackModel.interpolate(x, y) + whiteModel.interpolate(x,y))*.5;
 
 #if TAG_DEBUG_DRAW
-					circle(debugSegmentation, cv::Point(px,py), 2, helper::CV_RG, 2, -1);
+					circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_RG, 2, -1);
 #endif
 
 					float v = fim.at<float>(iry, irx);
@@ -867,7 +857,7 @@ struct TagDetector {
 #endif
 	}
 
-	bool detectionsOverlapTooMuch(TagDetection &a, TagDetection &b) {
+	static bool detectionsOverlapTooMuch(const TagDetection &a, const TagDetection &b) {
 		// Compute a sort of "radius" of the two targets. We'll do
 		// this by computing the average length of the edges of the
 		// quads (in pixels).
@@ -893,7 +883,7 @@ struct TagDetector {
 	    parent: The first segment in the quad.
 	    depth: how deep in the search are we?
 	**/
-	void search(vector<Quad>& quads, Segment *path[5], Segment *parent, int depth) {
+	void search(vector<Quad>& quads, Segment *path[5], Segment *parent, int depth) const {
 		// terminal depth occurs when we've found four segments.
 		if (depth == 4) {
 			// Is the first segment the same as the last segment (i.e., a loop?)
