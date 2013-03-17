@@ -289,7 +289,8 @@ struct TagDetector {
 			GaussianBlur(fimOrig, fim, cv::Size(filtsz,filtsz), sigma);
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[0] = PM.toctic();
+		double *gsteptime = const_cast<double*>(steptime);
+		gsteptime[0] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		{
@@ -337,7 +338,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[1] = PM.toctic();
+		gsteptime[1] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		Mat debugTheta = Mat::zeros(fimseg.size(), CV_32FC1);
@@ -476,7 +477,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[2] = PM.toctic();
+		gsteptime[2] = PM.toctic();
 #endif
 		///////////////////////////////////////////////////////////
 		// Step four. Loop over the pixels again, collecting
@@ -514,7 +515,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[3] = PM.toctic();
+		gsteptime[3] = PM.toctic();
 		flogld(">>> clusters.size()="<<clusters.size());
 #endif
 		///////////////////////////////////////////////////////////
@@ -596,7 +597,7 @@ struct TagDetector {
 
 #if TAG_DEBUG_PERFORMANCE
 		flogld(">>> segments.size()="<<segments.size());
-		steptime[4] = PM.toctic();
+		gsteptime[4] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step six. For each segment, find segments that begin where
@@ -643,7 +644,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[5] = PM.toctic();
+		gsteptime[5] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step seven. Search all connected segments to see if any
@@ -675,7 +676,7 @@ struct TagDetector {
 #endif
 #if TAG_DEBUG_PERFORMANCE
 		flogld(">>> quads.size()="<<quads.size());
-		steptime[6] = PM.toctic();
+		gsteptime[6] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step eight. Decode the quads. For each quad, we first
@@ -800,7 +801,7 @@ struct TagDetector {
 
 #if TAG_DEBUG_PERFORMANCE
 		flogld(">>> detections.size()="<<detections.size());
-		steptime[7] = PM.toctic();
+		gsteptime[7] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		std::string win = "debugSegmentation";
@@ -850,9 +851,9 @@ struct TagDetector {
 		////////////////////////////////////////////////////////////////
 		// I thought it would never end. //simbaforrest: me too! ^_^
 #if TAG_DEBUG_PERFORMANCE
-		steptime[8] = PM.toctic();
+		gsteptime[8] = PM.toctic();
 		for(int i=0; i<9; ++i) {
-			flogld("[process] step "<<(i+1)<<" takes "<<steptime[i]<<" ms.");
+			flogld("[process] step "<<(i+1)<<" takes "<<gsteptime[i]<<" ms.");
 		}
 #endif
 	}
