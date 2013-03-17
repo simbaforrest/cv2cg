@@ -124,6 +124,7 @@ struct TagDetector {
 	/** When connecting edges, what is the maximum range allowed for
 	 * the gradient directions? in radian**/
 	double maxEdgeCost;
+	double invMaxEdgeCost;
 
 	/** When growing components, the intra component variation is
 	 * allowed to grow when the component is small in size. These two
@@ -172,7 +173,9 @@ struct TagDetector {
 		segSigma = 0.8;
 		segDecimate = false;
 		minMag = 0.004;
-		maxEdgeCost = helper::deg2rad(30);
+		double angle = helper::deg2rad(30);
+		maxEdgeCost = sin(angle)+1-cos(angle);
+		invMaxEdgeCost = 1.0f/maxEdgeCost;
 		thetaThresh = 100;
 		magThresh = 1200;
 		minimumLineLength = 4;
@@ -182,20 +185,22 @@ struct TagDetector {
 		WEIGHT_SCALE = 100; //10000;
 	}
 
-	int edgeCost(double theta0, double mag0, double theta1, double mag1) const {
-		if(mag0 < minMag || mag1 < minMag) {
-			return -1;
-		}
+	double rawCost(float x0, float y0, float x1, float y1) const {
+    	double cos=x0*x1+y0*y1;
+    	return cos<=0?(maxEdgeCost+100):(fabs(x0*y1-y0*x1)+(1-cos));
+    }
 
-		double thetaErr = std::abs(helper::mod2pi(theta1 - theta0));
-		if (thetaErr > maxEdgeCost) {
-			return -1;
-		}
+    int edgeCost(float x0, float y0, float x1, float y1) const
+    {
+        if ((x0==0 && y0==0) || (x1==0 && y1==0))
+            return -1;
 
-		double normErr = thetaErr / maxEdgeCost;
+        double cost = rawCost(x0,y0,x1,y1);
+        if (cost > maxEdgeCost)
+            return -1;
 
-		return (int) (normErr * WEIGHT_SCALE);
-	}
+        return (int) (cost * invMaxEdgeCost * WEIGHT_SCALE);
+    }
 
 	// lousy approximation of arctan function, but good enough for our purposes (about 4 degrees)
 	static double fast_atan2(double y, double x) {
@@ -289,7 +294,8 @@ struct TagDetector {
 			GaussianBlur(fimOrig, fim, cv::Size(filtsz,filtsz), sigma);
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[0] = PM.toctic();
+		double *gsteptime = const_cast<double*>(steptime);
+		gsteptime[0] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		{
@@ -323,8 +329,10 @@ struct TagDetector {
 			fimseg = tmp;
 		}
 
-		Mat fimTheta(fimseg.size(), fimseg.type());
-		Mat fimMag(fimseg.size(), fimseg.type());
+		//Mat fimTheta(fimseg.size(), fimseg.type());
+		Mat fimMag = Mat::zeros(fimseg.size(), fimseg.type());
+		Mat Dx = Mat::zeros(fimseg.size(), fimseg.type());
+		Mat Dy = Mat::zeros(fimseg.size(), fimseg.type());
 
 		for (int y = 1; y+1 < fimseg.rows; y++) {
 			for (int x = 1; x+1 < fimseg.cols; x++) {
@@ -332,19 +340,24 @@ struct TagDetector {
 				float Ix = fimseg.at<float>(y, x+1) - fimseg.at<float>(y, x-1);
 				float Iy = fimseg.at<float>(y+1, x) - fimseg.at<float>(y-1, x);
 
-				fimMag.at<float>(y,x) = Ix*Ix + Iy*Iy;
-				fimTheta.at<float>(y,x) = fast_atan2(Iy, Ix);
+				double mag = Ix*Ix + Iy*Iy;
+				if(mag>=minMag) {
+					fimMag.at<float>(y,x) = mag;
+					double inv_mag = 1.0f/sqrt(mag);
+					Dx.at<float>(y,x) = inv_mag*Ix;
+					Dy.at<float>(y,x) = inv_mag*Iy;
+				}
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[1] = PM.toctic();
+		gsteptime[1] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		Mat debugTheta = Mat::zeros(fimseg.size(), CV_32FC1);
 		Mat debugMag = Mat::zeros(fimseg.size(), CV_32FC1);
 		{
-			cv::normalize(fimTheta, debugTheta, 0, 1, cv::NORM_MINMAX);
-			cv::normalize(fimMag, debugMag, 0, 1, cv::NORM_MINMAX);
+			cv::normalize(Dx, debugTheta, 0, 1, cv::NORM_MINMAX);
+			cv::normalize(Dy, debugMag, 0, 1, cv::NORM_MINMAX);
 			std::string win = "fimTheta";
 			cv::namedWindow(win);
 			cv::imshow(win, debugTheta);
@@ -373,11 +386,11 @@ struct TagDetector {
 			// bounds on the thetas assigned to this group. Note that
 			// because theta is periodic, these are defined such that the
 			// average value is contained *within* the interval.
-			vector<double> tmin(width*height, 0);
-			vector<double> tmax(width*height, 0);
+			vector<float> dxmin(width*height, 0);
+			vector<float> dxmax(width*height, 0);
 
-			vector<double> mmin(width*height, 0);
-			vector<double> mmax(width*height, 0);
+			vector<float> dymin(width*height, 0);
+			vector<float> dymax(width*height, 0);
 
 			for (int y = 1; y+1 < fimseg.rows; y++) {
 				for (int x = 1; x+1 < fimseg.cols; x++) {
@@ -386,31 +399,28 @@ struct TagDetector {
 					if (mag0 < minMag) {
 						continue;
 					}
-					mmax[y *width+x] = mag0;
-					mmin[y *width+x] = mag0;
-
-					double theta0 = fimTheta.at<float>(y,x);
-					tmin[y *width+x] = theta0;
-					tmax[y *width+x] = theta0;
+					float dx=Dx.at<float>(y, x), dy=Dy.at<float>(y, x);
+        			dxmin[y*width+x] = dxmax[y*width+x] = dx;
+        			dymax[y*width+x] = dymin[y*width+x] = dy;
 
 					int edgecost;
 
-					edgecost = edgeCost(theta0, mag0, fimTheta.at<float>(y,x+1), fimMag.at<float>(y,x+1));
+					edgecost = edgeCost(dx, dy, Dx.at<float>(y,x+1), Dy.at<float>(y,x+1));
 					if (edgecost >= 0) {
 						edges[nedges++] = (((UINT64) y*width+x)<<IDA_SHIFT) + (((UINT64) y*width+x+1)<<IDB_SHIFT) + edgecost;
 					}
 
-					edgecost = edgeCost(theta0, mag0, fimTheta.at<float>(y+1,x), fimMag.at<float>(y+1,x));
+					edgecost = edgeCost(dx, dy, Dx.at<float>(y+1,x), Dy.at<float>(y+1,x));
 					if (edgecost >= 0) {
 						edges[nedges++] = (((UINT64) y*width+x)<<IDA_SHIFT) + (((UINT64) (y+1)*width+x)<<IDB_SHIFT) + edgecost;
 					}
 
-					edgecost = edgeCost(theta0, mag0, fimTheta.at<float>(y+1,x+1), fimMag.at<float>(y+1,x+1));
+					edgecost = edgeCost(dx, dy, Dx.at<float>(y+1,x+1), Dy.at<float>(y+1,x+1));
 					if (edgecost >= 0) {
 						edges[nedges++] = (((UINT64) y*width+x)<<IDA_SHIFT) + (((UINT64) (y+1)*width+x+1)<<IDB_SHIFT) + edgecost;
 					}
 
-					edgecost = (x == 0) ? -1 : edgeCost(theta0, mag0, fimTheta.at<float>(y+1,x-1), fimMag.at<float>(y+1,x-1));
+					edgecost = (x == 0) ? -1 : edgeCost(dx, dy, Dx.at<float>(y+1,x-1), Dy.at<float>(y+1,x-1));
 					if (edgecost >= 0) {
 						edges[nedges++] = (((UINT64) y*width+x)<<IDA_SHIFT) + (((UINT64) (y+1)*width+x-1)<<IDB_SHIFT) + edgecost;
 					}
@@ -439,44 +449,38 @@ struct TagDetector {
 				int sza = uf.ClassSize(ida);
 				int szb = uf.ClassSize(idb);
 
-				double tmina = tmin[ida], tmaxa = tmax[ida];
-				double tminb = tmin[idb], tmaxb = tmax[idb];
+				float dxmina=dxmin[ida];
+        		float dxmaxa=dxmax[ida];
+        		float dymina=dymin[ida];
+        		float dymaxa=dymax[ida];
 
-				double costa = (tmaxa-tmina);
-				double costb = (tmaxb-tminb);
+        		float dxminb=dxmin[idb];
+        		float dxmaxb=dxmax[idb];
+        		float dyminb=dymin[idb];
+        		float dymaxb=dymax[idb];
 
-				// bshift will be a multiple of 2pi that aligns the spans
-				// of b with a so that we can properly take the union of
-				// them.
-				double bshift = helper::mod2pi((tmina+tmaxa)/2, (tminb+tmaxb)/2) - (tminb+tmaxb)/2;
+        		double costa=rawCost(dxmaxa,dymina,dxmina,dymaxa);
+        		double costb=rawCost(dxmaxb,dyminb,dxminb,dymaxb);
 
-				double tminab = std::min(tmina, tminb + bshift);
-				double tmaxab = std::max(tmaxa, tmaxb + bshift);
+				float dxminab=std::min(dxmina,dxminb);
+        		float dyminab=std::min(dymina,dyminb);
+        		float dxmaxab=std::max(dxmaxa,dxmaxb);
+        		float dymaxab=std::max(dymaxa,dymaxb);
+        		double costab=rawCost(dxmaxab,dyminab,dxminab,dymaxab);
 
-				if (tmaxab - tminab > 2*CV_PI) { // corner case that's probably not useful to handle correctly. oh well.
-					tmaxab = tminab + 2*CV_PI;
-				}
-
-				double mmaxab = std::max(mmax[ida], mmax[idb]);
-				double mminab = std::min(mmin[ida], mmin[idb]);
-
-				// merge these two clusters?
-				double costab = (tmaxab - tminab);
-				if (costab <= (std::min(costa, costb) + thetaThresh/(sza+szb)) &&
-				        (mmaxab-mminab) <= std::min(mmax[ida]-mmin[ida], mmax[idb]-mmin[idb]) + magThresh/(sza+szb)) {
+        		if (costab <= (std::min(costa, costb) + thetaThresh/(sza+szb))) {
 
 					int idab = uf.Union(ida, idb);
 
-					tmin[idab] = tminab;
-					tmax[idab] = tmaxab;
-
-					mmin[idab] = mminab;
-					mmax[idab] = mmaxab;
-				}
+        			dxmin[idab]=dxminab;
+        			dxmax[idab]=dxmaxab;
+        			dymin[idab]=dyminab;
+        			dymax[idab]=dymaxab;
+        		}
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[2] = PM.toctic();
+		gsteptime[2] = PM.toctic();
 #endif
 		///////////////////////////////////////////////////////////
 		// Step four. Loop over the pixels again, collecting
@@ -514,7 +518,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[3] = PM.toctic();
+		gsteptime[3] = PM.toctic();
 		flogld(">>> clusters.size()="<<clusters.size());
 #endif
 		///////////////////////////////////////////////////////////
@@ -547,13 +551,14 @@ struct TagDetector {
 			double flip = 0, noflip = 0;
 			for (int i=0; i<(int)points.size(); ++i) {
 				Pixel &xyw = points[i];
-				double theta = fimTheta.at<float>((int) xyw[1], (int) xyw[0]);
-				double mag = fimMag.at<float>((int) xyw[1], (int) xyw[0]);
+				int tmpx=(int) xyw[0], tmpy=(int) xyw[1];
+				float mag = fimMag.at<float>(tmpy, tmpx);
+				float tmpdx = Dx.at<float>(tmpy, tmpx), tmpdy=Dy.at<float>(tmpy, tmpx);
 
 				// err *should* be +Math.PI/2 for the correct winding,
 				// but if we've got the wrong winding, it'll be around
 				// -Math.PI/2.
-				double err = helper::mod2pi(theta - seg.theta);
+				float err = (float) (dx*tmpdy-dy*tmpdx);
 
 				if (err < 0) {
 					noflip += mag;
@@ -596,7 +601,7 @@ struct TagDetector {
 
 #if TAG_DEBUG_PERFORMANCE
 		flogld(">>> segments.size()="<<segments.size());
-		steptime[4] = PM.toctic();
+		gsteptime[4] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step six. For each segment, find segments that begin where
@@ -643,7 +648,7 @@ struct TagDetector {
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
-		steptime[5] = PM.toctic();
+		gsteptime[5] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step seven. Search all connected segments to see if any
@@ -675,7 +680,7 @@ struct TagDetector {
 #endif
 #if TAG_DEBUG_PERFORMANCE
 		flogld(">>> quads.size()="<<quads.size());
-		steptime[6] = PM.toctic();
+		gsteptime[6] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step eight. Decode the quads. For each quad, we first
@@ -800,7 +805,7 @@ struct TagDetector {
 
 #if TAG_DEBUG_PERFORMANCE
 		flogld(">>> detections.size()="<<detections.size());
-		steptime[7] = PM.toctic();
+		gsteptime[7] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
 		std::string win = "debugSegmentation";
@@ -850,9 +855,9 @@ struct TagDetector {
 		////////////////////////////////////////////////////////////////
 		// I thought it would never end. //simbaforrest: me too! ^_^
 #if TAG_DEBUG_PERFORMANCE
-		steptime[8] = PM.toctic();
+		gsteptime[8] = PM.toctic();
 		for(int i=0; i<9; ++i) {
-			flogld("[process] step "<<(i+1)<<" takes "<<steptime[i]<<" ms.");
+			flogld("[process] step "<<(i+1)<<" takes "<<gsteptime[i]<<" ms.");
 		}
 #endif
 	}

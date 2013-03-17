@@ -51,8 +51,8 @@
 #include <sstream>
 
 #include "OpenCVHelper.h"
-//#define TAG_DEBUG_PERFORMANCE 1
-#define TAG_DEBUG_DRAW 1
+#define TAG_DEBUG_PERFORMANCE 1
+//#define TAG_DEBUG_DRAW 1
 #include "Log.h"
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
@@ -98,6 +98,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		logli;
 
 #if TAG_DEBUG_PERFORMANCE
+		const int imgW = frame.cols;
 		static int barH = 30;
 		static int textH = 12;
 		static vector<cv::Scalar> pclut = helper::pseudocolor(10);
