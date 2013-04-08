@@ -68,6 +68,7 @@ struct TagDetection {
 	int id;			/** What was the ID of the detected tag? **/
 	int hammingDistance; /** The hamming distance between the detected code and the true code. **/
 	int rotation;	/** How many 90 degree rotations were required to align the code. **/
+	std::string familyName; //in case of multiple tagfamily detections
 
 	/////////////////////////////////////////////////
 	// Fields below here are filled in by TagDetector
@@ -106,8 +107,10 @@ struct TagDetection {
 		ret[1] = (homography[1][0]*x + homography[1][1]*y + homography[1][2])/z;
 	}
 
-	inline std::string toString() const {
-		return cv::format("[TagDetection code 0x%010x   id=%-5d   "
+	inline std::string toString(bool bshort=true) const {
+		return bshort?
+				familyName+cv::format("_%d",id)
+				:cv::format("[TagDetection code 0x%010x   id=%-5d   "
 		                  "errors=%d   position =  (%8.2f,%8.2f) @ %3d deg]",
 		                  code, id, hammingDistance, cxy[0], cxy[1], rotation*90);
 	}

@@ -112,6 +112,10 @@ struct TagFamily {
 		assert(d *d == bits);
 	}
 
+	inline std::string familyName() const {
+		return std::string(cv::format("%dh%d",bits,minimumHammingDistance));
+	}
+
 	void setErrorRecoveryBits(int b) {
 		errorRecoveryBits = b;
 	}
