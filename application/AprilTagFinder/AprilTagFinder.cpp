@@ -66,7 +66,7 @@ using april::tag::TagDetector;
 using april::tag::TagDetection;
 using helper::ImageSource;
 
-cv::Ptr<TagFamily> tagFamily;
+std::vector< cv::Ptr<TagFamily> > tagFamilies;
 cv::Ptr<TagDetector> detector;
 
 struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
@@ -84,7 +84,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			if(dd.hammingDistance>0) continue; //very strict!
 
 			logi<<"#"<<dd.id<<"|"<<dd.hammingDistance<<" ";
-			cv::putText( frame, helper::num2str(dd.id), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
+			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
 
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 			static double crns[4][2]={
@@ -134,11 +134,12 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 AprilTagprocessor processor;
 
 void usage( int argc, char **argv ) {
-	cout<< "[usage] " <<argv[0]<<" <url> [TagFamily ID]"<<endl;
+	cout<< "[usage] " <<argv[0]<<" <url> [TagFamilies ID]"<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
+	cout<<"Combination of TagFamily ID: 014 (use tagFamily 0, 1 and 4)"<<endl;
 	cout<<"default ID: 0"<<endl;
 	cout<<"Example ImageSource url:\n";
 	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
@@ -167,14 +168,24 @@ int main( int argc, char **argv )
 	is->reportInfo();
 
 	//// create tagFamily
-	int tagid = 0; //default tag16h5
-	if(argc>2) tagid = atoi(argv[2]);
-	tagFamily = TagFamilyFactory::create(tagid);
-	if(tagFamily.empty()) {
-		tagle<<"create TagFamily fail!";
+	string tagid("0"); //default tag16h5
+	if(argc>2) tagid = string(argv[2]);
+	for(int i=0; i<(int)tagid.size(); ++i) {
+		const char curchar = tagid[i];
+		int curid = atoi(&curchar);
+		cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(curid);
+		if(tagFamily.empty()) {
+			tagle<<"create TagFamily "<<curid<<" fail, skip!";
+			continue;
+		}
+		tagFamilies.push_back(tagFamily);
+	}
+	if(tagFamilies.size()<=0) {
+		tagle<<"create TagFamily failed all! exit...";
 		return -1;
 	}
-	detector = new TagDetector(tagFamily);
+
+	detector = new TagDetector(tagFamilies);
 	if(detector.empty()) {
 		tagle<<"create TagDetector fail!";
 		return -1;

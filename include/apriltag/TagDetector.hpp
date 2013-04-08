@@ -80,7 +80,7 @@ using std::map;
 using SearchHelper::Gridder;
 
 struct TagDetector {
-	Ptr<TagFamily> tagFamily;
+	std::vector< Ptr<TagFamily> > tagFamilies; //support for multi-tag-family
 
 	/** Gaussian smoothing kernel applied to image (0 == no filter)
 	 * used when sampling bits. Filtering is a good idea in cases
@@ -166,8 +166,7 @@ struct TagDetector {
 	 **/
 	int WEIGHT_SCALE;
 
-	TagDetector(Ptr<TagFamily> tagFamily) {
-		this->tagFamily = tagFamily;
+	TagDetector(std::vector< Ptr<TagFamily> > tagFamilies_) : tagFamilies(tagFamilies_) {
 		sigma = 0;
 		segSigma = 0.8;
 		segDecimate = false;
@@ -264,9 +263,7 @@ struct TagDetector {
 	/**************************************************************/
 	
 
-	/** Detect the features in the specified image. We need the
-	 * optical center, but it is usually fine to pass in (width/2,
-	 * height/2).
+	/** Detect the features in the specified image.
 	 **/
 	void process(const Mat& im, vector<TagDetection>& goodDetections) const {
 		// This is a very long function, but it can't really be
@@ -686,117 +683,124 @@ struct TagDetector {
 
 		for(int i=0; i<(int)quads.size(); ++i) {
 			Quad &quad = quads[i];
-			// Find a threshold
-			GrayModel blackModel;
-			GrayModel whiteModel;
 
-			// sample points around the black and white border in
-			// order to calibrate our gray threshold. This code is
-			// simpler if we loop over the whole rectangle and discard
-			// the points we don't want.
-			int dd = 2*tagFamily->blackBorder + tagFamily->d;
+			for(int i=0; i<(int)tagFamilies.size(); ++i) {
+				const TagFamily& tagFamily = *tagFamilies[i];
 
-			for (int iy = -1; iy <= dd; iy++) {
-				for (int ix = -1; ix <= dd; ix++) {
-					double y = (iy + .5) / dd;
-					double x = (ix + .5) / dd;
+				// Find a threshold
+				GrayModel blackModel;
+				GrayModel whiteModel;
 
-					double px, py;
-					quad.interpolate01(x, y, px, py);
-					int irx = (int) (px+.5);
-					int iry = (int) (py+.5);
+				// sample points around the black and white border in
+				// order to calibrate our gray threshold. This code is
+				// simpler if we loop over the whole rectangle and discard
+				// the points we don't want.
+				int dd = 2*tagFamily.blackBorder + tagFamily.d;
 
-					if (irx < 0 || irx >= width || iry < 0 || iry >= height) {
-						continue;
-					}
+				for (int iy = -1; iy <= dd; iy++) {
+					for (int ix = -1; ix <= dd; ix++) {
+						double y = (iy + .5) / dd;
+						double x = (ix + .5) / dd;
 
-					float v = fim.at<float>(iry, irx);
+						double px, py;
+						quad.interpolate01(x, y, px, py);
+						int irx = (int) (px+.5);
+						int iry = (int) (py+.5);
 
-					if ((iy == -1 || iy == dd) || (ix == -1 || ix == dd)) {
-						// part of the outer white border.
-						whiteModel.addObservation(x, y, v);
+						if (irx < 0 || irx >= width || iry < 0 || iry >= height) {
+							continue;
+						}
+
+						float v = fim.at<float>(iry, irx);
+
+						if ((iy == -1 || iy == dd) || (ix == -1 || ix == dd)) {
+							// part of the outer white border.
+							whiteModel.addObservation(x, y, v);
 #if TAG_DEBUG_DRAW
-						circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_BLUE, 2, -1);
+							circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_BLUE, 2, -1);
 #endif
-					} else if ((iy == 0 || iy == (dd-1)) || (ix == 0 || ix == (dd-1))) {
-						// part of the outer black border.
-						blackModel.addObservation(x, y, v);
+						} else if ((iy == 0 || iy == (dd-1)) || (ix == 0 || ix == (dd-1))) {
+							// part of the outer black border.
+							blackModel.addObservation(x, y, v);
 #if TAG_DEBUG_DRAW
-						circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_BLUE, 2, -1);
+							circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_BLUE, 2, -1);
 #endif
+						}
 					}
 				}
-			}
 
-			bool bad = false;
-			UINT64 tagCode = 0;
+				bool bad = false;
+				UINT64 tagCode = 0;
 
-			// Try reading off the bits.
-			// XXX: todo: multiple samples within each cell and vote?
-			for (int iy = tagFamily->d-1; iy >= 0; iy--) {
-				for (int ix = 0; ix < tagFamily->d; ix++) {
-					double y = (tagFamily->blackBorder + iy + .5) / dd;
-					double x = (tagFamily->blackBorder + ix + .5) / dd;
+				// Try reading off the bits.
+				// XXX: todo: multiple samples within each cell and vote?
+				for (int iy = tagFamily.d-1; iy >= 0; iy--) {
+					for (int ix = 0; ix < tagFamily.d; ix++) {
+						double y = (tagFamily.blackBorder + iy + .5) / dd;
+						double x = (tagFamily.blackBorder + ix + .5) / dd;
 
-					double px, py;
-					quad.interpolate01(x, y, px, py);
-					int irx = (int) (px+.5);
-					int iry = (int) (py+.5);
+						double px, py;
+						quad.interpolate01(x, y, px, py);
+						int irx = (int) (px+.5);
+						int iry = (int) (py+.5);
 
-					if (irx < 0 || irx >= width || iry < 0 || iry >= height) {
-						bad = true;
-						continue;
-					}
+						if (irx < 0 || irx >= width || iry < 0 || iry >= height) {
+							bad = true;
+							continue;
+						}
 
-					double threshold = (blackModel.interpolate(x, y) + whiteModel.interpolate(x,y))*.5;
+						double threshold = (blackModel.interpolate(x, y) + whiteModel.interpolate(x,y))*.5;
 
 #if TAG_DEBUG_DRAW
-					circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_RG, 2, -1);
+						circle(debugSegmentation, cv::Point(px*tmpscale,py*tmpscale), 2, helper::CV_RG, 2, -1);
 #endif
 
-					float v = fim.at<float>(iry, irx);
+						float v = fim.at<float>(iry, irx);
 
-					tagCode = tagCode << 1;
-					if (v > threshold) {
-						tagCode |= 1;
+						tagCode = tagCode << 1;
+						if (v > threshold) {
+							tagCode |= 1;
+						}
 					}
 				}
-			}
 
-			if (!bad) {
-				TagDetection d;
-				tagFamily->decode(d, tagCode);
+				if (!bad) {
+					TagDetection d;
+					tagFamily.decode(d, tagCode);
 
-				// rotate points in detection according to decoded
-				// orientation. Thus the order of the points in the
-				// detection object can be used to determine the
-				// orientation of the target.
-				for (int i4 = 0; i4 < 4; i4++) {
-					int id = (4+i4-d.rotation)%4;
-					d.p[id][0] = quad.p[i4][0];
-					d.p[id][1] = quad.p[i4][1];
+					// rotate points in detection according to decoded
+					// orientation. Thus the order of the points in the
+					// detection object can be used to determine the
+					// orientation of the target.
+					for (int i4 = 0; i4 < 4; i4++) {
+						int id = (4+i4-d.rotation)%4;
+						d.p[id][0] = quad.p[i4][0];
+						d.p[id][1] = quad.p[i4][1];
+					}
+
+					// compute the homography (and rotate it appropriately)
+					double homo[3][3];
+					quad.homography.getH(homo);
+
+					{
+						double c = cos(d.rotation*CV_PI/2.0);
+						double s = sin(d.rotation*CV_PI/2.0);
+						double R[3][3] = {{ c, -s, 0},
+								{ s,  c, 0},
+								{ 0,  0, 1}
+						};
+						helper::mul(3,3,3,3,homo[0],R[0],d.homography[0]);
+					}
+
+					if (d.good) {
+						quad.interpolate01(.5, .5, d.cxy[0], d.cxy[1]);
+						d.observedPerimeter = quad.observedPerimeter;
+						d.familyName = tagFamily.familyName();
+						detections.push_back(d);
+						break;//break out of tagFamilies for loop
+					}
 				}
-
-				// compute the homography (and rotate it appropriately)
-				double homo[3][3];
-				quad.homography.getH(homo);
-
-				{
-					double c = cos(d.rotation*CV_PI/2.0);
-					double s = sin(d.rotation*CV_PI/2.0);
-					double R[3][3] = {{ c, -s, 0},
-						{ s,  c, 0},
-						{ 0,  0, 1}
-					};
-					helper::mul(3,3,3,3,homo[0],R[0],d.homography[0]);
-				}
-
-				if (d.good) {
-					quad.interpolate01(.5, .5, d.cxy[0], d.cxy[1]);
-					d.observedPerimeter = quad.observedPerimeter;
-					detections.push_back(d);
-				}
-			}
+			}//end of tagFamilies
 		}//end of quads[]
 
 #if TAG_DEBUG_PERFORMANCE
@@ -825,7 +829,8 @@ struct TagDetector {
 			for (int odidx = 0; odidx < (int)goodDetections.size(); odidx++) {
 				TagDetection &od = goodDetections[odidx];
 
-				if (d.id != od.id || !detectionsOverlapTooMuch(d, od)) {
+				if (d.id != od.id || d.familyName.compare(od.familyName)!=0
+						|| !detectionsOverlapTooMuch(d, od)) {
 					continue;
 				}
 
