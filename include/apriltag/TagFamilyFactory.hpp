@@ -100,7 +100,7 @@ struct TagFamilyFactory {
 	}
 };
 
-const std::string TagFamilyFactory::SUPPORT_NAME[] = {"TAG16H5", "TAG25H7", "TAG25H9", "TAG36H9", "TAG36H11"};
+const std::string TagFamilyFactory::SUPPORT_NAME[] = {"Tag16h5", "Tag25h7", "Tag25h9", "Tag36h9", "Tag36h11"};
 
 }//end of tag
 }//end of april

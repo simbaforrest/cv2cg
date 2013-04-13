@@ -113,7 +113,7 @@ struct TagFamily {
 	}
 
 	inline std::string familyName() const {
-		return std::string(cv::format("%dh%d",bits,minimumHammingDistance));
+		return std::string(cv::format("Tag%dh%d",bits,minimumHammingDistance));
 	}
 
 	void setErrorRecoveryBits(int b) {
