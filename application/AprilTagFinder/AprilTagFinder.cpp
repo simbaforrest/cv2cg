@@ -57,6 +57,11 @@
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 
+#define USE_FLYCAP
+#ifdef USE_FLYCAP
+#include "FlyCapHelper.hpp"
+#endif
+
 using namespace std;
 using namespace cv;
 using april::tag::UINT64;
@@ -160,7 +165,11 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
+#ifdef USE_FLYCAP
+	cv::Ptr<ImageSource> is = helper::createImageSource2(argv[1]);
+#else
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
+#endif
 	if(is.empty()) {
 		tagle<<"createImageSource failed!";
 		return -1;

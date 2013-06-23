@@ -25,6 +25,7 @@ ENDIF()
 ########### Find packages ###########
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/)
 FIND_PACKAGE(OpenCV REQUIRED)
+FIND_PACKAGE(FlyCapture QUIET)
 
 ########### uninstall files ###############
 CONFIGURE_FILE(
