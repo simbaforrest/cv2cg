@@ -4,6 +4,12 @@ INCLUDE_DIRECTORIES(
 	${CMAKE_CURRENT_BINARY_DIR}
 )
 
+IF(DEFINED FLYCAPTURE_ROOT)
+	INCLUDE_DIRECTORIES(
+		${FLYCAPTURE_INCLUDE_PATH}
+	)
+ENDIF()
+
 # To use all *.cpp, *.hpp files
 FILE(GLOB ALL_HEADER_FILES
 	*.hpp
@@ -21,9 +27,16 @@ SET(lib_SRCS
 	${ALL_HEADER_FILES}
 )
 
-SET(extLinkerOption 
-	${OpenCV_LIBS}
-)
+IF(DEFINED FLYCAPTURE_ROOT)
+	SET(extLinkerOption 
+		${OpenCV_LIBS}
+		${FLYCAPTURE_LIBRARY}
+	)
+ELSE()
+	SET(extLinkerOption 
+		${OpenCV_LIBS}
+	)
+ENDIF()
 
 ADD_EXECUTABLE(${APP_NAME} ${lib_SRCS})
 TARGET_LINK_LIBRARIES(${APP_NAME} ${extLinkerOption})
