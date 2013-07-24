@@ -32,6 +32,13 @@
 #include "OpenCVHelper.h"
 #include "PerformanceHelper.h"
 
+#ifdef USE_FLYCAP
+#ifdef WIN32
+	#pragma warning (disable:4819)
+#endif
+#include "flycap2opencv.hpp"
+#endif//USE_FLYCAP
+
 namespace ImageHelper
 {
 #define CV_RED		Scalar(255,0,0)
@@ -517,6 +524,89 @@ public:
 	}
 };
 
+#ifdef USE_FLYCAP
+/**
+\class ImageSource_PGR
+\brief image source from point greycamera
+*/
+struct ImageSource_PGR : public ImageSource {
+private:
+	FlyCap2OpenCV cap;
+	cv::Mat current;
+	bool isDone;
+public:
+	ImageSource_PGR(string content) {
+		std::vector<std::string> contentParts=UtilHelper::split(content, '?');
+		cout<<"[ImageSource_PGR] open from device: "<<contentParts[0]<<endl;
+		if( !cap.init(atoi(contentParts[0].c_str())) ) {
+			cout<<"[ImageSource_PGR error] failed to open!"<<endl;
+			exit(-1);
+		}
+
+		//process parameters
+		int vi=(int)FlyCapture2::VIDEOMODE_640x480Y8;
+		int fi=(int)FlyCapture2::FRAMERATE_60;
+		int colormode=1; //0:mono, 1:rgb, 2:bgr
+		for(int i=1; i<(int)contentParts.size(); ++i) {
+			std::vector<std::string> par=UtilHelper::split(contentParts[i], '=');
+			if(par.size()!=2) {
+				std::cout<<"[ImageSource_PGR] ignore "<<contentParts[i]<<std::endl;
+				continue;
+			}
+			if(par[0].compare("v")==0 || par[0].compare("V")==0) {
+				vi=atoi(par[1].c_str());
+			} else if(par[0].compare("f")==0 || par[0].compare("F")==0) {
+				fi=atoi(par[1].c_str());
+			} else if(par[0].compare("c")==0 || par[0].compare("C")==0) {
+				colormode=atoi(par[1].c_str());
+			}
+		}
+
+		//try to force camera to be 640x480
+		cap.error=cap.cam.SetVideoModeAndFrameRate((FlyCapture2::VideoMode)vi,
+					(FlyCapture2::FrameRate)fi);
+		if(cap.error!=FlyCapture2::PGRERROR_OK) {
+			cout<<"[ImageSource_PGR error] can not set camera mode to vi="
+				<<vi<<" and fi="<<fi<<endl;
+			exit(-1);
+		}
+
+		cap.initBuffer(colormode);
+
+		isDone = false;
+		isPause = false;
+	}
+
+	inline string classname() {
+		return "ImageSource_PGR";
+	}
+
+	inline void setDone(bool val=true) { isDone = val; }
+
+	inline bool done() { return isDone; }
+
+	inline void get(cv::Mat& dst) {
+		if(isPause) {
+			if( current.empty() && cap.read(dst) ) {
+				dst.copyTo(current);
+			} else 
+				current.copyTo(dst);
+			return;
+		} else if ( !cap.read(dst) ) {
+			cout<<"[ImageSource_PGR] capture error, exit!"<<endl;
+			exit(-1);
+		}
+		current.release();
+	}
+
+	~ImageSource_PGR() {
+		cout<<"[ImageSource_PGR] camera closed."<<endl;
+	}
+
+	inline void reportInfo() {}
+};
+#endif//USE_FLYCAP
+
 /**
 helper function for create an ImageSource from url
 url format example:
@@ -525,6 +615,7 @@ camera://0
 photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img00000.jpg
 photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img*.jpg
 list:///home/simbaforrest/Videos/Webcam/seq_UMshort/list.txt
+pgr://0?v=5?f=4
 
 @param url url for image source
 @return created ImageSource
@@ -545,6 +636,10 @@ inline ImageSource* createImageSource(string url) {
 		return new ImageSource_Photo(content);
 	} else if(header=="list") {
 		return new ImageSource_List(content);
+#ifdef USE_FLYCAP
+	} else if(header=="pgr") {
+		return new ImageSource_PGR(content);
+#endif//USE_FLYCAP
 	} else {
 		cout<<"[ImageSource error] unknown url header: "<<header<<endl;
 	}

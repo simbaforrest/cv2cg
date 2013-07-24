@@ -32,15 +32,38 @@ struct FlyCap2OpenCV {
 			return false;
 		}
 
+		//query available videomode & framerate
+		std::cout<<"[FlyCap2OpenCV::init] available videomode&framerate:"<<std::endl;
+		for(int vi=0; vi<(int)FlyCapture2::NUM_VIDEOMODES; ++vi) {
+			for(int fi=0; fi<(int)FlyCapture2::NUM_FRAMERATES; ++fi) {
+				bool isSupported=false;
+				cam.GetVideoModeAndFrameRateInfo((FlyCapture2::VideoMode)vi,
+					(FlyCapture2::FrameRate)fi, &isSupported);
+				if(isSupported) {
+					std::cout<<"?v="<<vi<<"?f="<<fi<<":\t"
+						<<videoModeName[vi]<<" & "<<frameRateValue[fi]<<std::endl;
+				}
+			}
+		}
+
 		return true;
 	}
 
+	enum ColorMode {
+		COLORMODE_MONO=0,
+		COLORMODE_RGB8,
+		COLORMODE_BGR8,
+		NUM_COLORMODE
+	};
+
 	//need to be called before start to capture and
 	//after custom settings to cam object
-	inline bool initBuffer(const bool use_mono=true, const bool use_bgr=true) {
-		if(use_mono) outPixelFmt=FlyCapture2::PIXEL_FORMAT_MONO8;
-		else if(use_bgr) outPixelFmt=FlyCapture2::PIXEL_FORMAT_BGR;
-		else outPixelFmt=FlyCapture2::PIXEL_FORMAT_RGB8;
+	inline bool initBuffer(const int colormode) {
+		switch(colormode) {
+			case COLORMODE_RGB8: outPixelFmt=FlyCapture2::PIXEL_FORMAT_RGB8; break;
+			case COLORMODE_BGR8: outPixelFmt=FlyCapture2::PIXEL_FORMAT_BGR; break;
+			case COLORMODE_MONO: default: outPixelFmt=FlyCapture2::PIXEL_FORMAT_MONO8; break;
+		}
 
 		error=cam.StartCapture();
 		if(error!=FlyCapture2::PGRERROR_OK) {
@@ -53,7 +76,7 @@ struct FlyCap2OpenCV {
 			cvReleaseImage(&frame);
 			frame=0;
 		}
-		int depth=8, nchannels=use_mono?1:3;
+		int depth=8, nchannels=colormode==COLORMODE_MONO?1:3;
 		frame=cvCreateImage(cvSize(rawImage.GetCols(),rawImage.GetRows()), depth, nchannels);
 
 		FlyCapture2::VideoMode vm;

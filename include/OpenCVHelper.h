@@ -33,12 +33,14 @@
 #include "opencv2/legacy/legacy.hpp"
 #endif
 
+#include "cv2cgConfig.h"
+
 #include "CvMatHelper.h"
 #include "CameraHelper.h"
 #include "DirHelper.h"
 #include "IOHelper.h"
-#include "ImageHelper.h"
 #include "UtilHelper.h"
+#include "ImageHelper.h"
 #include "RotationHelper.h"
 #include "FilterHelper.h"
 #include "PerformanceHelper.h"
