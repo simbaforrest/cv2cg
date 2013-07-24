@@ -254,7 +254,8 @@ public:
 					"l: loop\n"
 					"=: increase fps\n"
 					"-: decrease fps\n"
-					"h: display help information"<<endl;
+					"h: display help information\n"
+					"q,Esc: quit"<<endl;
 				break;
 			case 27:
 			case 'q':
@@ -352,15 +353,38 @@ private:
 	bool isDone;
 public:
 	ImageSource_Camera(string content) {
-		cout<<"[ImageSource_Camera] open from device: "<<content<<endl;
-		if( !cap.open(atoi(content.c_str())) ) {
+		std::vector<std::string> contentParts=UtilHelper::split(content, '?');
+		cout<<"[ImageSource_Camera] open from device: "<<contentParts[0]<<endl;
+		if( !cap.open(atoi(contentParts[0].c_str())) ) {
 			cout<<"[ImageSource_Camera error] failed to open!"<<endl;
 			exit(-1);
 		}
 
-		//try to force camera to be 640x480
-		cap.set(CV_CAP_PROP_FRAME_WIDTH,  640);
-		cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
+		//process parameters
+		int ideal_width=640, ideal_height=480;
+		int framerate=30;
+		for(int i=1; i<(int)contentParts.size(); ++i) {
+			std::vector<std::string> par=UtilHelper::split(contentParts[i], '=');
+			if(par.size()!=2) {
+				std::cout<<"[ImageSource_Camera] ignore "<<contentParts[i]<<std::endl;
+				continue;
+			}
+			if(par[0].compare("w")==0 || par[0].compare("W")==0) {
+				ideal_width=atoi(par[1].c_str());
+			} else if(par[0].compare("h")==0 || par[0].compare("H")==0) {
+				ideal_height=atoi(par[1].c_str());
+			} else if(par[0].compare("f")==0 || par[0].compare("F")==0) {
+				framerate=atoi(par[1].c_str());
+			}
+		}
+
+		bool success=cap.set(CV_CAP_PROP_FRAME_WIDTH,  ideal_width);
+		success|=cap.set(CV_CAP_PROP_FRAME_HEIGHT, ideal_height);
+		if(!success) {//try to force camera to be 640x480
+			cap.set(CV_CAP_PROP_FRAME_WIDTH,  640);
+			cap.set(CV_CAP_PROP_FRAME_HEIGHT, 480);
+		}
+		cap.set(CV_CAP_PROP_FPS, framerate);
 
 		isDone = false;
 		isPause = false;
@@ -398,6 +422,8 @@ public:
 		cout<<">>> frame size = "
 			<<cap.get(CV_CAP_PROP_FRAME_WIDTH)<<"x"
 			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT)<<endl;
+		cout<<">>> frame rate = "
+			<<cap.get(CV_CAP_PROP_FPS)<<endl;
 	}
 };
 
@@ -611,7 +637,7 @@ public:
 helper function for create an ImageSource from url
 url format example:
 video:///home/simbaforrest/Videos/Webcam/keg_april.ogv
-camera://0
+camera://0?w=640?h=480?f=60
 photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img00000.jpg
 photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img*.jpg
 list:///home/simbaforrest/Videos/Webcam/seq_UMshort/list.txt

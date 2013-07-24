@@ -153,7 +153,9 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			fs.close();
 		}
 
-		cv::resize(frame, frame, cv::Size(640,480));
+		if(frame.cols>640) {
+			cv::resize(frame, frame, cv::Size(640,480));
+		}
 	}
 
 	void handle(char key) {
@@ -191,7 +193,7 @@ void usage( int argc, char **argv ) {
 	cout<<"default ID: 0"<<endl;
 	cout<<"Example ImageSource url:\n";
 	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
-	cout<<"camera://0\n";
+	cout<<"camera://0?w=640?h=480?f=60\n";
 	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
 #ifdef USE_FLYCAP
 	cout<<"pgr://0?v=5?f=4"<<endl;
