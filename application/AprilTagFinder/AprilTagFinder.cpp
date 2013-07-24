@@ -55,11 +55,6 @@
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 
-#define USE_FLYCAP
-#ifdef USE_FLYCAP
-#include "FlyCapHelper.hpp"
-#endif
-
 using namespace std;
 using namespace cv;
 using april::tag::UINT64;
@@ -128,7 +123,6 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		}
 
 		if(fs.is_open()) {
-			time_t rawtime; time(&rawtime);
 			fs<<(int)detections.size()<<std::endl;
 		}
 		logd<<">>> find id: ";
@@ -199,6 +193,9 @@ void usage( int argc, char **argv ) {
 	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
 	cout<<"camera://0\n";
 	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
+#ifdef USE_FLYCAP
+	cout<<"pgr://0?v=5?f=4"<<endl;
+#endif
 }
 
 int main( int argc, char **argv )
@@ -210,11 +207,7 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
-#ifdef USE_FLYCAP
-	cv::Ptr<ImageSource> is = helper::createImageSource2(argv[1]);
-#else
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
-#endif
 	if(is.empty()) {
 		tagle<<"createImageSource failed!";
 		return -1;
