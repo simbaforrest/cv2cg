@@ -51,8 +51,6 @@
 #include <sstream>
 
 #include "OpenCVHelper.h"
-//#define TAG_DEBUG_PERFORMANCE 1
-//#define TAG_DEBUG_DRAW 1
 #include "Log.h"
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
@@ -74,21 +72,76 @@ using helper::ImageSource;
 std::vector< cv::Ptr<TagFamily> > tagFamilies;
 cv::Ptr<TagDetector> detector;
 
+static void write(std::ofstream& fs, const TagDetection &dd) {
+	fs<<dd.id<<std::endl;
+	fs<<helper::PrintMat<>(3,3,dd.homography[0])<<std::endl;
+	fs<<helper::PrintMat<>(1,2,dd.p[3]);
+	fs<<helper::PrintMat<>(1,2,dd.p[2]);
+	fs<<helper::PrintMat<>(1,2,dd.p[1]);
+	fs<<helper::PrintMat<>(1,2,dd.p[0])<<std::endl;
+	fs<<helper::PrintMat<>(1,2,dd.cxy)<<std::endl;
+}
+
 struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
+	bool takePhoto;
+	int photoCnt;
+	bool grabImage;
+	AprilTagprocessor() : takePhoto(false), photoCnt(0), grabImage(false) {}
 /////// Override
 	void operator()(cv::Mat& frame) {
 		static helper::PerformanceMeasurer PM;
 		vector<TagDetection> detections;
 		PM.tic();
 		detector->process(frame, detections);
-		logli<<"[TagDetector] process time = "<<PM.toc()<<" sec.";
+		logld<<"[TagDetector] process time = "<<PM.toc()<<" sec.";
 
-		logi<<">>> find id: ";
+		std::ofstream fs;
+		if(/*takePhoto && */detections.size()!=0) {
+			std::string id = helper::num2str(photoCnt, 5);
+			fs.open((id+".txt").c_str());
+			if(!fs.is_open()) {
+				logle<<"can not open: "<<id<<".txt";
+				exit(-1);
+			}
+			++photoCnt;
+			/*if(cv::imwrite(id+".png", frame)) {
+				logli<<"took photo: "<<id<<".png";
+				takePhoto=false;
+				++photoCnt;
+			} else {
+				logle<<"can not save photo: "<<id<<".png";
+				exit(-1);
+			}*/
+		}
+
+		if(grabImage) {
+			static int grabCnt=0;
+			std::string id = helper::num2str(grabCnt, 2);
+			if(cv::imwrite(id+".png", frame)) {
+				logli<<"grab image: "<<id<<".png";
+				++grabCnt;
+				grabImage=false;
+			} else {
+				logle<<"can not grab image...exit";
+				exit(-1);
+			}
+		}
+
+		if(fs.is_open()) {
+			time_t rawtime; time(&rawtime);
+			fs<<(int)detections.size()<<std::endl;
+		}
+		logd<<">>> find id: ";
 		for(int id=0; id<(int)detections.size(); ++id) {
 			TagDetection &dd = detections[id];
-			if(dd.hammingDistance>0) continue; //very strict!
+			//if(dd.hammingDistance>0) continue; //very strict!
+			logld<<"id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation;
 
-			logi<<"#"<<dd.id<<"|"<<dd.hammingDistance<<" ";
+			if(fs.is_open()) {
+				write(fs, dd);
+			}
+
+			logd<<"#"<<dd.id<<"|"<<dd.hammingDistance<<" ";
 			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
 
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
@@ -99,39 +152,35 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 				{-1,  1}
 			};
 			helper::drawHomography(frame, Homo, crns);
+			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
 		}
-		logli;
+		logld;
+		if(fs.is_open()) {
+			fs.close();
+		}
 
-#if TAG_DEBUG_PERFORMANCE
-		const int imgW = frame.cols;
-		static int barH = 30;
-		static int textH = 12;
-		static vector<cv::Scalar> pclut = helper::pseudocolor(10);
-		//draw performance bar
-		double total = 0;
-		for(int i=0; i<9; ++i) {
-			total += detector->steptime[i];
-		}
-		int lastx=0;
-		int lasty=barH+textH;
-		for(int i=0; i<9; ++i) {
-			double thisx = (detector->steptime[i]/total)*imgW+lastx;
-			cv::rectangle(frame, cv::Point(lastx,0), cv::Point(thisx,barH), pclut[i], CV_FILLED);
-			lastx = thisx;
-			cv::putText(frame, cv::format("step %d: %05.3f ms",i+1,detector->steptime[i]),
-				cv::Point(5,lasty-2), CV_FONT_NORMAL, 0.5, pclut[i], 1 );
-			lasty += textH;
-		}
-		cv::putText(frame, cv::format("fps=%4.3lf",1000.0/total), cv::Point(imgW/2,barH), CV_FONT_NORMAL, 1, helper::CV_BLUE, 1);
-		logld<<"-------------------------------";
-#endif
-}
+		cv::resize(frame, frame, cv::Size(640,480));
+	}
 
 	void handle(char key) {
 		switch (key) {
 		case 'd':
 			detector->segDecimate = !(detector->segDecimate);
 			logli<<"[ProcessVideo] detector.segDecimate="<<detector->segDecimate; break;
+		case 't':
+			takePhoto=true; break;
+		case 'g':
+			grabImage=true; break;
+		case '1':
+			LogHelper::GLogControl::Instance().level = LogHelper::LOG_DEBUG; break;
+		case '2':
+			LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO; break;
+		case 'h':
+			cout<<"d: segDecimate\n"
+				"t: takePhoto\n"
+				"g: grabImage\n"
+				"1: debug output\n"
+				"2: info output\n"<<endl; break;
 		}
 	}
 
@@ -154,11 +203,7 @@ void usage( int argc, char **argv ) {
 
 int main( int argc, char **argv )
 {
-#if TAG_DEBUG_PERFORMANCE
-	LogHelper::GLogControl::Instance().level = LogHelper::LOG_DEBUG;
-#else
 	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
-#endif
 
 	if(argc<2) {
 		usage(argc,argv);
@@ -180,8 +225,8 @@ int main( int argc, char **argv )
 	string tagid("0"); //default tag16h5
 	if(argc>2) tagid = string(argv[2]);
 	for(int i=0; i<(int)tagid.size(); ++i) {
-		const char curchar = tagid[i];
-		int curid = atoi(&curchar);
+		const char curchar[] = {tagid[i],'\0'};
+		unsigned int curid = atoi(curchar);//atoi works on an array of char, not on a single char!!
 		cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(curid);
 		if(tagFamily.empty()) {
 			tagle<<"create TagFamily "<<curid<<" fail, skip!";
@@ -200,7 +245,7 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
-	is->run(processor,-1, false, true, true);
+	is->run(processor,-1, false, false, false);
 
 	cout<<"[main] DONE...exit!"<<endl;
 	return 0;
