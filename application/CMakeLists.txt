@@ -1,4 +1,6 @@
 
 ADD_SUBDIRECTORY(AprilTagFinder)
 ADD_SUBDIRECTORY(AprilTagCreator)
+ADD_SUBDIRECTORY(Calibration)
+ADD_SUBDIRECTORY(ImageLister)
 

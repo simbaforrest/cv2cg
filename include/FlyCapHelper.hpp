@@ -1,6 +1,7 @@
 #pragma once
 #include "flycap2opencv.hpp"
 #include "ImageHelper.h"
+#include "UtilHelper.h"
 
 namespace ImageHelper {
 /**
@@ -14,8 +15,9 @@ private:
 	bool isDone;
 public:
 	ImageSource_PGR(string content) {
-		cout<<"[ImageSource_PGR] open from device: "<<content<<endl;
-		if( !cap.init(atoi(content.c_str())) ) {
+		std::vector<std::string> contentParts=UtilHelper::split(content, '&');
+		cout<<"[ImageSource_PGR] open from device: "<<contentParts[0]<<endl;
+		if( !cap.init(atoi(contentParts[0].c_str())) ) {
 			cout<<"[ImageSource_PGR error] failed to open!"<<endl;
 			exit(-1);
 		}
@@ -23,12 +25,31 @@ public:
 		//try to force camera to be 640x480
 		cap.error=cap.cam.SetVideoModeAndFrameRate(
 			FlyCapture2::VIDEOMODE_640x480Y8,
-			FlyCapture2::FRAMERATE_30);
+			FlyCapture2::FRAMERATE_60);
 		if(cap.error!=FlyCapture2::PGRERROR_OK) {
-			cout<<"[ImageSource_PGR error] can not set camera mode to"
-				"VIDEOMODE_640x480Y8 and FRAMERATE_30!"<<endl;
-			exit(-1);
+			cap.error=cap.cam.SetVideoModeAndFrameRate(
+				FlyCapture2::VIDEOMODE_640x480Y8,
+				FlyCapture2::FRAMERATE_30);
+			if(cap.error!=FlyCapture2::PGRERROR_OK) {
+				cout<<"[ImageSource_PGR error] can not set camera mode to"
+					"VIDEOMODE_640x480Y8 and FRAMERATE_60 or FRAMERATE_30!"<<endl;
+				exit(-1);
+			}
 		}
+
+		//cap.error=cap.cam.SetVideoModeAndFrameRate(
+		//	FlyCapture2::VIDEOMODE_1280x960Y8,
+		//	FlyCapture2::FRAMERATE_15);
+		//if(cap.error!=FlyCapture2::PGRERROR_OK) {
+		//	cap.error=cap.cam.SetVideoModeAndFrameRate(
+		//		FlyCapture2::VIDEOMODE_1280x960Y8,
+		//		FlyCapture2::FRAMERATE_7_5);
+		//	if(cap.error!=FlyCapture2::PGRERROR_OK) {
+		//		cout<<"[ImageSource_PGR error] can not set camera mode to"
+		//			"VIDEOMODE_1280x960Y8 and FRAMERATE_15 or FRAMERATE_7_5!"<<endl;
+		//		exit(-1);
+		//	}
+		//}
 
 		cap.initBuffer(false);
 
