@@ -55,6 +55,10 @@ CONFIGURE_FILE(
 
 ADD_CUSTOM_TARGET(uninstall
   "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake")
+
+########### Macros ###############
+include(${CMAKE_SOURCE_DIR}/cmake/AutoAppConfig.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/AutoAddSubDir.cmake)
   
 ########### Subdirectories ###############
 ADD_SUBDIRECTORY(application)

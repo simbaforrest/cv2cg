@@ -41,15 +41,6 @@
 
 namespace ImageHelper
 {
-////forward declare
-//struct ImageSource_Video;
-//struct ImageSource_Camera;
-//struct ImageSource_Photo;
-//struct ImageSource_List;
-//#ifdef USE_FLYCAP
-//struct ImageSource_PGR;
-//#endif//USE_FLYCAP
-
 /**
 \class ImageSource ImageHelper.h "ImageHelper.h"
 \brief Interface for easier access to different image sources such as videos,
