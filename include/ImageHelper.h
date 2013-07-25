@@ -41,115 +41,14 @@
 
 namespace ImageHelper
 {
-#define CV_RED		Scalar(255,0,0)
-#define CV_GREEN	Scalar(0,255,0)
-#define CV_BLUE		Scalar(0,0,255)
-#define CV_RG		Scalar(255,255,0)
-#define CV_RB		Scalar(255,0,255)
-#define CV_GB		Scalar(0,255,255)
-#define CV_WHITE	Scalar(255,255,255)
-#define CV_BLACK	Scalar(0,0,0)
-#define CV_GRAY		Scalar(128,128,128)
-
-using cv::Scalar;
-using cv::Mat;
-using std::vector;
-using cv::Point2f;
-using cv::Point;
-
-/**
-draw a homography (a quad) given the four corners to be mapped by Homography
-
-@param[in,out] image target image to be drawed on
-@param[in] Homo homography matrix, <3x3>
-@param[in] crns 4 corners in world coordinate system
-*/
-inline void drawHomography(Mat& image, const Mat& Homo, double const crns[4][2]) {
-	static cv::Scalar homocolors[] = {
-		CV_BLACK,
-		CV_GREEN,
-		CV_BLUE,
-		CV_RED  };
-	const cv::Mat_<double>& mH = Homo;
-	vector<Point2f> corners(4);
-	for(int i = 0; i < 4; i++ ) {
-		double ptx = crns[i][0], pty=crns[i][1];
-		double w = 1./(mH(2,0)*ptx + mH(2,1)*pty + mH(2,2));
-		corners[i] =
-		    Point2f((float)((mH(0,0)*ptx + mH(0,1)*pty + mH(0,2))*w),
-		            (float)((mH(1,0)*ptx + mH(1,1)*pty + mH(1,2))*w));
-	}
-	for(int i = 0; i < 4; ++i) {
-		const Point& r1 = corners[i%4];
-		const Point& r2 = corners[(i+1)%4];
-		line( image, r1, r2, homocolors[i], 2 );
-	}
-	line(image, corners[0], corners[2], CV_GB, 2);
-	line(image, corners[1], corners[3], CV_GB, 2);
-}
-
-/**
-draw a 3D pyramid on image, projection matrix \f$P=K[R,T]\f$
-
-@param[in,out] image target image to draw
-@param[in] K calibration matrix, <3x3>
-@param[in] R rotation matrix, <3x3>
-@param[in] T translation vector, <3x1>
-@param[in] crns 8 corners of the pyramid, 0~3 bottom, 4~7 top, in world coordinate system
-*/
-inline void drawPyramid(Mat& image,
-		double const K[9], double const R[9], double const T[3],
-		double const crns[8][3] ) {
-	static cv::Scalar linecolors[] = {
-		CV_BLACK,
-		CV_GREEN,
-		CV_BLUE,
-		CV_RED  };
-	static int lineidx[12][2] = {
-		{0,1},{1,2},{2,3},{3,0},
-		{4,5},{5,6},{6,7},{7,4},
-		{0,4},{1,5},{2,6},{3,7} };
-	double P[12];
-	CameraHelper::compose(K,R,T,P,false);
-	double p[8][2];
-	for(int i=0; i<8; ++i) {
-		CameraHelper::project(P,crns[i],p[i]);
-	}
-	for(int i=0; i<3; ++i) {
-		for(int j=i*4; j<4+i*4; ++j) {
-			int s=lineidx[j][0], e=lineidx[j][1];
-			Point r1(p[s][0],p[s][1]);
-			Point r2(p[e][0],p[e][1]);
-			line( image, r1, r2, linecolors[j%4], 2 );
-		}
-	}
-}
-
-/**
-generate pseudocolor look up table, using opencv's own random version
-
-@param ncolors required number of colors
-@return pseudocolor look up table
-*/
-inline std::vector<Scalar> pseudocolor(int ncolors) {
-	if(ncolors<=0) ncolors=10;
-	using namespace cv;
-	std::vector<Scalar> ret(ncolors);
-	//theRNG() = (uint64)time(0);
-	//generateColors( ret, ncolors );
-	for(int i=0; i<ncolors; ++i) {
-		Scalar& color=ret[i];
-		color[0]=rand()%255;
-		color[1]=rand()%255;
-		color[2]=rand()%255;
-	}
-	return ret;
-}
-
-using std::string;
-using std::cout;
-using std::endl;
-using std::vector;
+////forward declare
+//struct ImageSource_Video;
+//struct ImageSource_Camera;
+//struct ImageSource_Photo;
+//struct ImageSource_List;
+//#ifdef USE_FLYCAP
+//struct ImageSource_PGR;
+//#endif//USE_FLYCAP
 
 /**
 \class ImageSource ImageHelper.h "ImageHelper.h"
@@ -172,7 +71,7 @@ public:
 	*/
 	virtual void get(cv::Mat& dst) = 0;
 
-	virtual string classname() = 0;
+	virtual std::string classname() = 0;
 
 	/**
 	report information of the image source to console
@@ -204,7 +103,11 @@ public:
 		loop(lo);
 		cv::namedWindow("frame");
 		cvMoveWindow("frame",10,10);
-		bool openFromWebcam = (this->classname() == "ImageSource_Camera");
+		bool openFromWebcam = (this->classname() == "ImageSource_Camera"
+#ifdef USE_FLYCAP
+			|| this->classname() == "ImageSource_PGR"
+#endif
+			);
 		PerformanceHelper::PerformanceMeasurer PM;
 		PM.scale = 1000;
 		double lastdur = 0;
@@ -219,7 +122,7 @@ public:
 			cv::imshow("frame",frame);
 
 			lastdur = PM.toc();
-			if(verbose) cout<<"[run] process duration = "<<lastdur<<endl;
+			if(verbose) std::cout<<"[run] process duration = "<<lastdur<<std::endl;
 			if(step) { step=false; pause(true); }
 			double waitdur = openFromWebcam?8:std::max(idealdur-lastdur, 8.0);
 			char key = cv::waitKey(waitdur);
@@ -234,10 +137,10 @@ public:
 				}
 				break;
 			case 'p':
-				pause(!isPause); if(verbose) cout<<"pause="<<isPause<<endl;
+				pause(!isPause); if(verbose) std::cout<<"pause="<<isPause<<std::endl;
 				break;
 			case 'l':
-				loop(!isLoop); if(verbose) cout<<"loop="<<isLoop<<endl;
+				loop(!isLoop); if(verbose) std::cout<<"loop="<<isLoop<<std::endl;
 				break;
 			case '=':
 				++idealfps;
@@ -248,14 +151,14 @@ public:
 				idealdur = 1000/idealfps;
 				break;
 			case 'h':
-				cout<<"v: verbose\n"
+				std::cout<<"v: verbose\n"
 					"s: step one frame forward\n"
 					"p: pause\n"
 					"l: loop\n"
 					"=: increase fps\n"
 					"-: decrease fps\n"
 					"h: display help information\n"
-					"q,Esc: quit"<<endl;
+					"q,Esc: quit"<<std::endl;
 				break;
 			case 27:
 			case 'q':
@@ -263,6 +166,8 @@ public:
 			}
 		}
 	}
+
+	static ImageSource* create(std::string url);
 
 	inline void pause(bool val=true) { isPause=val; }
 	inline void loop(bool val=true) { isLoop=val; }
@@ -286,22 +191,22 @@ private:
 	int nFrames; //# of frames
 	int curF; //0-based index
 public:
-	ImageSource_Video(string content) {
-		cout<<"[ImageSource_Video] open video from: "<<content<<endl;
+	ImageSource_Video(std::string content) {
+		std::cout<<"[ImageSource_Video] open video from: "<<content<<std::endl;
 		if( !cap.open(content) ) {
-			cout<<"[ImageSource_Video error] failed to open!"<<endl;
+			std::cout<<"[ImageSource_Video error] failed to open!"<<std::endl;
 			exit(-1);
 		}
 		nFrames = (int) cap.get(CV_CAP_PROP_FRAME_COUNT);
 		curF = 0;
 		if( !cap.read(current) ) {
-			cout<<"[ImageSource_Video] capture error @ frame="
-				<<curF<<", exit!"<<endl;
+			std::cout<<"[ImageSource_Video] capture error @ frame="
+				<<curF<<", exit!"<<std::endl;
 			exit(-1);
 		}
 	}
 
-	inline string classname() {
+	inline std::string classname() {
 		return "ImageSource_Video";
 	}
 
@@ -318,8 +223,8 @@ public:
 			cap.set(CV_CAP_PROP_POS_FRAMES, 0);
 		}
 		if(!cap.read(current)) {
-			cout<<"[ImageSource_Video] capture error @ frame="
-				<<curF<<", remove the rest."<<endl;
+			std::cout<<"[ImageSource_Video] capture error @ frame="
+				<<curF<<", remove the rest."<<std::endl;
 			nFrames = curF;
 			curF = 0;
 			cap.set(CV_CAP_PROP_POS_FRAMES, 0);
@@ -329,16 +234,16 @@ public:
 
 	~ImageSource_Video() {
 		cap.release();
-		cout<<"[ImageSource_Video] video closed."<<endl;
+		std::cout<<"[ImageSource_Video] video closed."<<std::endl;
 	}
 
 	inline void reportInfo() {
-		cout<<"[ImageSource_Video] INFO:"<<endl;
-		cout<<">>> #frame = "<<nFrames<<endl;
-		cout<<">>> current frame @ "<<curF<<endl;
-		cout<<">>> frame size = "
+		std::cout<<"[ImageSource_Video] INFO:"<<std::endl;
+		std::cout<<">>> #frame = "<<nFrames<<std::endl;
+		std::cout<<">>> current frame @ "<<curF<<std::endl;
+		std::cout<<">>> frame size = "
 			<<cap.get(CV_CAP_PROP_FRAME_WIDTH)<<"x"
-			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT)<<endl;
+			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT)<<std::endl;
 	}
 };
 
@@ -352,11 +257,11 @@ private:
 	cv::Mat current;
 	bool isDone;
 public:
-	ImageSource_Camera(string content) {
+	ImageSource_Camera(std::string content) {
 		std::vector<std::string> contentParts=UtilHelper::split(content, '?');
-		cout<<"[ImageSource_Camera] open from device: "<<contentParts[0]<<endl;
+		std::cout<<"[ImageSource_Camera] open from device: "<<contentParts[0]<<std::endl;
 		if( !cap.open(atoi(contentParts[0].c_str())) ) {
-			cout<<"[ImageSource_Camera error] failed to open!"<<endl;
+			std::cout<<"[ImageSource_Camera error] failed to open!"<<std::endl;
 			exit(-1);
 		}
 
@@ -390,7 +295,7 @@ public:
 		isPause = false;
 	}
 
-	inline string classname() {
+	inline std::string classname() {
 		return "ImageSource_Camera";
 	}
 
@@ -406,7 +311,7 @@ public:
 				current.copyTo(dst);
 			return;
 		} else if ( !cap.read(dst) ) {
-			cout<<"[ImageSource_Camera] capture error, exit!"<<endl;
+			std::cout<<"[ImageSource_Camera] capture error, exit!"<<std::endl;
 			exit(-1);
 		}
 		current.release();
@@ -414,16 +319,16 @@ public:
 
 	~ImageSource_Camera() {
 		cap.release();
-		cout<<"[ImageSource_Camera] camera closed."<<endl;
+		std::cout<<"[ImageSource_Camera] camera closed."<<std::endl;
 	}
 
 	inline void reportInfo() {
-		cout<<"[ImageSource_Camera] INFO:"<<endl;
-		cout<<">>> frame size = "
+		std::cout<<"[ImageSource_Camera] INFO:"<<std::endl;
+		std::cout<<">>> frame size = "
 			<<cap.get(CV_CAP_PROP_FRAME_WIDTH)<<"x"
-			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT)<<endl;
-		cout<<">>> frame rate = "
-			<<cap.get(CV_CAP_PROP_FPS)<<endl;
+			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT)<<std::endl;
+		std::cout<<">>> frame rate = "
+			<<cap.get(CV_CAP_PROP_FPS)<<std::endl;
 	}
 };
 
@@ -433,20 +338,20 @@ public:
 */
 struct ImageSource_Photo : public ImageSource {
 protected:
-	vector<string> imnames;
+	std::vector<std::string> imnames;
 	cv::Mat current;
 
 	int curF; //0-based index
 public:
-	ImageSource_Photo(string content, bool skip=false) {
+	ImageSource_Photo(std::string content, bool skip=false) {
 		if(skip) return;
-		cout<<"[ImageSource_Photo] open images from: "<<content<<endl;
+		std::cout<<"[ImageSource_Photo] open images from: "<<content<<std::endl;
 #ifdef _WIN32
-		string cmd = string("dir /B ")+content;
-		string dirstr = DirHelper::getFileDir(content);
+		std::string cmd = std::string("dir /B ")+content;
+		std::string dirstr = DirHelper::getFileDir(content);
 		FILE* fptr = _popen(cmd.c_str(), "r");
 #else
-		string cmd = string("ls -v1 ")+content;
+		std::string cmd = std::string("ls -v1 ")+content;
 		FILE* fptr = popen(cmd.c_str(), "r");
 #endif
 		char buf[1024]={0};
@@ -454,12 +359,12 @@ public:
 			int len = strlen(buf);
 			if(len>1) {
 #ifdef _WIN32
-				imnames.push_back(dirstr+string(buf,buf+len-1));
+				imnames.push_back(dirstr+std::string(buf,buf+len-1));
 #else
-				imnames.push_back(string(buf,buf+len-1));
+				imnames.push_back(std::string(buf,buf+len-1));
 #endif
 				memset(buf,0,sizeof(char)*1024);
-				cout<<imnames.back()<<endl;
+				std::cout<<imnames.back()<<std::endl;
 			}
 		}
 #ifdef _WIN32
@@ -477,7 +382,7 @@ public:
 		next();
 	}
 
-	inline string classname() {
+	inline std::string classname() {
 		return "ImageSource_Photo";
 	}
 
@@ -492,8 +397,8 @@ public:
 			}
 			current = cv::imread(imnames[curF]);
 			if(!current.empty()) return;
-			cout<<"[ImageSource_Photo] imread error @ photo\n"
-				<<imnames[curF]<<endl;
+			std::cout<<"[ImageSource_Photo] imread error @ photo\n"
+				<<imnames[curF]<<std::endl;
 			imnames.erase(imnames.begin()+curF);
 		} while(current.empty());
 	}
@@ -505,13 +410,13 @@ public:
 	}
 
 	~ImageSource_Photo() {
-		cout<<"[ImageSource_Photo] photo album closed."<<endl;
+		std::cout<<"[ImageSource_Photo] photo album closed."<<std::endl;
 	}
 
 	inline void reportInfo() {
-		cout<<"[ImageSource_Photo] INFO:"<<endl;
-		cout<<">>> #image = "<<imnames.size()<<endl;
-		cout<<">>> current image @ "<<curF<<endl;
+		std::cout<<"[ImageSource_Photo] INFO:"<<std::endl;
+		std::cout<<">>> #image = "<<imnames.size()<<std::endl;
+		std::cout<<">>> current image @ "<<curF<<std::endl;
 	}
 };
 
@@ -521,17 +426,17 @@ public:
 */
 struct ImageSource_List : public ImageSource_Photo {
 public:
-	ImageSource_List(string content) : ImageSource_Photo("", true) {
-		cout<<"[ImageSource_List] open images from: "<<content<<endl;
+	ImageSource_List(std::string content) : ImageSource_Photo("", true) {
+		std::cout<<"[ImageSource_List] open images from: "<<content<<std::endl;
 		std::ifstream is(content.c_str());
 		if(!is.is_open()) {
-			cout<<"[ImageSource_List error] can't open file: "<<content<<endl;
+			std::cout<<"[ImageSource_List error] can't open file: "<<content<<std::endl;
 			exit(-1);
 		}
 		std::string line;
 		while( IOHelper::readValidLine(is, line) ) {
 			imnames.push_back(line);
-			cout<<imnames.back()<<endl;
+			std::cout<<imnames.back()<<std::endl;
 		}
 		is.close();
 
@@ -545,7 +450,7 @@ public:
 		next();
 	}
 
-	inline string classname() {
+	inline std::string classname() {
 		return "ImageSource_List";
 	}
 };
@@ -561,11 +466,11 @@ private:
 	cv::Mat current;
 	bool isDone;
 public:
-	ImageSource_PGR(string content) {
+	ImageSource_PGR(std::string content) {
 		std::vector<std::string> contentParts=UtilHelper::split(content, '?');
-		cout<<"[ImageSource_PGR] open from device: "<<contentParts[0]<<endl;
+		std::cout<<"[ImageSource_PGR] open from device: "<<contentParts[0]<<std::endl;
 		if( !cap.init(atoi(contentParts[0].c_str())) ) {
-			cout<<"[ImageSource_PGR error] failed to open!"<<endl;
+			std::cout<<"[ImageSource_PGR error] failed to open!"<<std::endl;
 			exit(-1);
 		}
 
@@ -592,8 +497,8 @@ public:
 		cap.error=cap.cam.SetVideoModeAndFrameRate((FlyCapture2::VideoMode)vi,
 					(FlyCapture2::FrameRate)fi);
 		if(cap.error!=FlyCapture2::PGRERROR_OK) {
-			cout<<"[ImageSource_PGR error] can not set camera mode to vi="
-				<<vi<<" and fi="<<fi<<endl;
+			std::cout<<"[ImageSource_PGR error] can not set camera mode to vi="
+				<<vi<<" and fi="<<fi<<std::endl;
 			exit(-1);
 		}
 
@@ -603,7 +508,7 @@ public:
 		isPause = false;
 	}
 
-	inline string classname() {
+	inline std::string classname() {
 		return "ImageSource_PGR";
 	}
 
@@ -619,41 +524,28 @@ public:
 				current.copyTo(dst);
 			return;
 		} else if ( !cap.read(dst) ) {
-			cout<<"[ImageSource_PGR] capture error, exit!"<<endl;
+			std::cout<<"[ImageSource_PGR] capture error, exit!"<<std::endl;
 			exit(-1);
 		}
 		current.release();
 	}
 
 	~ImageSource_PGR() {
-		cout<<"[ImageSource_PGR] camera closed."<<endl;
+		std::cout<<"[ImageSource_PGR] camera closed."<<std::endl;
 	}
 
 	inline void reportInfo() {}
 };
 #endif//USE_FLYCAP
 
-/**
-helper function for create an ImageSource from url
-url format example:
-video:///home/simbaforrest/Videos/Webcam/keg_april.ogv
-camera://0?w=640?h=480?f=60
-photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img00000.jpg
-photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img*.jpg
-list:///home/simbaforrest/Videos/Webcam/seq_UMshort/list.txt
-pgr://0?v=5?f=4
-
-@param url url for image source
-@return created ImageSource
-*/
-inline ImageSource* createImageSource(string url) {
+inline ImageSource* ImageSource::create(std::string url) {
 	size_t pos = url.find("://");
-	if(pos == string::npos) {
-		cout<<"[ImageSource error] invalid image source url!"<<endl;
+	if(pos == std::string::npos) {
+		std::cout<<"[ImageSource error] invalid image source url!"<<std::endl;
 		return NULL;
 	}
-	string header(url, 0, pos);
-	string content(url, pos+3, url.length()-pos-3);
+	std::string header(url, 0, pos);
+	std::string content(url, pos+3, url.length()-pos-3);
 	if(header=="video") {
 		return new ImageSource_Video(content);
 	} else if(header=="camera") {
@@ -667,9 +559,26 @@ inline ImageSource* createImageSource(string url) {
 		return new ImageSource_PGR(content);
 #endif//USE_FLYCAP
 	} else {
-		cout<<"[ImageSource error] unknown url header: "<<header<<endl;
+		std::cout<<"[ImageSource error] unknown url header: "<<header<<std::endl;
 	}
 	return NULL;
+}
+
+/**
+helper function for create an ImageSource from url
+url format example:
+video:///home/simbaforrest/Videos/Webcam/keg_april.ogv
+camera://0?w=640?h=480?f=60
+photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img00000.jpg
+photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/img*.jpg
+list:///home/simbaforrest/Videos/Webcam/seq_UMshort/list.txt
+pgr://0?v=5?f=4 (if USE_FLYCAP)
+
+@param url url for image source
+@return created ImageSource
+*/
+inline ImageSource* createImageSource(std::string url) {
+	return ImageSource::create(url);
 }
 
 }//ImageHelper

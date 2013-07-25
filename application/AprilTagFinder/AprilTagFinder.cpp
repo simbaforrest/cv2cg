@@ -136,7 +136,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			}
 
 			logd<<"#"<<dd.id<<"|"<<dd.hammingDistance<<" ";
-			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
+			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, CV_BLUE, 2 );
 
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 			static double crns[4][2]={
@@ -146,7 +146,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 				{-1,  1}
 			};
 			helper::drawHomography(frame, Homo, crns);
-			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
+			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, CV_GREEN, 2);
 		}
 		logld;
 		if(fs.is_open()) {
