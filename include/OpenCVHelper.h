@@ -40,6 +40,7 @@
 #include "DirHelper.h"
 #include "IOHelper.h"
 #include "UtilHelper.h"
+#include "VisHelper.h"
 #include "ImageHelper.h"
 #include "RotationHelper.h"
 #include "FilterHelper.h"
@@ -52,6 +53,7 @@ namespace helper
 {
 using namespace CvMatHelper;
 using namespace CameraHelper;
+using namespace VisHelper;
 using namespace ImageHelper;
 using namespace DirHelper;
 using namespace IOHelper;
