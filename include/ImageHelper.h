@@ -467,7 +467,7 @@ public:
 
 		//process parameters
 		int vi=(int)FlyCapture2::VIDEOMODE_640x480Y8;
-		int fi=(int)FlyCapture2::FRAMERATE_60;
+		int fi=(int)FlyCapture2::FRAMERATE_30;
 		int colormode=1; //0:mono, 1:rgb, 2:bgr
 		for(int i=1; i<(int)contentParts.size(); ++i) {
 			std::vector<std::string> par=UtilHelper::split(contentParts[i], '=');

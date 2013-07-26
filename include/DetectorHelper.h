@@ -31,14 +31,12 @@
 
 namespace DetectorHelper
 {
-using namespace cv;
-using namespace std;
 
 class LongTermDAFD
 {
 public:
 
-	LongTermDAFD(Ptr<AdjusterAdapter>& a,
+	LongTermDAFD(cv::Ptr<cv::AdjusterAdapter>& a,
 	             int min_features, int max_features, int max_iters ) :
 		escape_iters_(max_iters), min_features_(min_features),
 		max_features_(max_features), adjuster_(a)
@@ -48,9 +46,9 @@ public:
 		return adjuster_.empty() || adjuster_->empty();
 	}
 
-	inline void detect(const Mat &image,
-	                   vector<KeyPoint>& keypoints,
-	                   const Mat &mask=Mat() ) {
+	inline void detect(const cv::Mat &image,
+					   std::vector<cv::KeyPoint>& keypoints,
+					   const cv::Mat &mask=cv::Mat() ) {
 		//for oscillation testing
 		bool down = false;
 		bool up = false;
@@ -84,7 +82,7 @@ public:
 
 	int escape_iters_;
 	int min_features_, max_features_;
-	Ptr<AdjusterAdapter> adjuster_;
+	cv::Ptr<cv::AdjusterAdapter> adjuster_;
 };
 
 }

@@ -32,13 +32,10 @@
 namespace ClusterHelper
 {
 
-using std::vector;
-using std::set;
-
 //modified from april.util.UnionFindSimple
 struct UnionFind {
-	vector<int> parent;
-	vector<int> rank; //store class size
+	std::vector<int> parent;
+	std::vector<int> rank; //store class size
 //	set<int> root; //store all remaining roots
 //	int nclasses;
 

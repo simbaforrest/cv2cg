@@ -69,17 +69,14 @@
 
 namespace SearchHelper {
 
-using std::vector;
-using std::list;
-
 /** A lookup table in 2D for implementing nearest neighbor **/
 template<typename T>
 struct Gridder {
 	typedef T* Tptr;
-	typedef vector<Tptr> Cell;
+	typedef std::vector<Tptr> Cell;
 	typedef int CellIterator;
 
-	vector<vector<Cell> > cells;
+	std::vector<std::vector<Cell> > cells;
 	double x0, y0, x1, y1;
 	int width, height;
 	double metersPerCell;
@@ -208,7 +205,7 @@ struct Gridder {
 	@param dst[out] output list of elements' pointers
 	@return number of elements in output list
 	*/
-	inline int findAll(double x, double y, double range, vector<Tptr>& dst) {
+	inline int findAll(double x, double y, double range, std::vector<Tptr>& dst) {
 		dst.clear();
 		Iterator itr = find(x,y,range);
 		for (; !itr.done(); itr.next()) {
