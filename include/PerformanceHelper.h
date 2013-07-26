@@ -32,9 +32,6 @@
 
 namespace PerformanceHelper
 {
-using namespace cv;
-using namespace std;
-
 /**
 computer rms error, only using valid region (non-zero region)
 
@@ -43,21 +40,21 @@ computer rms error, only using valid region (non-zero region)
 @return rms error
 */
 template<typename MatType>
-double rms(const Mat &error, const Mat *mask=0)
+double rms(const cv::Mat &error, const cv::Mat *mask=0)
 {
-	Mat maskRow;
+	cv::Mat maskRow;
 	int validN;
 	if(mask) {
 		maskRow = mask->reshape(0,1);
-		validN = countNonZero(maskRow);
+		validN = cv::countNonZero(maskRow);
 	} else {
 		validN = error.total();
 	}
 	if(!maskRow.empty() && validN==0)
-		return numeric_limits<double>::quiet_NaN();
+		return std::numeric_limits<double>::quiet_NaN();
 
 	double ret = 0;
-	Mat errorRow = error.reshape(0,1);
+	cv::Mat errorRow = error.reshape(0,1);
 	for(int i=0; i<(int)errorRow.total(); ++i) {
 		MatType ie = errorRow.at<MatType>(i);
 		bool valid = maskRow.empty() || maskRow.at<MatType>(i)!=0;
@@ -76,28 +73,28 @@ only using valid region (non-zero region) specified by mask
 @return zncc
 */
 template<typename MatType>
-double zncc(const Mat& w, const Mat& t, const Mat *mask=0)
+double zncc(const cv::Mat& w, const cv::Mat& t, const cv::Mat *mask=0)
 {
-	Mat maskRow;
+	cv::Mat maskRow;
 	int validN;
 	if(mask) {
 		maskRow = mask->reshape(0,1);
-		validN = countNonZero(maskRow);
+		validN = cv::countNonZero(maskRow);
 	} else {
 		validN = w.total();
 	}
 	if(!maskRow.empty() && validN==0)
-		return numeric_limits<double>::quiet_NaN();
+		return std::numeric_limits<double>::quiet_NaN();
 
 	Scalar mw, mt, dw, dt;
-	Mat wRow = w.reshape(0,1);
-	Mat tRow = t.reshape(0,1);
+	cv::Mat wRow = w.reshape(0,1);
+	cv::Mat tRow = t.reshape(0,1);
 	if(maskRow.empty()) {
-		meanStdDev(wRow, mw, dw);
-		meanStdDev(tRow, mt, dt);
+		cv::meanStdDev(wRow, mw, dw);
+		cv::meanStdDev(tRow, mt, dt);
 	} else {
-		meanStdDev(wRow, mw, dw, maskRow);
-		meanStdDev(tRow, mt, dt, maskRow);
+		cv::meanStdDev(wRow, mw, dw, maskRow);
+		cv::meanStdDev(tRow, mt, dt, maskRow);
 	}
 
 	double ret = 0;
@@ -135,7 +132,7 @@ struct PerformanceMeasurer {
 	@return the start tick
 	*/
 	inline double tic() {
-		return startTick = (double)getTickCount();
+		return startTick = (double)cv::getTickCount();
 	}
 
 	/**
@@ -144,7 +141,7 @@ struct PerformanceMeasurer {
 	@return duration from last tic,  in (second * scale)
 	*/
 	inline double toc() {
-		return ((double)getTickCount()-startTick)/getTickFrequency() * scale;
+		return ((double)cv::getTickCount()-startTick)/cv::getTickFrequency() * scale;
 	}
 
 	/**
@@ -153,7 +150,7 @@ struct PerformanceMeasurer {
 	@return duration from last tic,  in (second * scale)
 	*/
 	inline double toctic() {
-		double ret = ((double)getTickCount()-startTick)/getTickFrequency() * scale;
+		double ret = ((double)cv::getTickCount()-startTick)/cv::getTickFrequency() * scale;
 		tic();
 		return ret;
 	}
