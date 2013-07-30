@@ -54,6 +54,7 @@
 #include "Log.h"
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
+#include "config.hpp"
 
 using namespace std;
 using namespace cv;
@@ -63,6 +64,7 @@ using april::tag::TagFamilyFactory;
 using april::tag::TagDetector;
 using april::tag::TagDetection;
 using helper::ImageSource;
+using helper::GConfig;
 
 std::vector< cv::Ptr<TagFamily> > tagFamilies;
 cv::Ptr<TagDetector> detector;
@@ -81,7 +83,14 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	bool takePhoto;
 	int photoCnt;
 	bool grabImage;
-	AprilTagprocessor() : takePhoto(false), photoCnt(0), grabImage(false) {}
+	bool takePhotoContinue;
+	bool grabImageContinue;
+	bool doNotWritePhoto;
+	AprilTagprocessor() : takePhoto(false), photoCnt(0), grabImage(false) {
+		takePhotoContinue = GConfig::Instance().get<bool>("AprilTagprocessor::takePhotoContinue",false);
+		grabImageContinue = GConfig::Instance().get<bool>("AprilTagprocessor::grabImageContinue",false);
+		doNotWritePhoto = GConfig::Instance().get<bool>("AprilTagprocessor::doNotWritePhoto",false);
+	}
 /////// Override
 	void operator()(cv::Mat& frame) {
 		static helper::PerformanceMeasurer PM;
@@ -91,25 +100,28 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		logld<<"[TagDetector] process time = "<<PM.toc()<<" sec.";
 
 		std::ofstream fs;
-		if(/*takePhoto && */detections.size()!=0) {
+		if((takePhoto||takePhotoContinue) && detections.size()!=0) {
 			std::string id = helper::num2str(photoCnt, 5);
 			fs.open((id+".txt").c_str());
 			if(!fs.is_open()) {
 				logle<<"can not open: "<<id<<".txt";
 				exit(-1);
 			}
-			++photoCnt;
-			/*if(cv::imwrite(id+".png", frame)) {
-				logli<<"took photo: "<<id<<".png";
-				takePhoto=false;
-				++photoCnt;
+			if(!doNotWritePhoto) {
+				if(cv::imwrite(id+".png", frame)) {
+					logli<<"took photo: "<<id<<".png";
+					takePhoto=false;
+					++photoCnt;
+				} else {
+					logle<<"can not save photo: "<<id<<".png";
+					exit(-1);
+				}
 			} else {
-				logle<<"can not save photo: "<<id<<".png";
-				exit(-1);
-			}*/
+				++photoCnt;
+			}
 		}
 
-		if(grabImage) {
+		if(grabImage || grabImageContinue) {
 			static int grabCnt=0;
 			std::string id = helper::num2str(grabCnt, 2);
 			if(cv::imwrite(id+".png", frame)) {
@@ -125,7 +137,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		if(fs.is_open()) {
 			fs<<(int)detections.size()<<std::endl;
 		}
-		logd<<">>> find id: ";
+		logld<<">>> find: ";
 		for(int id=0; id<(int)detections.size(); ++id) {
 			TagDetection &dd = detections[id];
 			//if(dd.hammingDistance>0) continue; //very strict!
@@ -135,7 +147,6 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 				write(fs, dd);
 			}
 
-			logd<<"#"<<dd.id<<"|"<<dd.hammingDistance<<" ";
 			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, CV_BLUE, 2 );
 
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
@@ -181,7 +192,6 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	}
 
 };//end of struct AprilTagprocessor
-AprilTagprocessor processor;
 
 void usage( int argc, char **argv ) {
 	cout<< "[usage] " <<argv[0]<<" <url> [TagFamilies ID]"<<endl;
@@ -207,6 +217,13 @@ int main( int argc, char **argv )
 	if(argc<2) {
 		usage(argc,argv);
 		return -1;
+	}
+
+	ConfigHelper::Config& cfg = GConfig::Instance();
+	if(!cfg.load("AprilTagFinder.cfg")) {
+		flogli("[main] no AprilTagFinder.cfg file");
+	} else {
+		flogli("[main] loaded AprilTagFinder.cfg");
 	}
 
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
@@ -240,7 +257,10 @@ int main( int argc, char **argv )
 		return -1;
 	}
 
-	is->run(processor,-1, false, false, false);
+	AprilTagprocessor processor;
+	is->run(processor,-1, false,
+		cfg.get<bool>("ImageSource::pause", is->getPause()),
+		cfg.get<bool>("ImageSource::loop", is->getLoop()) );
 
 	cout<<"[main] DONE...exit!"<<endl;
 	return 0;
