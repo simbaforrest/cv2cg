@@ -113,7 +113,7 @@ public:
 			cv::imshow("frame",frame);
 
 			lastdur = PM.toc();
-			if(verbose) std::cout<<"[run] process duration = "<<lastdur<<std::endl;
+			if(verbose) std::cout<<"[ImageSource::run] process duration = "<<lastdur<<std::endl;
 			if(step) { step=false; pause(true); }
 			double waitdur = openFromWebcam?8:std::max(idealdur-lastdur, 8.0);
 			char key = cv::waitKey(waitdur);
@@ -161,7 +161,9 @@ public:
 	static ImageSource* create(std::string url);
 
 	inline void pause(bool val=true) { isPause=val; }
+	inline bool getPause() const { return isPause; }
 	inline void loop(bool val=true) { isLoop=val; }
+	inline bool getLoop() const { return isLoop; }
 
 	ImageSource() { isLoop=true; isPause=true; }
 	virtual ~ImageSource() {}
@@ -333,9 +335,9 @@ protected:
 	cv::Mat current;
 
 	int curF; //0-based index
+	ImageSource_Photo() {} //used for child class to skip base constructor
 public:
-	ImageSource_Photo(std::string content, bool skip=false) {
-		if(skip) return;
+	ImageSource_Photo(std::string content) {
 		std::cout<<"[ImageSource_Photo] open images from: "<<content<<std::endl;
 #ifdef _WIN32
 		std::string cmd = std::string("dir /B ")+content;
@@ -345,6 +347,12 @@ public:
 		std::string cmd = std::string("ls -v1 ")+content;
 		FILE* fptr = popen(cmd.c_str(), "r");
 #endif
+
+		if(fptr==0) {
+			std::cout<<"[ImageSource_Photo] exit since invalid cmd:"<<cmd<<std::endl;
+			exit(-1);
+		}
+
 		char buf[1024]={0};
 		while( fgets(buf,1024,fptr)!=0 ) {
 			int len = strlen(buf);
@@ -363,6 +371,12 @@ public:
 #else
 		pclose(fptr);
 #endif
+		if(imnames.size()<=0) {
+			curF = (int)imnames.size(); //set done since no image available
+			std::cout<<"[ImageSource_Photo] warning: no image available!"<<std::endl;
+			return;
+		}
+
 		this->loop(true);
 		if(imnames.size()<10) {
 			this->pause(true);
@@ -371,6 +385,10 @@ public:
 		}
 		curF = -1;
 		next();
+		if(current.empty()) {
+			curF = (int)imnames.size(); //set done since no image available
+			std::cout<<"[ImageSource_Photo] warning: no image available!"<<std::endl;
+		}
 	}
 
 	inline std::string classname() {
@@ -391,7 +409,7 @@ public:
 			std::cout<<"[ImageSource_Photo] imread error @ photo\n"
 				<<imnames[curF]<<std::endl;
 			imnames.erase(imnames.begin()+curF);
-		} while(current.empty());
+		} while(current.empty() && imnames.size()>0);
 	}
 
 	inline void get(cv::Mat& dst) {
@@ -417,7 +435,7 @@ public:
 */
 struct ImageSource_List : public ImageSource_Photo {
 public:
-	ImageSource_List(std::string content) : ImageSource_Photo("", true) {
+	ImageSource_List(std::string content) : ImageSource_Photo() {
 		std::cout<<"[ImageSource_List] open images from: "<<content<<std::endl;
 		std::ifstream is(content.c_str());
 		if(!is.is_open()) {
@@ -431,6 +449,12 @@ public:
 		}
 		is.close();
 
+		if(imnames.size()<=0) {
+			curF = (int)imnames.size(); //set done since no image available
+			std::cout<<"[ImageSource_List] warning: no image available!"<<std::endl;
+			return;
+		}
+
 		this->loop(true);
 		if(imnames.size()<10) {
 			this->pause(true);
@@ -439,6 +463,10 @@ public:
 		}
 		curF = -1;
 		next();
+		if(current.empty()) {
+			curF = (int)imnames.size(); //set done since no image available
+			std::cout<<"[ImageSource_List] warning: no image available!"<<std::endl;
+		}
 	}
 
 	inline std::string classname() {
@@ -468,7 +496,7 @@ public:
 		//process parameters
 		int vi=(int)FlyCapture2::VIDEOMODE_640x480Y8;
 		int fi=(int)FlyCapture2::FRAMERATE_30;
-		int colormode=1; //0:mono, 1:rgb, 2:bgr
+		int colormode=2; //0:mono, 1:rgb, 2:bgr
 		for(int i=1; i<(int)contentParts.size(); ++i) {
 			std::vector<std::string> par=UtilHelper::split(contentParts[i], '=');
 			if(par.size()!=2) {
@@ -525,7 +553,25 @@ public:
 		std::cout<<"[ImageSource_PGR] camera closed."<<std::endl;
 	}
 
-	inline void reportInfo() {}
+	inline void reportInfo() {
+		FlyCapture2::CameraInfo info;
+		cap.error=cap.cam.GetCameraInfo(&info);
+		if(cap.error!=FlyCapture2::PGRERROR_OK) {
+			cap.error.PrintErrorTrace();
+			return;
+		} else {
+			std::cout<<">>>serialNumber: "<<info.serialNumber<<std::endl;
+			//switch(info.interfaceType) {
+			//	case FlyCapture2::INTERFACE_USB2:
+			//		std::cout<<">>>interfaceType: USB2"<<std::endl; break;
+			//}
+			std::cout<<">>>isColorCamera: "<<(info.isColorCamera?"Yes":"No")<<std::endl;
+			std::cout<<">>>modelName: "<<info.modelName<<std::endl;
+			std::cout<<">>>vendorName: "<<info.vendorName<<std::endl;
+			std::cout<<">>>sensorInfo: "<<info.sensorInfo<<std::endl;
+			std::cout<<">>>sensorResolution: "<<info.sensorResolution<<std::endl;
+		}
+	}
 };
 #endif//USE_FLYCAP
 

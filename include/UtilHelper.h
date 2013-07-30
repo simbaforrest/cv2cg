@@ -65,7 +65,7 @@ if(rgb.channels()==3) {
 }
 
 //string split function from http://stackoverflow.com/a/236803/2303236
-std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems)
+inline std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems)
 {
     std::stringstream ss(s);
     std::string item;
@@ -75,7 +75,7 @@ std::vector<std::string> &split(const std::string &s, char delim, std::vector<st
     return elems;
 }
 
-std::vector<std::string> split(const std::string &s, char delim) {
+inline std::vector<std::string> split(const std::string &s, char delim) {
     std::vector<std::string> elems;
     split(s, delim, elems);
     return elems;

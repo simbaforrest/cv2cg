@@ -60,6 +60,14 @@ namespace ConfigHelper {
 			return true;
 		}
 
+		//optional get
+		template<typename T>
+		T get(const std::string& key, T defaultValue) const {
+			T ret;
+			if(get<T>(key, ret, true)) return ret;
+			return defaultValue;
+		}
+
 		inline static void trim(std::string& s) {
 			size_t spos = s.find_first_not_of(" \n\r\t");
 			s.erase(0, spos!=std::string::npos?spos:0);
