@@ -100,12 +100,14 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		logld<<"[TagDetector] process time = "<<PM.toc()<<" sec.";
 
 		std::ofstream fs;
-		if((takePhoto||takePhotoContinue) && detections.size()!=0) {
+		if((takePhoto && detections.size()!=0)||takePhotoContinue) {
 			std::string id = helper::num2str(photoCnt, 5);
 			fs.open((id+".txt").c_str());
 			if(!fs.is_open()) {
 				logle<<"can not open: "<<id<<".txt";
 				exit(-1);
+			} else {
+				logli<<"wrote detection: "<<id<<".txt";
 			}
 			if(!doNotWritePhoto) {
 				if(cv::imwrite(id+".png", frame)) {
@@ -147,7 +149,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 				write(fs, dd);
 			}
 
-			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, CV_BLUE, 2 );
+			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
 
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 			static double crns[4][2]={
@@ -157,7 +159,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 				{-1,  1}
 			};
 			helper::drawHomography(frame, Homo, crns);
-			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, CV_GREEN, 2);
+			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
 		}
 		logld;
 		if(fs.is_open()) {
@@ -220,10 +222,11 @@ int main( int argc, char **argv )
 	}
 
 	ConfigHelper::Config& cfg = GConfig::Instance();
-	if(!cfg.load("AprilTagFinder.cfg")) {
-		flogli("[main] no AprilTagFinder.cfg file");
+	std::string exeDir=helper::getFileDir(argv[0]);
+	if(!cfg.load(exeDir+"AprilTagFinder.cfg")) {
+		flogli("[main] no "<<exeDir<<"AprilTagFinder.cfg file");
 	} else {
-		flogli("[main] loaded AprilTagFinder.cfg");
+		flogli("[main] loaded "<<exeDir<<"AprilTagFinder.cfg");
 	}
 
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
