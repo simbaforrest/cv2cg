@@ -113,7 +113,7 @@ public:
 			cv::imshow("frame",frame);
 
 			lastdur = PM.toc();
-			if(verbose) std::cout<<"[ImageSource::run] process duration = "<<lastdur<<std::endl;
+			if(verbose) std::cout<<"[ImageSource::run] process duration = "<<lastdur<<" ms"<<std::endl;
 			if(step) { step=false; pause(true); }
 			double waitdur = openFromWebcam?8:std::max(idealdur-lastdur, 8.0);
 			char key = cv::waitKey(waitdur);

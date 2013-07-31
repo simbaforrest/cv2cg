@@ -33,15 +33,15 @@
 
 namespace VisHelper
 {
-#define CV_RED		cv::Scalar(255,0,0)
-#define CV_GREEN	cv::Scalar(0,255,0)
-#define CV_BLUE		cv::Scalar(0,0,255)
-#define CV_RG		cv::Scalar(255,255,0)
-#define CV_RB		cv::Scalar(255,0,255)
-#define CV_GB		cv::Scalar(0,255,255)
-#define CV_WHITE	cv::Scalar(255,255,255)
-#define CV_BLACK	cv::Scalar(0,0,0)
-#define CV_GRAY		cv::Scalar(128,128,128)
+const cv::Scalar CV_RED(255,0,0);
+const cv::Scalar CV_GREEN(0,255,0);
+const cv::Scalar CV_BLUE(0,0,255);
+const cv::Scalar CV_RG(255,255,0);
+const cv::Scalar CV_RB(255,0,255);
+const cv::Scalar CV_GB(0,255,255);
+const cv::Scalar CV_WHITE(255,255,255);
+const cv::Scalar CV_BLACK(0,0,0);
+const cv::Scalar CV_GRAY(128,128,128);
 
 /**
 draw a homography (a quad) given the four corners to be mapped by Homography
