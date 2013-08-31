@@ -199,7 +199,7 @@ void usage( int argc, char **argv ) {
 	cout<< "[usage] " <<argv[0]<<" <url> [TagFamilies ID]"<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
-		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
+		cout<<"\t"<<april::tag::TagFamilyFactory_SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
 	cout<<"Combination of TagFamily ID: 014 (use tagFamily 0, 1 and 4)"<<endl;
 	cout<<"default ID: 0"<<endl;
