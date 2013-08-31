@@ -68,7 +68,7 @@ void usage( int argc, char **argv ) {
 	cout<< "[usage] " <<argv[0]<<" <output dir> [TagFamily ID] [Tag Scale]"<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
-		cout<<"\t"<<TagFamilyFactory::SUPPORT_NAME[i]<<" id="<<i<<endl;
+		cout<<"\t"<<april::tag::TagFamilyFactory_SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
 	cout<<"default ID:    0"<<endl;
 	cout<<"default Scale: 1.0"<<endl;

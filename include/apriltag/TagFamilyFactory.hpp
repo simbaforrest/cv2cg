@@ -67,7 +67,6 @@ namespace tag
 
 struct TagFamilyFactory {
 	enum SUPPORT_TYPE {TAG16H5=0, TAG25H7=1, TAG25H9=2, TAG36H9=3, TAG36H11=4, TAGTOTAL};
-	static const std::string SUPPORT_NAME[];
 
 	inline static Ptr<TagFamily> create(unsigned int type) {
 		Ptr<TagFamily> ret;
@@ -100,7 +99,7 @@ struct TagFamilyFactory {
 	}
 };
 
-const std::string TagFamilyFactory::SUPPORT_NAME[] = {"Tag16h5", "Tag25h7", "Tag25h9", "Tag36h9", "Tag36h11"};
+const std::string TagFamilyFactory_SUPPORT_NAME[] = {"Tag16h5", "Tag25h7", "Tag25h9", "Tag36h9", "Tag36h11"};
 
 }//end of tag
 }//end of april
