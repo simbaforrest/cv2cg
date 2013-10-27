@@ -86,10 +86,14 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	bool takePhotoContinue;
 	bool grabImageContinue;
 	bool doNotWritePhoto;
+	double tagTextScale;
+	int tagTextThickness;
 	AprilTagprocessor() : takePhoto(false), photoCnt(0), grabImage(false) {
 		takePhotoContinue = GConfig::Instance().get<bool>("AprilTagprocessor::takePhotoContinue",false);
 		grabImageContinue = GConfig::Instance().get<bool>("AprilTagprocessor::grabImageContinue",false);
 		doNotWritePhoto = GConfig::Instance().get<bool>("AprilTagprocessor::doNotWritePhoto",false);
+		tagTextScale = GConfig::Instance().get<double>("AprilTagprocessor::tagTextScale",1.0f);
+		tagTextThickness = GConfig::Instance().get<int>("AprilTagprocessor::tagTextThickness",1);
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
@@ -149,7 +153,8 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 				write(fs, dd);
 			}
 
-			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]), CV_FONT_NORMAL, 1, helper::CV_BLUE, 2 );
+			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]),
+				         CV_FONT_NORMAL, tagTextScale, helper::CV_BLUE, tagTextThickness );
 
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 			static double crns[4][2]={

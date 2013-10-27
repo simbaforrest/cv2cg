@@ -134,7 +134,7 @@ inline bool triangulate(const double x1, const double y1,
 //this method assumes the world origin [0,0,0] lies
 //in front of the camera, i.e. T[3]>0 is ensured
 inline void RTfromKH(const double K[9], const double H[9],
-                     double R[9], double T[3])
+                     double R[9], double T[3], bool doPolarDecomp=false)
 {
 	double invK[9];
 	double A[9];
@@ -162,9 +162,11 @@ inline void RTfromKH(const double K[9], const double H[9],
 //simbaforrest: add this will cause affect rendering effect, since lost info
 	//as suggested by AprilTag, do polar decomposition so R is orthogonal
 	//R = (UV')(VSV')
-//	double U[9],S[9],VT[9];
-//	CvMatHelper::svd(3,3,R,U,S,VT);
-//	CvMatHelper::mul(3,3,3,3,U,VT,R);
+	if(doPolarDecomp) {
+		double U[9],S[9],VT[9];
+		CvMatHelper::svd(3,3,R,U,S,VT);
+		CvMatHelper::mul(3,3,3,3,U,VT,R);
+	}
 }
 
 }//CameraHelper

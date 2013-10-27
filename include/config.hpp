@@ -46,6 +46,15 @@ namespace ConfigHelper {
 			return ret;
 		}
 
+		// return the raw string in key=RawString line in the cfg file
+		std::string getRawString(const std::string& key) const {
+			ConfigMap::const_iterator itr = cm.find(key);
+			if(itr==cm.end()) {
+				throw std::runtime_error("[Config error] no such key: "+key);
+			}
+			return itr->second;
+		}
+
 		// for both compulsory and optional config pairs
 		template<typename T>
 		bool get(const std::string& key, T& ret, bool isOptional=true) const {

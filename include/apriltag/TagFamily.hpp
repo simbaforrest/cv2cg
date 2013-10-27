@@ -276,6 +276,39 @@ struct TagFamily {
 		cv::imwrite(filepath, im);
 	}
 
+	//save a image mosaic of tag (start_id,...start_id+rows*cols)
+	void writeImagesMosaic(std::string filepath, const int start_id,
+		                   const int rows, const int cols, const int scale=1) const
+	{
+		if(start_id<0) {
+			std::cout<<"[TagFamily error] start_id must be greater than 0!"<<std::endl;
+			return;
+		}
+		if(rows*cols+start_id>=(int)codes.size()) {
+			std::cout<<"[TagFamily error] not enough tags!"<<std::endl;
+			return;
+		}
+		const int dim = getTagRenderDimension()*scale;
+		const int imW=cols*dim, imH=rows*dim;
+
+		cv::Mat im(imH, imW, CV_8UC3, cv::Scalar(255,255,255));
+		if(im.empty()) {
+			std::cout<<"[TagFamily error] can not allocate image of size h="<<imH<<", w="<<imW<<std::endl;
+			return;
+		}
+		for(int r=0,id=start_id; r<rows; ++r) {
+			for(int c=0; c<cols; ++c,++id) {
+				cv::Mat subim=makeImage(id);
+				if(scale>1) {
+					cv::resize(subim,subim,cv::Size(subim.rows*scale,subim.cols*scale),0,0,cv::INTER_NEAREST);
+				}
+				cv::Mat roi(im, cv::Rect(c*dim, r*dim, dim, dim));
+				subim.copyTo(roi);
+			}
+		}
+		cv::imwrite(filepath, im);
+	}
+
 	void printHammingDistances() const {
 		vector<int> hammings(d*d+1);
 
