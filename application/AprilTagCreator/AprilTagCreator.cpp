@@ -65,7 +65,7 @@ using april::tag::TagDetector;
 using april::tag::TagDetection;
 
 void usage( int argc, char **argv ) {
-	cout<< "[usage] " <<argv[0]<<" <output dir> [TagFamily ID] [Tag Scale]"<<endl;
+	cout<< "[usage] " <<argv[0]<<" <output dir> [TagFamily ID] [Tag Scale] [start_id,rows,cols,fname]"<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<april::tag::TagFamilyFactory_SUPPORT_NAME[i]<<" id="<<i<<endl;
@@ -94,9 +94,17 @@ int main( int argc, char **argv )
 	string dir(argv[1]);
 	double tagscale = 1.0;
 	if(argc>3) tagscale = atof(argv[3]);
-	tagFamily->writeAllImages(helper::legalDir(dir),tagscale);
-	tagFamily->writeAllImagesMosaic(dir+"mosaic.png");
-	tagFamily->writeAllImagesPostScript(dir+"all.ps");
+	helper::legalDir(dir);
+	if(argc<=4) {
+		tagFamily->writeAllImages(dir,tagscale);
+		tagFamily->writeAllImagesMosaic(dir+"mosaic.png");
+		tagFamily->writeAllImagesPostScript(dir+"all.ps");
+	} else {
+		std::vector<string> pars=helper::split(argv[4], ',');
+		tagFamily->writeImagesMosaic(
+			dir+pars[3], atoi(pars[0].c_str()),
+			atoi(pars[1].c_str()), atoi(pars[2].c_str()), tagscale);
+	}
 
 	std::cout<<"DONE!"<<std::endl;
 	return 0;

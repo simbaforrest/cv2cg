@@ -15,15 +15,44 @@ struct FlyCap2OpenCV {
 	static const char *videoModeName[(int)FlyCapture2::NUM_VIDEOMODES];
 	static const char *frameRateValue[(int)FlyCapture2::NUM_FRAMERATES];
 
-	FlyCap2OpenCV(): frame(0), outPixelFmt(FlyCapture2::PIXEL_FORMAT_MONO8) {}
+	FlyCap2OpenCV(): frame(0), outPixelFmt(FlyCapture2::PIXEL_FORMAT_MONO8) {
+		unsigned int nCameras=0;
+		error=busMgr.GetNumOfCameras(&nCameras);
+		if(error!=FlyCapture2::PGRERROR_OK) {
+			error.PrintErrorTrace();
+			exit(-1);
+		}
+		std::cout<<"[FlyCap2OpenCV] # of pointgrey cameras: "<<nCameras<<std::endl;
+
+		std::cout<<"[FlyCap2OpenCV] camera index <-> camera serial number:"<<std::endl;
+		for(unsigned int i=0; i<nCameras; ++i) {
+			unsigned int serialNumber;
+			error=busMgr.GetCameraSerialNumberFromIndex(i, &serialNumber);
+			if(error!=FlyCapture2::PGRERROR_OK) {
+				error.PrintErrorTrace();
+				exit(-1);
+			}
+			std::cout<<"\r"<<i<<"<->\r"<<serialNumber<<std::endl;
+		}
+	}
 	~FlyCap2OpenCV() { deinit(); }
 
 	//need to be called fisrt
-	inline bool init(const unsigned int idx=0) {
-		error=busMgr.GetCameraFromIndex(idx, &guid);
+	//FIXME: what if the serial number is very small such as 0, it could be recognized as a index
+	inline bool init(const unsigned int idxOrSerialNumber=0) {
+		error=busMgr.GetCameraFromIndex(idxOrSerialNumber, &guid); //first try as idx
 		if(error!=FlyCapture2::PGRERROR_OK) {
-			error.PrintErrorTrace();
-			return false;
+			error=busMgr.GetCameraFromSerialNumber(idxOrSerialNumber, &guid); //as serial number
+			if(error!=FlyCapture2::PGRERROR_OK) {
+				error.PrintErrorTrace();
+				return false;
+			} else {
+				std::cout<<"[FlyCap2OpenCV::init] got camera from serial number "
+					<<idxOrSerialNumber<<std::endl;
+			}
+		} else {
+			std::cout<<"[FlyCap2OpenCV::init] got camera from index "
+				<<idxOrSerialNumber<<std::endl;
 		}
 
 		error=cam.Connect(&guid);
