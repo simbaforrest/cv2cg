@@ -32,7 +32,7 @@ struct FlyCap2OpenCV {
 				error.PrintErrorTrace();
 				exit(-1);
 			}
-			std::cout<<"\r"<<i<<"<->\r"<<serialNumber<<std::endl;
+			std::cout<<"\t"<<i<<"\t<->\t"<<serialNumber<<std::endl;
 		}
 	}
 	~FlyCap2OpenCV() { deinit(); }

@@ -56,7 +56,6 @@
 #include <map>
 //opencv include
 #include "OpenCVHelper.h"
-#include "Log.h"
 
 #include "TagUtils.hpp"
 
@@ -513,7 +512,7 @@ struct TagDetector {
 		}
 #if TAG_DEBUG_PERFORMANCE
 		gsteptime[3] = PM.toctic();
-		flogld(">>> clusters.size()="<<clusters.size());
+		logld(">>> clusters.size()="<<clusters.size());
 #endif
 		///////////////////////////////////////////////////////////
 		// Step five. Loop over the clusters, fitting lines (which we
@@ -593,7 +592,7 @@ struct TagDetector {
 		int width = fim.cols, height = fim.rows;
 
 #if TAG_DEBUG_PERFORMANCE
-		flogld(">>> segments.size()="<<segments.size());
+		logld(">>> segments.size()="<<segments.size());
 		gsteptime[4] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
@@ -672,7 +671,7 @@ struct TagDetector {
 		}
 #endif
 #if TAG_DEBUG_PERFORMANCE
-		flogld(">>> quads.size()="<<quads.size());
+		logld(">>> quads.size()="<<quads.size());
 		gsteptime[6] = PM.toctic();
 #endif
 		////////////////////////////////////////////////////////////////
@@ -804,7 +803,7 @@ struct TagDetector {
 		}//end of quads[]
 
 #if TAG_DEBUG_PERFORMANCE
-		flogld(">>> detections.size()="<<detections.size());
+		logld(">>> detections.size()="<<detections.size());
 		gsteptime[7] = PM.toctic();
 #endif
 #if TAG_DEBUG_DRAW
@@ -858,7 +857,7 @@ struct TagDetector {
 #if TAG_DEBUG_PERFORMANCE
 		gsteptime[8] = PM.toctic();
 		for(int i=0; i<9; ++i) {
-			flogld("[process] step "<<(i+1)<<" takes "<<gsteptime[i]<<" ms.");
+			logld("[process] step "<<(i+1)<<" takes "<<gsteptime[i]<<" ms.");
 		}
 #endif
 	}

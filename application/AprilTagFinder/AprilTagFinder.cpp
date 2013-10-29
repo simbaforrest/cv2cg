@@ -51,7 +51,6 @@
 #include <sstream>
 
 #include "OpenCVHelper.h"
-#include "Log.h"
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 #include "config.hpp"
@@ -101,25 +100,25 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		vector<TagDetection> detections;
 		PM.tic();
 		detector->process(frame, detections);
-		logld<<"[TagDetector] process time = "<<PM.toc()<<" sec.";
+		logld("[TagDetector] process time = "<<PM.toc()<<" sec.");
 
 		std::ofstream fs;
 		if((takePhoto && detections.size()!=0)||takePhotoContinue) {
 			std::string id = helper::num2str(photoCnt, 5);
 			fs.open((id+".txt").c_str());
 			if(!fs.is_open()) {
-				logle<<"can not open: "<<id<<".txt";
+				logle("can not open: "<<id<<".txt");
 				exit(-1);
 			} else {
-				logli<<"wrote detection: "<<id<<".txt";
+				logli("wrote detection: "<<id<<".txt");
 			}
 			if(!doNotWritePhoto) {
 				if(cv::imwrite(id+".png", frame)) {
-					logli<<"took photo: "<<id<<".png";
+					logli("took photo: "<<id<<".png");
 					takePhoto=false;
 					++photoCnt;
 				} else {
-					logle<<"can not save photo: "<<id<<".png";
+					logle("can not save photo: "<<id<<".png");
 					exit(-1);
 				}
 			} else {
@@ -131,11 +130,11 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			static int grabCnt=0;
 			std::string id = helper::num2str(grabCnt, 2);
 			if(cv::imwrite(id+".png", frame)) {
-				logli<<"grab image: "<<id<<".png";
+				logli("grab image: "<<id<<".png");
 				++grabCnt;
 				grabImage=false;
 			} else {
-				logle<<"can not grab image...exit";
+				logle("can not grab image...exit");
 				exit(-1);
 			}
 		}
@@ -143,11 +142,11 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		if(fs.is_open()) {
 			fs<<(int)detections.size()<<std::endl;
 		}
-		logld<<">>> find: ";
+		logld(">>> find: ");
 		for(int id=0; id<(int)detections.size(); ++id) {
 			TagDetection &dd = detections[id];
 			//if(dd.hammingDistance>0) continue; //very strict!
-			logld<<"id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation;
+			logld("id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation);
 
 			if(fs.is_open()) {
 				write(fs, dd);
@@ -166,7 +165,6 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			helper::drawHomography(frame, Homo, crns);
 			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
 		}
-		logld;
 		if(fs.is_open()) {
 			fs.close();
 		}
@@ -180,7 +178,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		switch (key) {
 		case 'd':
 			detector->segDecimate = !(detector->segDecimate);
-			logli<<"[ProcessVideo] detector.segDecimate="<<detector->segDecimate; break;
+			logli("[ProcessVideo] detector.segDecimate="<<detector->segDecimate); break;
 		case 't':
 			takePhoto=true; break;
 		case 'g':
@@ -229,14 +227,14 @@ int main( int argc, char **argv )
 	ConfigHelper::Config& cfg = GConfig::Instance();
 	std::string exeDir=helper::getFileDir(argv[0]);
 	if(!cfg.load(exeDir+"AprilTagFinder.cfg")) {
-		flogli("[main] no "<<exeDir<<"AprilTagFinder.cfg file");
+		logli("[main] no "<<exeDir<<"AprilTagFinder.cfg file");
 	} else {
-		flogli("[main] loaded "<<exeDir<<"AprilTagFinder.cfg");
+		logli("[main] loaded "<<exeDir<<"AprilTagFinder.cfg");
 	}
 
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
 	if(is.empty()) {
-		tagle<<"createImageSource failed!";
+		tagle("createImageSource failed!");
 		return -1;
 	}
 	is->reportInfo();
@@ -249,19 +247,19 @@ int main( int argc, char **argv )
 		unsigned int curid = atoi(curchar);//atoi works on an array of char, not on a single char!!
 		cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(curid);
 		if(tagFamily.empty()) {
-			tagle<<"create TagFamily "<<curid<<" fail, skip!";
+			tagle("create TagFamily "<<curid<<" fail, skip!");
 			continue;
 		}
 		tagFamilies.push_back(tagFamily);
 	}
 	if(tagFamilies.size()<=0) {
-		tagle<<"create TagFamily failed all! exit...";
+		tagle("create TagFamily failed all! exit...");
 		return -1;
 	}
 
 	detector = new TagDetector(tagFamilies);
 	if(detector.empty()) {
-		tagle<<"create TagDetector fail!";
+		tagle("create TagDetector fail!");
 		return -1;
 	}
 
