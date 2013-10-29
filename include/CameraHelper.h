@@ -145,7 +145,7 @@ inline void RTfromKH(const double K[9], const double H[9],
 	double s2 = sqrt(A[1]*A[1]+A[4]*A[4]+A[7]*A[7]);
 	double s = (A[8]>=0?1.0:-1.0)/sqrt(s1*s2); //ensure T[3]>0
 	if(fabs(A[8])<1e-8) {
-		std::cout<<"[RTfromKH warn] T[3]~0, please check!"<<std::endl;
+		logli("[RTfromKH warn] T[3]~0, please check!");
 	}
 	CvMatHelper::scale(3,3,A,s,A);
 	//TODO, should we normalize r1 and r2 respectively?
@@ -168,5 +168,155 @@ inline void RTfromKH(const double K[9], const double H[9],
 		CvMatHelper::mul(3,3,3,3,U,VT,R);
 	}
 }
+
+/**
+condition X such that the center is at 0 and std is 1
+
+@param X <dimxn>: inhomogeneous points
+@param T <(dim+1)x(dim+1)>: Condition matrix
+@param hX <(dim+1)xn>: conditioned X of homogeneous form
+*/
+template<typename DType>
+inline void conditioner(const cv::Mat& X, cv::Mat& T, cv::Mat& hX) {
+	const int dim = X.rows;
+	const int type = cv::DataType<DType>::type;
+	T = cv::Mat::eye(dim+1, dim+1, type);
+	hX.create(dim+1, X.cols, type);
+
+	for(int i=0; i<dim; ++i) {
+		cv::Mat m, s;
+		cv::meanStdDev(X.row(i), m, s);
+		const DType& mean=m.at<DType>(0);
+		DType sigma=s.at<DType>(0);
+		double sigma_inv = sigma==0?1:(1.0f/sigma);
+		T.at<DType>(i,i) = sigma_inv;
+		T.at<DType>(i,dim) = -mean*sigma_inv;
+	}
+	cv::Mat Xi=cv::Mat::ones(dim+1,1,type);
+	for(int i=0; i<hX.cols; ++i) {
+		X.col(i).copyTo(Xi.rowRange(0,dim));
+		hX.col(i) = T*Xi;
+	}
+}
+
+/**
+find projection matrix P such that U=HXw ([U_i;1]~P*[X_i;1] \forall i\in[1,n])
+
+@param U <2xn>: measured 2d image points
+@param Xw <3xn>: world 3d points
+@param P <3x4>: projection matrix, P=K[Rwc,twc]
+@param K <3x3>: calibration matrix
+@param Rwc <3x3>: rotation matrix (from world to camera)
+@param twc <3x1>: translation matrix (from world to camera, i.e. world's origin in camera frame)
+*/
+template<typename DType>
+inline void dlt3(const cv::Mat& U, const cv::Mat& Xw, cv::Mat& P)
+{
+	const int n = Xw.cols;
+	assert(n>=6 && U.cols==n && U.rows==2 && Xw.rows==3);
+	const int type = cv::DataType<DType>::type;
+	P.create(3,4,type);
+
+	cv::Mat T, hXw, C, hU;
+	conditioner<DType>(Xw, T, hXw);
+	conditioner<DType>(U, C, hU);
+
+	cv::Mat AtA=cv::Mat::zeros(12, 12, type);
+	for(int i=0; i<n; ++i) {//for each correspondence
+		cv::Mat xwxwt=hXw.col(i)*hXw.col(i).t();
+		DType u=hU.at<DType>(0,i);
+		DType v=hU.at<DType>(1,i);
+		AtA(cv::Rect(0,0,4,4)) += xwxwt;
+		AtA(cv::Rect(4,4,4,4)) += xwxwt;
+		AtA(cv::Rect(8,0,4,4)) += -u*xwxwt;
+		AtA(cv::Rect(8,4,4,4)) += -v*xwxwt;
+		AtA(cv::Rect(8,8,4,4)) += (u*u+v*v)*xwxwt;
+	}
+	//make symmetrical
+	AtA(cv::Rect(8,0,4,4)).copyTo(AtA(cv::Rect(0,8,4,4)));
+	AtA(cv::Rect(8,4,4,4)).copyTo(AtA(cv::Rect(4,8,4,4)));
+
+	//A=USV' => A'A=VS^2V', so A and A'A share the same V for SVD
+	cv::SVD svd(AtA);
+	P = svd.vt.row(11).reshape(1, 3);
+
+	P = C.inv()*P*T;
+}
+
+/**
+decompose projection matrix P into K*[Rwc,twc]
+
+@param P <3x4>: projection matrix, P=K[Rwc,twc]
+@param K <3x3>: calibration matrix
+@param Rwc <3x3>: rotation matrix (from world to camera)
+@param twc <3x1>: translation matrix (from world to camera, i.e. world's origin in camera frame)
+*/
+template<typename DType>
+inline void decomposeP10(const cv::Mat& P, cv::Mat& K, cv::Mat& Rwc, cv::Mat& twc) {
+	const int type = cv::DataType<DType>::type;
+	K=cv::Mat::eye(3,3,type);
+	Rwc.create(3,3,type);
+	twc.create(3,1,type);
+
+	cv::Mat nP = P/cv::norm(P(cv::Rect(0,2,3,1)))*(
+		cv::determinant(P(cv::Rect(0,0,3,3)))>=0?1:-1);
+	cv::Mat r789 = nP(cv::Rect(0,2,3,1));
+	DType t3 = nP.at<DType>(2,3);
+	DType c = r789.dot(nP(cv::Rect(0,0,3,1)));
+	DType d = r789.dot(nP(cv::Rect(0,1,3,1)));
+	DType a = cv::norm(nP(cv::Rect(0,0,3,1))-c*r789);
+	DType b = cv::norm(nP(cv::Rect(0,1,3,1))-d*r789);
+	K.at<DType>(0,0)=a; K.at<DType>(0,2)=c;
+	K.at<DType>(1,1)=b; K.at<DType>(1,2)=d;
+	cv::Mat Rraw(3,3,type);
+	Rraw.row(0) = (nP(cv::Rect(0,0,3,1))-c*r789)/a;
+	Rraw.row(1) = (nP(cv::Rect(0,1,3,1))-d*r789)/b;
+	Rraw.row(2) = r789;
+	//polar decomposition to get a valid rotation matrix
+	cv::Mat u,s,vt;
+	cv::SVD::compute(Rraw, s, u, vt);
+	Rwc = u*vt;
+	twc.at<DType>(0)=(P.at<DType>(0,3)-c*t3)/a;
+	twc.at<DType>(1)=(P.at<DType>(1,3)-d*t3)/b;
+	twc.at<DType>(2)=t3;
+}
+
+/**
+calibrate camera using 2d-3d point correspondences, inited by dlt3, optimized by LM
+
+@param imagePtsArr <nxnix2>: measured 2d image points
+@param worldPtsArr <nxnix3>: measured 3d world points
+@param K <3x3>: calibration matrix
+@param distCoeffs <5x1>: distortion coefficients, [k1, k2, p1, p2, k3]
+@param rvecs <nx3x1>: rotation vectors (from world to camera)
+@param tvecs <nx3x1>: translation vectors (from world to camera, i.e. world's origin in camera frame)
+@param reprojErrs <nx1>: 
+*/
+inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePtsArr,
+						  const std::vector<std::vector<cv::Point3f> >& worldPtsArr,
+						  const cv::Size& imageSize,
+						  cv::Mat& K, cv::Mat& distCoeffs,
+						  std::vector<cv::Mat>& rvecs, std::vector<cv::Mat>& tvecs,
+						  double& totalAvgErr)
+{
+	assert(imagePtsArr.size()==worldPtsArr.size());
+
+	if(K.empty()) {//1. init by dlt3 from the first view
+		cv::Mat P, Rwc, twc;
+		cv::Mat Ut, Xwt;
+		cv::Mat(imagePtsArr[0]).reshape(1).convertTo(Ut, cv::DataType<double>::type);
+		cv::Mat(worldPtsArr[0]).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
+		dlt3<double>(Ut.t(), Xwt.t(), P);
+		decomposeP10<double>(P, K, Rwc, twc);
+		//cv::decomposeProjectionMatrix(P, K, Rwc, twc);
+		//K.at<double>(0,1)=0; //if use CV_CALIB_USE_INTRINSIC_GUESS, force K(1,2) to be zero
+	}
+	distCoeffs = cv::Mat::zeros(5,1,CV_64FC1);
+
+	//2. optimize by LM
+	totalAvgErr = cv::calibrateCamera(worldPtsArr, imagePtsArr, imageSize,
+		K, distCoeffs, rvecs, tvecs, CV_CALIB_USE_INTRINSIC_GUESS);
+}
+
 
 }//CameraHelper

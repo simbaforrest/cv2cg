@@ -35,6 +35,7 @@
 
 #include "cv2cgConfig.h"
 
+#include "LogHelper.h"
 #include "CvMatHelper.h"
 #include "CameraHelper.h"
 #include "DirHelper.h"

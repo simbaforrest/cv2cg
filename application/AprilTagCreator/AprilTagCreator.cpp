@@ -51,7 +51,6 @@
 #include <sstream>
 
 #include "OpenCVHelper.h"
-#include "Log.h"
 
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
@@ -87,7 +86,7 @@ int main( int argc, char **argv )
 	if(argc>2) tagid = atoi(argv[2]);
 	cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(tagid);
 	if(tagFamily.empty()) {
-		tagle<<"create TagFamily fail!";
+		tagle("create TagFamily fail!");
 		return -1;
 	}
 

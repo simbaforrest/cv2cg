@@ -113,7 +113,7 @@ public:
 			cv::imshow("frame",frame);
 
 			lastdur = PM.toc();
-			if(verbose) std::cout<<"[ImageSource::run] process duration = "<<lastdur<<" ms"<<std::endl;
+			if(verbose) logli("[ImageSource::run] process duration = "<<lastdur<<" ms");
 			if(step) { step=false; pause(true); }
 			double waitdur = openFromWebcam?8:std::max(idealdur-lastdur, 8.0);
 			char key = cv::waitKey(waitdur);
@@ -128,10 +128,10 @@ public:
 				}
 				break;
 			case 'p':
-				pause(!isPause); if(verbose) std::cout<<"pause="<<isPause<<std::endl;
+				pause(!isPause); if(verbose) logli("pause="<<isPause);
 				break;
 			case 'l':
-				loop(!isLoop); if(verbose) std::cout<<"loop="<<isLoop<<std::endl;
+				loop(!isLoop); if(verbose) logli("loop="<<isLoop);
 				break;
 			case '=':
 				++idealfps;
@@ -142,14 +142,14 @@ public:
 				idealdur = 1000/idealfps;
 				break;
 			case 'h':
-				std::cout<<"v: verbose\n"
+				logli("v: verbose\n"
 					"s: step one frame forward\n"
 					"p: pause\n"
 					"l: loop\n"
 					"=: increase fps\n"
 					"-: decrease fps\n"
 					"h: display help information\n"
-					"q,Esc: quit"<<std::endl;
+					"q,Esc: quit");
 				break;
 			case 27:
 			case 'q':
@@ -185,16 +185,16 @@ private:
 	int curF; //0-based index
 public:
 	ImageSource_Video(std::string content) {
-		std::cout<<"[ImageSource_Video] open video from: "<<content<<std::endl;
+		logli("[ImageSource_Video] open video from: "<<content);
 		if( !cap.open(content) ) {
-			std::cout<<"[ImageSource_Video error] failed to open!"<<std::endl;
+			logle("[ImageSource_Video error] failed to open!");
 			exit(-1);
 		}
 		nFrames = (int) cap.get(CV_CAP_PROP_FRAME_COUNT);
 		curF = 0;
 		if( !cap.read(current) ) {
-			std::cout<<"[ImageSource_Video] capture error @ frame="
-				<<curF<<", exit!"<<std::endl;
+			logle("[ImageSource_Video] capture error @ frame="
+				<<curF<<", exit!");
 			exit(-1);
 		}
 	}
@@ -216,8 +216,8 @@ public:
 			cap.set(CV_CAP_PROP_POS_FRAMES, 0);
 		}
 		if(!cap.read(current)) {
-			std::cout<<"[ImageSource_Video] capture error @ frame="
-				<<curF<<", remove the rest."<<std::endl;
+			logli("[ImageSource_Video] capture error @ frame="
+				<<curF<<", remove the rest.");
 			nFrames = curF;
 			curF = 0;
 			cap.set(CV_CAP_PROP_POS_FRAMES, 0);
@@ -227,16 +227,16 @@ public:
 
 	~ImageSource_Video() {
 		cap.release();
-		std::cout<<"[ImageSource_Video] video closed."<<std::endl;
+		logli("[ImageSource_Video] video closed.");
 	}
 
 	inline void reportInfo() {
-		std::cout<<"[ImageSource_Video] INFO:"<<std::endl;
-		std::cout<<">>> #frame = "<<nFrames<<std::endl;
-		std::cout<<">>> current frame @ "<<curF<<std::endl;
-		std::cout<<">>> frame size = "
+		logli("[ImageSource_Video] INFO:");
+		logli(">>> #frame = "<<nFrames);
+		logli(">>> current frame @ "<<curF);
+		logli(">>> frame size = "
 			<<cap.get(CV_CAP_PROP_FRAME_WIDTH)<<"x"
-			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT)<<std::endl;
+			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT));
 	}
 };
 
@@ -252,9 +252,9 @@ private:
 public:
 	ImageSource_Camera(std::string content) {
 		std::vector<std::string> contentParts=UtilHelper::split(content, '?');
-		std::cout<<"[ImageSource_Camera] open from device: "<<contentParts[0]<<std::endl;
+		logli("[ImageSource_Camera] open from device: "<<contentParts[0]);
 		if( !cap.open(atoi(contentParts[0].c_str())) ) {
-			std::cout<<"[ImageSource_Camera error] failed to open!"<<std::endl;
+			logle("[ImageSource_Camera error] failed to open!");
 			exit(-1);
 		}
 
@@ -264,7 +264,7 @@ public:
 		for(int i=1; i<(int)contentParts.size(); ++i) {
 			std::vector<std::string> par=UtilHelper::split(contentParts[i], '=');
 			if(par.size()!=2) {
-				std::cout<<"[ImageSource_Camera] ignore "<<contentParts[i]<<std::endl;
+				logli("[ImageSource_Camera] ignore "<<contentParts[i]);
 				continue;
 			}
 			if(par[0].compare("w")==0 || par[0].compare("W")==0) {
@@ -304,7 +304,7 @@ public:
 				current.copyTo(dst);
 			return;
 		} else if ( !cap.read(dst) ) {
-			std::cout<<"[ImageSource_Camera] capture error, exit!"<<std::endl;
+			logle("[ImageSource_Camera] capture error, exit!");
 			exit(-1);
 		}
 		current.release();
@@ -312,16 +312,16 @@ public:
 
 	~ImageSource_Camera() {
 		cap.release();
-		std::cout<<"[ImageSource_Camera] camera closed."<<std::endl;
+		logli("[ImageSource_Camera] camera closed.");
 	}
 
 	inline void reportInfo() {
-		std::cout<<"[ImageSource_Camera] INFO:"<<std::endl;
-		std::cout<<">>> frame size = "
+		logli("[ImageSource_Camera] INFO:");
+		logli(">>> frame size = "
 			<<cap.get(CV_CAP_PROP_FRAME_WIDTH)<<"x"
-			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT)<<std::endl;
-		std::cout<<">>> frame rate = "
-			<<cap.get(CV_CAP_PROP_FPS)<<std::endl;
+			<<cap.get(CV_CAP_PROP_FRAME_HEIGHT));
+		logli(">>> frame rate = "
+			<<cap.get(CV_CAP_PROP_FPS));
 	}
 };
 
@@ -338,7 +338,7 @@ protected:
 	ImageSource_Photo() {} //used for child class to skip base constructor
 public:
 	ImageSource_Photo(std::string content) {
-		std::cout<<"[ImageSource_Photo] open images from: "<<content<<std::endl;
+		logli("[ImageSource_Photo] open images from: "<<content);
 #ifdef _WIN32
 		std::string cmd = std::string("dir /B ")+content;
 		std::string dirstr = DirHelper::getFileDir(content);
@@ -349,7 +349,7 @@ public:
 #endif
 
 		if(fptr==0) {
-			std::cout<<"[ImageSource_Photo] exit since invalid cmd:"<<cmd<<std::endl;
+			logle("[ImageSource_Photo] exit since invalid cmd:"<<cmd);
 			exit(-1);
 		}
 
@@ -363,7 +363,7 @@ public:
 				imnames.push_back(std::string(buf,buf+len-1));
 #endif
 				memset(buf,0,sizeof(char)*1024);
-				std::cout<<imnames.back()<<std::endl;
+				logli(imnames.back());
 			}
 		}
 #ifdef _WIN32
@@ -373,7 +373,7 @@ public:
 #endif
 		if(imnames.size()<=0) {
 			curF = (int)imnames.size(); //set done since no image available
-			std::cout<<"[ImageSource_Photo] warning: no image available!"<<std::endl;
+			logle("[ImageSource_Photo] warning: no image available!");
 			return;
 		}
 
@@ -387,7 +387,7 @@ public:
 		next();
 		if(current.empty()) {
 			curF = (int)imnames.size(); //set done since no image available
-			std::cout<<"[ImageSource_Photo] warning: no image available!"<<std::endl;
+			logle("[ImageSource_Photo] warning: no image available!");
 		}
 	}
 
@@ -406,8 +406,8 @@ public:
 			}
 			current = cv::imread(imnames[curF]);
 			if(!current.empty()) return;
-			std::cout<<"[ImageSource_Photo] imread error @ photo\n"
-				<<imnames[curF]<<std::endl;
+			logle("[ImageSource_Photo] imread error @ photo\n"
+				<<imnames[curF]);
 			imnames.erase(imnames.begin()+curF);
 		} while(current.empty() && imnames.size()>0);
 	}
@@ -419,13 +419,13 @@ public:
 	}
 
 	~ImageSource_Photo() {
-		std::cout<<"[ImageSource_Photo] photo album closed."<<std::endl;
+		logli("[ImageSource_Photo] photo album closed.");
 	}
 
 	inline void reportInfo() {
-		std::cout<<"[ImageSource_Photo] INFO:"<<std::endl;
-		std::cout<<">>> #image = "<<imnames.size()<<std::endl;
-		std::cout<<">>> current image @ "<<curF<<std::endl;
+		logli("[ImageSource_Photo] INFO:");
+		logli(">>> #image = "<<imnames.size());
+		logli(">>> current image @ "<<curF);
 	}
 };
 
@@ -436,22 +436,22 @@ public:
 struct ImageSource_List : public ImageSource_Photo {
 public:
 	ImageSource_List(std::string content) : ImageSource_Photo() {
-		std::cout<<"[ImageSource_List] open images from: "<<content<<std::endl;
+		logli("[ImageSource_List] open images from: "<<content);
 		std::ifstream is(content.c_str());
 		if(!is.is_open()) {
-			std::cout<<"[ImageSource_List error] can't open file: "<<content<<std::endl;
+			logle("[ImageSource_List error] can't open file: "<<content);
 			exit(-1);
 		}
 		std::string line;
 		while( IOHelper::readValidLine(is, line) ) {
 			imnames.push_back(line);
-			std::cout<<imnames.back()<<std::endl;
+			logli(imnames.back());
 		}
 		is.close();
 
 		if(imnames.size()<=0) {
 			curF = (int)imnames.size(); //set done since no image available
-			std::cout<<"[ImageSource_List] warning: no image available!"<<std::endl;
+			logle("[ImageSource_List] warning: no image available!");
 			return;
 		}
 
@@ -465,7 +465,7 @@ public:
 		next();
 		if(current.empty()) {
 			curF = (int)imnames.size(); //set done since no image available
-			std::cout<<"[ImageSource_List] warning: no image available!"<<std::endl;
+			logle("[ImageSource_List] warning: no image available!");
 		}
 	}
 
@@ -487,9 +487,9 @@ private:
 public:
 	ImageSource_PGR(std::string content) {
 		std::vector<std::string> contentParts=UtilHelper::split(content, '?');
-		std::cout<<"[ImageSource_PGR] open from device: "<<contentParts[0]<<std::endl;
+		logli("[ImageSource_PGR] open from device: "<<contentParts[0]);
 		if( !cap.init(atoi(contentParts[0].c_str())) ) {
-			std::cout<<"[ImageSource_PGR error] failed to open!"<<std::endl;
+			logle("[ImageSource_PGR error] failed to open!");
 			exit(-1);
 		}
 
@@ -500,7 +500,7 @@ public:
 		for(int i=1; i<(int)contentParts.size(); ++i) {
 			std::vector<std::string> par=UtilHelper::split(contentParts[i], '=');
 			if(par.size()!=2) {
-				std::cout<<"[ImageSource_PGR] ignore "<<contentParts[i]<<std::endl;
+				logli("[ImageSource_PGR] ignore "<<contentParts[i]);
 				continue;
 			}
 			if(par[0].compare("v")==0 || par[0].compare("V")==0) {
@@ -516,8 +516,8 @@ public:
 		cap.error=cap.cam.SetVideoModeAndFrameRate((FlyCapture2::VideoMode)vi,
 					(FlyCapture2::FrameRate)fi);
 		if(cap.error!=FlyCapture2::PGRERROR_OK) {
-			std::cout<<"[ImageSource_PGR error] can not set camera mode to vi="
-				<<vi<<" and fi="<<fi<<std::endl;
+			logle("[ImageSource_PGR error] can not set camera mode to vi="
+				<<vi<<" and fi="<<fi);
 			exit(-1);
 		}
 
@@ -543,14 +543,14 @@ public:
 				current.copyTo(dst);
 			return;
 		} else if ( !cap.read(dst) ) {
-			std::cout<<"[ImageSource_PGR] capture error, exit!"<<std::endl;
+			logle("[ImageSource_PGR] capture error, exit!");
 			exit(-1);
 		}
 		current.release();
 	}
 
 	~ImageSource_PGR() {
-		std::cout<<"[ImageSource_PGR] camera closed."<<std::endl;
+		logli("[ImageSource_PGR] camera closed.");
 	}
 
 	inline void reportInfo() {
@@ -560,16 +560,16 @@ public:
 			cap.error.PrintErrorTrace();
 			return;
 		} else {
-			std::cout<<">>>serialNumber: "<<info.serialNumber<<std::endl;
+			logli(">>>serialNumber: "<<info.serialNumber);
 			//switch(info.interfaceType) {
 			//	case FlyCapture2::INTERFACE_USB2:
-			//		std::cout<<">>>interfaceType: USB2"<<std::endl; break;
+			//		logli(">>>interfaceType: USB2"); break;
 			//}
-			std::cout<<">>>isColorCamera: "<<(info.isColorCamera?"Yes":"No")<<std::endl;
-			std::cout<<">>>modelName: "<<info.modelName<<std::endl;
-			std::cout<<">>>vendorName: "<<info.vendorName<<std::endl;
-			std::cout<<">>>sensorInfo: "<<info.sensorInfo<<std::endl;
-			std::cout<<">>>sensorResolution: "<<info.sensorResolution<<std::endl;
+			logli(">>>isColorCamera: "<<(info.isColorCamera?"Yes":"No"));
+			logli(">>>modelName: "<<info.modelName);
+			logli(">>>vendorName: "<<info.vendorName);
+			logli(">>>sensorInfo: "<<info.sensorInfo);
+			logli(">>>sensorResolution: "<<info.sensorResolution);
 		}
 	}
 };
@@ -578,7 +578,7 @@ public:
 inline ImageSource* ImageSource::create(std::string url) {
 	size_t pos = url.find("://");
 	if(pos == std::string::npos) {
-		std::cout<<"[ImageSource error] invalid image source url!"<<std::endl;
+		logle("[ImageSource error] invalid image source url!");
 		return NULL;
 	}
 	std::string header(url, 0, pos);
@@ -596,7 +596,7 @@ inline ImageSource* ImageSource::create(std::string url) {
 		return new ImageSource_PGR(content);
 #endif//USE_FLYCAP
 	} else {
-		std::cout<<"[ImageSource error] unknown url header: "<<header<<std::endl;
+		logle("[ImageSource error] unknown url header: "<<header);
 	}
 	return NULL;
 }
