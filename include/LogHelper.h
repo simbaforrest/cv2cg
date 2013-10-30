@@ -105,7 +105,7 @@ namespace LogHelper {
 #define ctage(...) {is_error_log?\
 	(fprintf(CLOG_FILE_E,"["),\
 	fprintf(CLOG_FILE_E,__FUNCTION__),\
-	fprintf(CLOG_FILE_E,"] "),\
+	fprintf(CLOG_FILE_E," error] "),\
 	fprintf(CLOG_FILE_E,__VA_ARGS__)):0;}
 #define clogi(...) {is_info_log?fprintf(CLOG_FILE_I,__VA_ARGS__):0;}
 #define ctagi(...) {is_info_log?\
@@ -117,7 +117,7 @@ namespace LogHelper {
 #define ctagd(...) {is_debug_log?\
 	(fprintf(CLOG_FILE_D,"["),\
 	fprintf(CLOG_FILE_D,__FUNCTION__),\
-	fprintf(CLOG_FILE_D,"] "),\
+	fprintf(CLOG_FILE_D," debug] "),\
 	fprintf(CLOG_FILE_D,__VA_ARGS__)):0;}
 
 #else//SUPPRESS_LOG
