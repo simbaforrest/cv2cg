@@ -197,12 +197,16 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	int tagTextThickness;
 	bool doLog;
 	bool isPhoto;
+	bool useEachValidFrame;
+	std::string sourceDir;
+
 	std::vector<std::vector<cv::Point2f> > imagePtsArr;
 	std::vector<std::vector<cv::Point3f> > worldPtsArr;
 	cv::Mat K;
 	AprilCalibprocessor() : doLog(false), isPhoto(false) {
 		tagTextScale = GConfig::Instance().get<double>("AprilCalibprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilCalibprocessor::tagTextThickness",1);
+		useEachValidFrame = GConfig::Instance().get<int>("AprilCalibprocessor::useEachValidFrame",false);
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
@@ -251,29 +255,28 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
 		}
 
-		if(leftCnt>=4 && rightCnt>=4) {
+		if(leftCnt>=4 && rightCnt>=4) {//frame is valid if with enough detections on both left & right
 			cv::Mat P,K0,Rwc,twc;
 			cv::Mat Ut, Xwt;
 			cv::Mat(imagePts).reshape(1).convertTo(Ut, cv::DataType<double>::type);
 			cv::Mat(worldPts).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
 			helper::dlt3<double>(Ut.t(), Xwt.t(), P);
 			helper::decomposeP10<double>(P, K0, Rwc, twc);
-			//cv::decomposeProjectionMatrix(P, K, Rwc, twc);
-			//K/=K.at<double>(2,2);
-			std::cout<<"K0="<<K0<<std::endl;
+			logli("K_dlt="<<K0);
 			if(K.empty()) K0.copyTo(K);
 
-			if(doLog || isPhoto) {
+			if(doLog || (isPhoto && useEachValidFrame)) {
 				doLog=false;
 				static int cnt=0;
-				std::clog<<"%log "<<cnt<<std::endl;
-				std::clog<<"U="<<Ut.t()<<";"<<std::endl;
-				std::clog<<"Xw="<<Xwt.t()<<";"<<std::endl;
-				std::clog<<"P="<<P<<";"<<std::endl;
-				std::clog<<"K0="<<K0<<";"<<std::endl;
-				
-				cv::imwrite(helper::num2str(cnt,5)+"_frame.png", frame);
-				cv::imwrite(helper::num2str(cnt,5)+"_orgFrame.png", orgFrame);
+				std::ofstream ofs((sourceDir+"/"+helper::num2str(cnt,5)+"_log.m").c_str());
+				ofs<<"%log "<<cnt<<std::endl;
+				ofs<<"%@ "<<LogHelper::getCurrentTimeString()<<std::endl;
+				ofs<<"U="<<Ut.t()<<";"<<std::endl;
+				ofs<<"Xw="<<Xwt.t()<<";"<<std::endl;
+				ofs<<"P="<<P<<";"<<std::endl;
+	
+				cv::imwrite(sourceDir+"/"+helper::num2str(cnt,5)+"_frame.png", frame);
+				if(!isPhoto) cv::imwrite(sourceDir+"/"+helper::num2str(cnt,5)+"_orgFrame.png", orgFrame);
 				++cnt;
 
 				this->imagePtsArr.push_back(imagePts);
@@ -285,20 +288,21 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 					helper::calibration3d(imagePtsArr, worldPtsArr,
 						cv::Size(frame.cols, frame.rows), K, distCoeffs,
 						rvecs, tvecs, rms, &CovK, &Covrs, &Covts);
-					std::clog<<"%After LM:"<<std::endl;
-					std::clog<<"K="<<K<<";"<<std::endl;
-					std::clog<<"distCoeffs="<<distCoeffs<<";"<<std::endl;
-					std::clog<<"CovK="<<CovK<<";"<<std::endl;
-					std::clog<<"%rms="<<rms<<std::endl;
+					ofs<<"%After LM:"<<std::endl;
+					ofs<<"K="<<K<<";"<<std::endl;
+					ofs<<"distCoeffs="<<distCoeffs<<";"<<std::endl;
+					ofs<<"CovK="<<CovK<<";"<<std::endl;
+					ofs<<"%rms="<<rms<<std::endl;
 					for(int i=0; i<(int)rvecs.size(); ++i) {
-						std::clog<<"r"<<i<<"="<<rvecs[i]<<";"<<std::endl;
-						std::clog<<"t"<<i<<"="<<tvecs[i]<<";"<<std::endl;
-						std::clog<<"Covr"<<i<<"="<<Covrs[i]<<";"<<std::endl;
-						std::clog<<"Covt"<<i<<"="<<Covts[i]<<";"<<std::endl;
+						ofs<<"r"<<i<<"="<<rvecs[i]<<";"<<std::endl;
+						ofs<<"t"<<i<<"="<<tvecs[i]<<";"<<std::endl;
+						ofs<<"Covr"<<i<<"="<<Covrs[i]<<";"<<std::endl;
+						ofs<<"Covt"<<i<<"="<<Covts[i]<<";"<<std::endl;
 					}
-				}
-			}
-		}
+				}//if cnt>=2
+				ofs.close();
+			}//if doLog
+		}//if leftCnt>=4
 
 		if(frame.cols>640) {
 			cv::resize(frame, frame, cv::Size(640,480));
@@ -389,7 +393,8 @@ int main( int argc, char **argv )
 	gRig.loadFromConfig();
 	tagli("the Calibration Rig is:\n"<<std::string(gRig));
 	AprilCalibprocessor processor;
-	processor.isPhoto = (is->classname()==std::string("ImageSource_Photo"));
+	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
+	processor.sourceDir = is->getSourceDir();
 	is->run(processor,-1, false,
 			cfg.get<bool>("ImageSource::pause", is->getPause()),
 			cfg.get<bool>("ImageSource::loop", is->getLoop()) );

@@ -247,7 +247,7 @@ inline void dlt3(const cv::Mat& U, const cv::Mat& Xw, cv::Mat& P)
 decompose projection matrix P into K*[Rwc,twc]
 
 @param P <3x4>: projection matrix, P=K[Rwc,twc]
-@param K <3x3>: calibration matrix
+@param K <3x3>: calibration matrix, [a,0,c;0,b,d;0,0,1]
 @param Rwc <3x3>: rotation matrix (from world to camera)
 @param twc <3x1>: translation matrix (from world to camera, i.e. world's origin in camera frame)
 */
@@ -290,7 +290,9 @@ calibrate camera using 2d-3d point correspondences, inited by dlt3, optimized by
 @param distCoeffs <5x1>: distortion coefficients, [k1, k2, p1, p2, k3]
 @param rvecs <nx3x1>: rotation vectors (from world to camera)
 @param tvecs <nx3x1>: translation vectors (from world to camera, i.e. world's origin in camera frame)
-@param reprojErrs <nx1>: 
+@param totalAvgErr <1x1>: total rms
+@param CovK <9x9>: covariance matrix for all intrinsics with order [fx,fy,cx,cy,k1,k2,p1,p2,k3]
+@param Covrs, Covts <nx3x3>: covariance matrix for each extrinsics
 */
 inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePtsArr,
 						  const std::vector<std::vector<cv::Point3f> >& worldPtsArr,
@@ -311,8 +313,6 @@ inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePts
 		cv::Mat(worldPtsArr[0]).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
 		dlt3<double>(Ut.t(), Xwt.t(), P);
 		decomposeP10<double>(P, K, Rwc, twc);
-		//cv::decomposeProjectionMatrix(P, K, Rwc, twc);
-		//K.at<double>(0,1)=0; //if use CV_CALIB_USE_INTRINSIC_GUESS, force K(1,2) to be zero
 	}
 	const int nDistCoeffs = 5;
 	distCoeffs = cv::Mat::zeros(nDistCoeffs,1,CV_64FC1);
@@ -338,7 +338,7 @@ inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePts
 			JtJ(cv::Rect(nIntrinsicParams+i*6,0,6,nIntrinsicParams))+=Ji.t()*Je;
 		}
 		cv::completeSymm(JtJ, false);
-		std::clog<<"JtJ="<<JtJ<<";"<<std::endl;
+		//std::clog<<"JtJ="<<JtJ<<";"<<std::endl;
 		const double sigma_m=7e-5*imageSize.width;//std of measurement
 		cv::Mat cov=(sigma_m*sigma_m)*JtJ.inv(); //covariance of all parameters estimated is inv(Jt*inv(cov_measurement)*J)
 		if(pCovK) {

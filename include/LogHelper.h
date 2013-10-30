@@ -47,10 +47,16 @@ cloge("an error happened, par=%d\n",par);
 #include <sstream>
 #include <string>
 #include <vector>
+#include <ctime>
 
 #include "singleton.hpp"
 
 namespace LogHelper {
+
+	inline std::string getCurrentTimeString() {
+		time_t ret = time(0);
+		return std::string(asctime(localtime(&ret)));
+	}
 
 	enum Level {
 		LOG_QUIET=0,
