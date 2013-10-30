@@ -297,9 +297,12 @@ inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePts
 						  const cv::Size& imageSize,
 						  cv::Mat& K, cv::Mat& distCoeffs,
 						  std::vector<cv::Mat>& rvecs, std::vector<cv::Mat>& tvecs,
-						  double& totalAvgErr)
+						  double& totalAvgErr,
+						  cv::Mat* pCovK=0,
+						  std::vector<cv::Mat>* pCovrs=0, std::vector<cv::Mat>* pCovts=0)
 {
 	assert(imagePtsArr.size()==worldPtsArr.size());
+	const int nImgs = imagePtsArr.size();
 
 	if(K.empty()) {//1. init by dlt3 from the first view
 		cv::Mat P, Rwc, twc;
@@ -311,11 +314,49 @@ inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePts
 		//cv::decomposeProjectionMatrix(P, K, Rwc, twc);
 		//K.at<double>(0,1)=0; //if use CV_CALIB_USE_INTRINSIC_GUESS, force K(1,2) to be zero
 	}
-	distCoeffs = cv::Mat::zeros(5,1,CV_64FC1);
+	const int nDistCoeffs = 5;
+	distCoeffs = cv::Mat::zeros(nDistCoeffs,1,CV_64FC1);
 
 	//2. optimize by LM
 	totalAvgErr = cv::calibrateCamera(worldPtsArr, imagePtsArr, imageSize,
 		K, distCoeffs, rvecs, tvecs, CV_CALIB_USE_INTRINSIC_GUESS);
+
+	//3. estimate uncertainty
+	if(pCovK!=0 || pCovrs!=0 || pCovts!=0) {
+		const int nKParam = 4;
+		const int nIntrinsicParams = nKParam+nDistCoeffs;
+		const int nParams = nIntrinsicParams+6*nImgs;
+		cv::Mat JtJ(nParams,nParams,CV_64FC1,0.0f);
+		for(int i=0; i<nImgs; ++i) {
+			std::vector<cv::Point2f> imgPts;
+			cv::Mat J;//Jacobian for this image, J=[Je,Ji], Je is the extrinsic part, Ji intrinsic
+			cv::projectPoints(worldPtsArr[i], rvecs[i], tvecs[i], K, distCoeffs, imgPts, J);
+			cv::Mat Je=J.colRange(0,6); //Je=[Jr,Jt]
+			cv::Mat Ji=J.colRange(6,6+nIntrinsicParams); //Ji=[Jfx,Jfy,Jcx,Jcy,Jk1,Jk2,Jp1,Jp2,Jk3]
+			JtJ(cv::Rect(0,0,nIntrinsicParams,nIntrinsicParams))+=Ji.t()*Ji;
+			JtJ(cv::Rect(nIntrinsicParams+i*6,nIntrinsicParams+i*6,6,6))+=Je.t()*Je;
+			JtJ(cv::Rect(nIntrinsicParams+i*6,0,6,nIntrinsicParams))+=Ji.t()*Je;
+		}
+		cv::completeSymm(JtJ, false);
+		std::clog<<"JtJ="<<JtJ<<";"<<std::endl;
+		const double sigma_m=7e-5*imageSize.width;//std of measurement
+		cv::Mat cov=(sigma_m*sigma_m)*JtJ.inv(); //covariance of all parameters estimated is inv(Jt*inv(cov_measurement)*J)
+		if(pCovK) {
+			cov(cv::Rect(0,0,nIntrinsicParams,nIntrinsicParams)).copyTo((*pCovK));
+		}
+		if(pCovrs) {
+			pCovrs->resize(nImgs);
+			for(int i=0; i<nImgs; ++i) {
+				cov(cv::Rect(nIntrinsicParams+i*6, nIntrinsicParams+i*6, 3, 3)).copyTo(pCovrs->at(i));
+			}
+		}
+		if(pCovts) {
+			pCovts->resize(nImgs);
+			for(int i=0; i<nImgs; ++i) {
+				cov(cv::Rect(nIntrinsicParams+i*6+3, nIntrinsicParams+i*6+3, 3, 3)).copyTo(pCovts->at(i));
+			}
+		}
+	}
 }
 
 

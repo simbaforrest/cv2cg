@@ -199,6 +199,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	bool isPhoto;
 	std::vector<std::vector<cv::Point2f> > imagePtsArr;
 	std::vector<std::vector<cv::Point3f> > worldPtsArr;
+	cv::Mat K;
 	AprilCalibprocessor() : doLog(false), isPhoto(false) {
 		tagTextScale = GConfig::Instance().get<double>("AprilCalibprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilCalibprocessor::tagTextThickness",1);
@@ -251,24 +252,25 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 		}
 
 		if(leftCnt>=4 && rightCnt>=4) {
-			cv::Mat P,K,Rwc,twc;
+			cv::Mat P,K0,Rwc,twc;
 			cv::Mat Ut, Xwt;
 			cv::Mat(imagePts).reshape(1).convertTo(Ut, cv::DataType<double>::type);
 			cv::Mat(worldPts).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
 			helper::dlt3<double>(Ut.t(), Xwt.t(), P);
-			helper::decomposeP10<double>(P, K, Rwc, twc);
+			helper::decomposeP10<double>(P, K0, Rwc, twc);
 			//cv::decomposeProjectionMatrix(P, K, Rwc, twc);
 			//K/=K.at<double>(2,2);
-			std::cout<<"K="<<K<<std::endl;
+			std::cout<<"K0="<<K0<<std::endl;
+			if(K.empty()) K0.copyTo(K);
 
 			if(doLog || isPhoto) {
 				doLog=false;
 				static int cnt=0;
-				std::clog<<"log "<<cnt<<std::endl;
-				std::clog<<"U="<<Ut.t()<<std::endl;
-				std::clog<<"Xw="<<Xwt.t()<<std::endl;
-				std::clog<<"P="<<P<<std::endl;
-				std::clog<<"K="<<K<<std::endl;
+				std::clog<<"%log "<<cnt<<std::endl;
+				std::clog<<"U="<<Ut.t()<<";"<<std::endl;
+				std::clog<<"Xw="<<Xwt.t()<<";"<<std::endl;
+				std::clog<<"P="<<P<<";"<<std::endl;
+				std::clog<<"K0="<<K0<<";"<<std::endl;
 				
 				cv::imwrite(helper::num2str(cnt,5)+"_frame.png", frame);
 				cv::imwrite(helper::num2str(cnt,5)+"_orgFrame.png", orgFrame);
@@ -277,16 +279,23 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 				this->imagePtsArr.push_back(imagePts);
 				this->worldPtsArr.push_back(worldPts);
 				if(cnt>=2) {
-					cv::Mat distCoeffs;
-					std::vector<cv::Mat> rvecs, tvecs;
+					cv::Mat distCoeffs, CovK;
+					std::vector<cv::Mat> rvecs, tvecs, Covrs, Covts;
 					double rms=0;
 					helper::calibration3d(imagePtsArr, worldPtsArr,
 						cv::Size(frame.cols, frame.rows), K, distCoeffs,
-						rvecs, tvecs, rms);
-					std::clog<<"After LM:"<<std::endl;
-					std::clog<<"K="<<K<<std::endl;
-					std::clog<<"distCoeffs="<<distCoeffs<<std::endl;
-					std::clog<<"rms="<<rms<<std::endl;
+						rvecs, tvecs, rms, &CovK, &Covrs, &Covts);
+					std::clog<<"%After LM:"<<std::endl;
+					std::clog<<"K="<<K<<";"<<std::endl;
+					std::clog<<"distCoeffs="<<distCoeffs<<";"<<std::endl;
+					std::clog<<"CovK="<<CovK<<";"<<std::endl;
+					std::clog<<"%rms="<<rms<<std::endl;
+					for(int i=0; i<(int)rvecs.size(); ++i) {
+						std::clog<<"r"<<i<<"="<<rvecs[i]<<";"<<std::endl;
+						std::clog<<"t"<<i<<"="<<tvecs[i]<<";"<<std::endl;
+						std::clog<<"Covr"<<i<<"="<<Covrs[i]<<";"<<std::endl;
+						std::clog<<"Covt"<<i<<"="<<Covts[i]<<";"<<std::endl;
+					}
 				}
 			}
 		}
