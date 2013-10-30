@@ -65,6 +65,21 @@ public:
 	virtual std::string classname() = 0;
 
 	/**
+	test is this the TestClass
+	*/
+	template<typename TestClass>
+	bool isClass() {
+		return 0!=dynamic_cast<TestClass*>(this);
+	}
+
+	/**
+	return the directory of the source, WITHOUT any seprator '/' or '\\'
+	*/
+	inline std::string getSourceDir() const {
+		return sourceDir;
+	}
+
+	/**
 	report information of the image source to console
 	*/
 	virtual void reportInfo() {}
@@ -165,11 +180,12 @@ public:
 	inline void loop(bool val=true) { isLoop=val; }
 	inline bool getLoop() const { return isLoop; }
 
-	ImageSource() { isLoop=true; isPause=true; }
+	ImageSource() : sourceDir("") { isLoop=true; isPause=true; }
 	virtual ~ImageSource() {}
 protected:
 	bool isLoop;
 	bool isPause;
+	std::string sourceDir; //directory of the source
 };
 
 /**
@@ -197,6 +213,7 @@ public:
 				<<curF<<", exit!");
 			exit(-1);
 		}
+		this->sourceDir = DirHelper::getFileDir(content);
 	}
 
 	inline std::string classname() {
@@ -343,6 +360,8 @@ public:
 		std::string cmd = std::string("dir /B ")+content;
 		std::string dirstr = DirHelper::getFileDir(content);
 		FILE* fptr = _popen(cmd.c_str(), "r");
+
+		this->sourceDir = dirstr;
 #else
 		std::string cmd = std::string("ls -v1 ")+content;
 		FILE* fptr = popen(cmd.c_str(), "r");
@@ -361,6 +380,11 @@ public:
 				imnames.push_back(dirstr+std::string(buf,buf+len-1));
 #else
 				imnames.push_back(std::string(buf,buf+len-1));
+				static bool foundDir=false;
+				if(!foundDir) {
+					this->sourceDir = DirHelper::getFileDir(imnames.back());
+					foundDir=true;
+				}
 #endif
 				memset(buf,0,sizeof(char)*1024);
 				logli(imnames.back());
@@ -467,6 +491,8 @@ public:
 			curF = (int)imnames.size(); //set done since no image available
 			logle("[ImageSource_List] warning: no image available!");
 		}
+
+		this->sourceDir = DirHelper::getFileDir(content);
 	}
 
 	inline std::string classname() {
