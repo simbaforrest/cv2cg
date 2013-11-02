@@ -203,10 +203,12 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	std::vector<std::vector<cv::Point2f> > imagePtsArr;
 	std::vector<std::vector<cv::Point3f> > worldPtsArr;
 	cv::Mat K;
+	double rmsThresh;
 	AprilCalibprocessor() : doLog(false), isPhoto(false) {
 		tagTextScale = GConfig::Instance().get<double>("AprilCalibprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilCalibprocessor::tagTextThickness",1);
 		useEachValidFrame = GConfig::Instance().get<int>("AprilCalibprocessor::useEachValidFrame",false);
+		rmsThresh = GConfig::Instance().get<int>("AprilCalibprocessor::rmsThresh",2);
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
@@ -288,17 +290,26 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 					helper::calibration3d(imagePtsArr, worldPtsArr,
 						cv::Size(frame.cols, frame.rows), K, distCoeffs,
 						rvecs, tvecs, rms, &CovK, &Covrs, &Covts);
-					ofs<<"%After LM:"<<std::endl;
-					ofs<<"K="<<K<<";"<<std::endl;
-					ofs<<"distCoeffs="<<distCoeffs<<";"<<std::endl;
-					ofs<<"CovK="<<CovK<<";"<<std::endl;
-					ofs<<"%rms="<<rms<<std::endl;
-					for(int i=0; i<(int)rvecs.size(); ++i) {
-						ofs<<"r"<<i<<"="<<rvecs[i]<<";"<<std::endl;
-						ofs<<"t"<<i<<"="<<tvecs[i]<<";"<<std::endl;
-						ofs<<"Covr"<<i<<"="<<Covrs[i]<<";"<<std::endl;
-						ofs<<"Covt"<<i<<"="<<Covts[i]<<";"<<std::endl;
-					}
+
+					if(rms>rmsThresh) { //rms too large usually means gross error
+						logli("[AprilCalib warn] rms="<<rms<<", too large, ignore this image.");
+						--cnt;
+						doLog=true;
+						this->imagePtsArr.pop_back();
+						this->worldPtsArr.pop_back();
+					} else {
+						ofs<<"%After LM:"<<std::endl;
+						ofs<<"K="<<K<<";"<<std::endl;
+						ofs<<"distCoeffs="<<distCoeffs<<";"<<std::endl;
+						ofs<<"CovK="<<CovK<<";"<<std::endl;
+						ofs<<"%rms="<<rms<<std::endl;
+						for(int i=0; i<(int)rvecs.size(); ++i) {
+							ofs<<"r"<<i<<"="<<rvecs[i]<<";"<<std::endl;
+							ofs<<"t"<<i<<"="<<tvecs[i]<<";"<<std::endl;
+							ofs<<"Covr"<<i<<"="<<Covrs[i]<<";"<<std::endl;
+							ofs<<"Covt"<<i<<"="<<Covts[i]<<";"<<std::endl;
+						}
+					}//if rms>rmsThresh
 				}//if cnt>=2
 				ofs.close();
 			}//if doLog
