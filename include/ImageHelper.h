@@ -180,7 +180,7 @@ public:
 	inline void loop(bool val=true) { isLoop=val; }
 	inline bool getLoop() const { return isLoop; }
 
-	ImageSource() : sourceDir("") { isLoop=true; isPause=true; }
+	ImageSource() : sourceDir(".") { isLoop=true; isPause=true; }
 	virtual ~ImageSource() {}
 protected:
 	bool isLoop;
