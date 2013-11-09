@@ -315,11 +315,19 @@ inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePts
 		decomposeP10<double>(P, K, Rwc, twc);
 	}
 	const int nDistCoeffs = 5;
+	int flag=CV_CALIB_USE_INTRINSIC_GUESS;
+	switch(distCoeffs.total()) {
+		case 0: flag|=CV_CALIB_FIX_K1|CV_CALIB_FIX_K2|CV_CALIB_FIX_K3|CV_CALIB_ZERO_TANGENT_DIST; break;
+		case 1: flag|=CV_CALIB_FIX_K2|CV_CALIB_FIX_K3|CV_CALIB_ZERO_TANGENT_DIST; break;
+		case 2: flag|=CV_CALIB_FIX_K3|CV_CALIB_ZERO_TANGENT_DIST; break;
+		case 3:
+		case 4: flag|=CV_CALIB_FIX_K3; break;
+	};
 	distCoeffs = cv::Mat::zeros(nDistCoeffs,1,CV_64FC1);
 
 	//2. optimize by LM
 	totalAvgErr = cv::calibrateCamera(worldPtsArr, imagePtsArr, imageSize,
-		K, distCoeffs, rvecs, tvecs, CV_CALIB_USE_INTRINSIC_GUESS);
+		K, distCoeffs, rvecs, tvecs, flag);
 
 	//3. estimate uncertainty
 	if(pCovK!=0 || pCovrs!=0 || pCovts!=0) {

@@ -73,6 +73,16 @@ inline void drawHomography(cv::Mat& image, const cv::Mat& Homo, double const crn
 	cv::line(image, corners[0], corners[2], CV_GB, 2);
 	cv::line(image, corners[1], corners[3], CV_GB, 2);
 }
+//short-hand for apriltag visulization
+inline void drawHomography(cv::Mat& image, const cv::Mat& Homo) {
+	static double crns[4][2]={
+		{-1, -1},
+		{ 1, -1},
+		{ 1,  1},
+		{-1,  1}
+	};
+	drawHomography(image,Homo,crns);
+}
 
 /**
 draw a 3D pyramid on image, projection matrix \f$P=K[R,T]\f$

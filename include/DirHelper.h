@@ -37,7 +37,7 @@ inline std::string getFileDir(const std::string &fileName)
 	std::string::size_type slash2 = fileName.find_last_of('\\');
 	if (slash1==std::string::npos) {
 		if (slash2==std::string::npos) {
-			return std::string();
+			return std::string("./");
 		}
 		return std::string(fileName,0,slash2+1);
 	}

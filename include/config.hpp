@@ -47,12 +47,12 @@ namespace ConfigHelper {
 		}
 
 		// return the raw string in key=RawString line in the cfg file
-		std::string getRawString(const std::string& key) const {
+		std::string getRawString(const std::string& key, std::string defaultValue="") const {
 			ConfigMap::const_iterator itr = cm.find(key);
-			if(itr==cm.end()) {
-				throw std::runtime_error("[Config error] no such key: "+key);
-			}
-			return itr->second;
+			if(itr==cm.end()) return defaultValue;
+			std::string ret = itr->second;
+			trim(ret);
+			return ret;
 		}
 
 		// for both compulsory and optional config pairs
@@ -84,6 +84,24 @@ namespace ConfigHelper {
 			s.erase(epos+1, epos!=std::string::npos?s.size()-epos-1:0);
 		}
 
+		//parse string in form "key=val" and insert to ConfigMap
+		//return true if successuflly parsed and false otherwise
+		inline bool parseLine(const std::string& line)
+		{
+			size_t split_pos = line.find_first_of('=');
+			if(split_pos==std::string::npos
+				|| split_pos>=line.size()-1
+				|| split_pos<=0)
+			{
+				return false;
+			}
+			std::string key(line,0,split_pos);
+			std::string val(line,split_pos+1,line.size()-split_pos-1);
+			trim(key); trim(val);
+			cm[key]=val;
+			return true;
+		}
+
 		inline bool load(std::string fn) {
 			std::ifstream is(fn.c_str());
 			if(!is.is_open()) return false;
@@ -92,21 +110,21 @@ namespace ConfigHelper {
 				std::getline(is, line);
 				if(line.empty() || line[0]=='#') continue;
 
-				size_t split_pos = line.find_first_of('=');
-				if(split_pos==std::string::npos
-					|| split_pos>=line.size()-1
-					|| split_pos<=0) {
-						std::cout<<"[Config warn] skip invalid line: "<<line<<std::endl;
-						continue;
-				} else {
-					std::string key(line,0,split_pos);
-					std::string val(line,split_pos+1,line.size()-split_pos-1);
-					trim(key); trim(val);
-					cm[key]=val;
-					std::cout<<"[Config] "<<key<<"->"<<cm[key]<<std::endl;
+				if(!parseLine(line)) {
+					std::cout<<"[Config warn] skip invalid line: "<<line<<std::endl;
 				}
 			}//while
 			return true;
+		}
+
+		//can be used to reset/add the ConfigMap from command line
+		inline void set(const int argc, const char **argv) {
+			for(int i=0; i<argc; ++i) {
+				std::string arg(argv[i]);
+				if(!parseLine(arg)) {
+					std::cout<<"[Config warn] skip invalid argument: "<<arg<<std::endl;
+				}
+			}
 		}
 
 		ConfigMap& map() { return cm; }

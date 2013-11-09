@@ -65,109 +65,143 @@ using april::tag::TagDetection;
 using helper::ImageSource;
 using helper::GConfig;
 
-std::vector< cv::Ptr<TagFamily> > tagFamilies;
-cv::Ptr<TagDetector> detector;
-
-static void write(std::ofstream& fs, const TagDetection &dd) {
-	fs<<dd.id<<std::endl;
-	fs<<helper::PrintMat<>(3,3,dd.homography[0])<<std::endl;
-	fs<<helper::PrintMat<>(1,2,dd.p[3]);
-	fs<<helper::PrintMat<>(1,2,dd.p[2]);
-	fs<<helper::PrintMat<>(1,2,dd.p[1]);
-	fs<<helper::PrintMat<>(1,2,dd.p[0])<<std::endl;
-	fs<<helper::PrintMat<>(1,2,dd.cxy)<<std::endl;
-}
+std::vector< cv::Ptr<TagFamily> > gTagFamilies;
+cv::Ptr<TagDetector> gDetector;
 
 struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
-	bool takePhoto;
-	int photoCnt;
-	bool grabImage;
-	bool takePhotoContinue;
-	bool grabImageContinue;
-	bool doNotWritePhoto;
 	double tagTextScale;
 	int tagTextThickness;
-	AprilTagprocessor() : takePhoto(false), photoCnt(0), grabImage(false) {
-		takePhotoContinue = GConfig::Instance().get<bool>("AprilTagprocessor::takePhotoContinue",false);
-		grabImageContinue = GConfig::Instance().get<bool>("AprilTagprocessor::grabImageContinue",false);
-		doNotWritePhoto = GConfig::Instance().get<bool>("AprilTagprocessor::doNotWritePhoto",false);
+	bool doLog;
+	bool isPhoto; //whether image source is photo/list or others
+	bool useEachValidFrame; //whether do log for each frame
+	std::string outputDir;
+
+	bool undistortImage;
+	int hammingThresh;
+
+	cv::Mat K, distCoeffs;
+	bool no_distortion;
+
+	AprilTagprocessor() : isPhoto(false), doLog(false), no_distortion(false) {
 		tagTextScale = GConfig::Instance().get<double>("AprilTagprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilTagprocessor::tagTextThickness",1);
+		useEachValidFrame = GConfig::Instance().get<bool>("AprilTagprocessor::useEachValidFrame",false);
+		hammingThresh = GConfig::Instance().get<int>("AprilTagprocessor::hammingThresh",0);
+		undistortImage = GConfig::Instance().get<int>("AprilTagprocessor::undistortImage",false);
+	}
+
+	void loadIntrinsics() {
+		{
+			double K_[9];
+			std::stringstream ss;
+			ss.str(GConfig::Instance().getRawString("K"));
+			bool good=true;
+			for(int i=0; i<9 && good; ++i) good=ss>>K_[i];
+			if(!good) {
+				logli("[loadIntrinsics warn] calibration matrix K not specified in config!");
+				this->undistortImage=false;
+				return;
+			}
+			cv::Mat(3,3,CV_64FC1,K_).copyTo(K);
+			K/=K_[8];
+		}
+
+		{
+			double distCoeffs_[5]={0,0,0,0,0};
+			std::stringstream ss;
+			ss.str(GConfig::Instance().getRawString("distCoeffs"));
+			bool good=true;
+			for(int i=0; i<5; ++i) good=ss>>distCoeffs_[i];
+			if(!good) {
+				logli("[loadIntrinsics warn] distortion coefficients "
+					"distCoeffs not specified in config! Assume all zero!");
+			}
+			double sum=distCoeffs_[0]+distCoeffs_[1]
+			+distCoeffs_[2]+distCoeffs_[3]+distCoeffs_[4];
+			this->no_distortion=(sum==0);
+			if(this->no_distortion) this->undistortImage=false;
+			cv::Mat(5,1,CV_64FC1,distCoeffs_).copyTo(distCoeffs);
+		}
+
+		logli("[loadIntrinsics] K="<<K);
+		logli("[loadIntrinsics] distCoeffs="<<distCoeffs);
+	}
+
+	/**
+	write the detection in matlab script format:
+	tag.id <1x1>, tag.H <3x3>, tag.p <2x4>, tag.c <2x1> [tag.up <2x4>]
+	*/
+	void writeMatlab(std::ostream& os, TagDetection &dd,
+		std::string varname="tag", bool ud=false)
+	{
+		const cv::Mat H(3,3,CV_64FC1,(void*)dd.homography[0]);
+		const cv::Mat p(4,2,CV_64FC1,(void*)dd.p[0]);
+		const cv::Mat c(2,1,CV_64FC1,(void*)dd.cxy);
+		os<<varname<<".id="<<dd.id<<";\n"
+			<<varname<<".hammingDistance="<<dd.hammingDistance<<";\n"
+			<<varname<<".familyName='"<<dd.familyName<<"';\n"
+			<<varname<<".H="<<H<<";\n"
+			<<varname<<".p="<<p<<"';\n"
+			<<varname<<".c="<<c<<";"<<std::endl;
+
+		if(!ud) return;
+
+		dd.undistort<double>(this->K, this->distCoeffs);
+		os<<varname<<".uH="<<H<<"';"<<std::endl;
+		os<<varname<<".up="<<p<<"';"<<std::endl;
+		os<<varname<<".uc="<<c<<"';"<<std::endl;
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
 		static helper::PerformanceMeasurer PM;
 		vector<TagDetection> detections;
+		cv::Mat orgFrame;
+		frame.copyTo(orgFrame);
 		PM.tic();
-		detector->process(frame, detections);
+		if(this->undistortImage) cv::undistort(orgFrame,frame,K,distCoeffs);
+		gDetector->process(frame, detections);
 		logld("[TagDetector] process time = "<<PM.toc()<<" sec.");
 
-		std::ofstream fs;
-		if((takePhoto && detections.size()!=0)||takePhotoContinue) {
-			std::string id = helper::num2str(photoCnt, 5);
-			fs.open((id+".txt").c_str());
-			if(!fs.is_open()) {
-				logle("can not open: "<<id<<".txt");
-				exit(-1);
-			} else {
-				logli("wrote detection: "<<id<<".txt");
-			}
-			if(!doNotWritePhoto) {
-				if(cv::imwrite(id+".png", frame)) {
-					logli("took photo: "<<id<<".png");
-					takePhoto=false;
-					++photoCnt;
-				} else {
-					logle("can not save photo: "<<id<<".png");
-					exit(-1);
-				}
-			} else {
-				++photoCnt;
-			}
-		}
-
-		if(grabImage || grabImageContinue) {
-			static int grabCnt=0;
-			std::string id = helper::num2str(grabCnt, 2);
-			if(cv::imwrite(id+".png", frame)) {
-				logli("grab image: "<<id<<".png");
-				++grabCnt;
-				grabImage=false;
-			} else {
-				logle("can not grab image...exit");
-				exit(-1);
-			}
-		}
-
-		if(fs.is_open()) {
-			fs<<(int)detections.size()<<std::endl;
-		}
+		//visualization
 		logld(">>> find: ");
-		for(int id=0; id<(int)detections.size(); ++id) {
-			TagDetection &dd = detections[id];
-			//if(dd.hammingDistance>0) continue; //very strict!
+		for(int i=0; i<(int)detections.size(); ++i) {
+			TagDetection &dd = detections[i];
+			if(dd.hammingDistance>this->hammingThresh) continue;
+
 			logld("id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation);
-
-			if(fs.is_open()) {
-				write(fs, dd);
-			}
-
 			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]),
 				         CV_FONT_NORMAL, tagTextScale, helper::CV_BLUE, tagTextThickness );
-
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
-			static double crns[4][2]={
-				{-1, -1},
-				{ 1, -1},
-				{ 1,  1},
-				{-1,  1}
-			};
-			helper::drawHomography(frame, Homo, crns);
+			helper::drawHomography(frame, Homo);
 			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
 		}
-		if(fs.is_open()) {
-			fs.close();
-		}
+
+		//logging results
+		if(doLog || (isPhoto && useEachValidFrame)) {
+			doLog=false;
+			static int cnt=0;
+			std::string fileid = helper::num2str(cnt, 5);
+
+			//log images
+			cv::imwrite(outputDir+"/AprilTagFinder_frame_"+fileid+".png", frame);
+			if(!isPhoto) cv::imwrite(outputDir+"/AprilTagFinder_orgframe_"+fileid+".png", orgFrame);
+
+			//log detections
+			std::ofstream fs((outputDir+"/AprilTagFinder_log_"+fileid+".m").c_str());
+			fs<<"% AprilTagFinder log "<<cnt<<std::endl;
+			fs<<"% @ "<<LogHelper::getCurrentTimeString()<<std::endl;
+			fs<<"tags={};\n"<<std::endl;
+			for(int i=0,j=0; i<(int)detections.size(); ++i) {
+				TagDetection &dd = detections[i];
+				if(dd.hammingDistance>this->hammingThresh) continue;
+				++j;//note matlab uses 1-based index
+
+				writeMatlab(fs, dd, "tag", !this->undistortImage && !this->no_distortion);
+				fs<<"tags{"<<j<<"}=tag;\n"<<std::endl;
+			}
+
+			++cnt;
+		}//if doLog
 
 		if(frame.cols>640) {
 			cv::resize(frame, frame, cv::Size(640,480));
@@ -177,20 +211,17 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	void handle(char key) {
 		switch (key) {
 		case 'd':
-			detector->segDecimate = !(detector->segDecimate);
-			logli("[ProcessVideo] detector.segDecimate="<<detector->segDecimate); break;
-		case 't':
-			takePhoto=true; break;
-		case 'g':
-			grabImage=true; break;
+			gDetector->segDecimate = !(gDetector->segDecimate);
+			logli("[ProcessVideo] gDetector.segDecimate="<<gDetector->segDecimate); break;
+		case 'l':
+			doLog=true; break;
 		case '1':
 			LogHelper::GLogControl::Instance().level = LogHelper::LOG_DEBUG; break;
 		case '2':
 			LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO; break;
 		case 'h':
 			cout<<"d: segDecimate\n"
-				"t: takePhoto\n"
-				"g: grabImage\n"
+				"l: do log\n"
 				"1: debug output\n"
 				"2: info output\n"<<endl; break;
 		}
@@ -198,7 +229,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 
 };//end of struct AprilTagprocessor
 
-void usage( int argc, char **argv ) {
+void usage(const int argc, const char **argv ) {
 	cout<< "[usage] " <<argv[0]<<" <url> [TagFamilies ID]"<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
@@ -215,11 +246,13 @@ void usage( int argc, char **argv ) {
 #endif
 }
 
-int main( int argc, char **argv )
+int main(const int argc, const char **argv )
 {
 	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
 
-	if(argc<2) {
+	const int MIN_ARGS=2, CFG_ARGS_START=3;
+	const int URL_POS=1, TAG_FAMILY_ID_POS=2;
+	if(argc<MIN_ARGS) {
 		usage(argc,argv);
 		return -1;
 	}
@@ -231,8 +264,12 @@ int main( int argc, char **argv )
 	} else {
 		logli("[main] loaded "<<exeDir<<"AprilTagFinder.cfg");
 	}
+	if(argc>CFG_ARGS_START) {
+		logli("[main] add/reset config info from command line arguments.");
+		cfg.set(argc-1-CFG_ARGS_START, argv+CFG_ARGS_START);
+	}
 
-	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
+	cv::Ptr<ImageSource> is = helper::createImageSource(argv[URL_POS]);
 	if(is.empty()) {
 		tagle("createImageSource failed!");
 		return -1;
@@ -241,7 +278,7 @@ int main( int argc, char **argv )
 
 	//// create tagFamily
 	string tagid("0"); //default tag16h5
-	if(argc>2) tagid = string(argv[2]);
+	if(argc>TAG_FAMILY_ID_POS) tagid = string(argv[TAG_FAMILY_ID_POS]);
 	for(int i=0; i<(int)tagid.size(); ++i) {
 		const char curchar[] = {tagid[i],'\0'};
 		unsigned int curid = atoi(curchar);//atoi works on an array of char, not on a single char!!
@@ -250,20 +287,25 @@ int main( int argc, char **argv )
 			tagle("create TagFamily "<<curid<<" fail, skip!");
 			continue;
 		}
-		tagFamilies.push_back(tagFamily);
+		gTagFamilies.push_back(tagFamily);
 	}
-	if(tagFamilies.size()<=0) {
+	if(gTagFamilies.size()<=0) {
 		tagle("create TagFamily failed all! exit...");
 		return -1;
 	}
 
-	detector = new TagDetector(tagFamilies);
-	if(detector.empty()) {
+	gDetector = new TagDetector(gTagFamilies);
+	if(gDetector.empty()) {
 		tagle("create TagDetector fail!");
 		return -1;
 	}
 
 	AprilTagprocessor processor;
+	processor.loadIntrinsics();
+	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
+	processor.outputDir = cfg.getRawString("AprilTagprocessor::outputDir",
+		is->getSourceDir());
+	logli("[main] detection will be logged to outputDir="<<processor.outputDir);
 	is->run(processor,-1, false,
 		cfg.get<bool>("ImageSource::pause", is->getPause()),
 		cfg.get<bool>("ImageSource::loop", is->getLoop()) );
