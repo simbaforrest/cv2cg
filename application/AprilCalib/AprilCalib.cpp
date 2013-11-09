@@ -69,126 +69,68 @@ std::vector< cv::Ptr<TagFamily> > gTagFamilies;
 cv::Ptr<TagDetector> gDetector;
 
 /**
-Calibration rig is composed of two planes, usually one on left and one on right.
-World Frame is defined as the left frame. Left plane and right plane are grids
-of AprilTags, each with rows*cols AprilTags with id start from start_id. Left
-frame origin is at the center of AprilTags on the left plane, the orientation of
-x, y, z axis is the same as the AprilTags orientation; similarly for right frame.
-For example:
-if left_start_id=0, left_rows=3, left_cols=3, then the left frame looks like
-  ^y
-  |
-0 1 2
-3 4-5->x
-6 7 8
-the origin of left frame is the center of tag 4, tag 4 to tag 5 defines positive x
-direction and tag4 to tag 1 defines positive y direction, positive z direction is
-thus pointing out of screen by right-hand-rule
+Calibration rig
+To define Calibration rig in config file, simply write in AprilCalib.cfg as follows:
+CalibRig::nTags=N
+CalibRig::start_id=S
+#repeat follow lines N times with i=S...S+N-1, (Xi, Yi, Zi) is the world coordinate
+#of the center of the tagi
+CalibRig::tagi=Xi Yi Zi
+...
+
+For example, if there are 18 Tags used as a calibration rig, id start from 3, then
+the following lines should appear in AprilCalib.cfg file
+CalibRig::nTags=18
+CalibRig::start_id=3
+CalibRig::tag3=X3 Y3 Z3
+CalibRig::tag4=X4 Y4 Z4
+...
+CalibRig::tag20=X20 Y20 Z20
 */
 struct CalibRig {
-	double Rrl[9], trl[3]; //points on left plane = [Rrl, trl;000, 1] * points on right plane
-	int left_start_id, left_rows, left_cols;
-	double left_tag_black_length;
-	int right_start_id, right_rows, right_cols;
-	double right_tag_black_length;
+	std::vector<cv::Point3d> id2Xw;
+	int nTags,start_id;
 
-	double left_tag_len, right_tag_len;
-
-	CalibRig(): left_start_id(-1), left_rows(-1), left_cols(-1), left_tag_black_length(-1),
-		right_start_id(-1), right_rows(-1), right_cols(-1), right_tag_black_length(-1),
-		left_tag_len(-1), right_tag_len(-1)
-	{
-		for(int i=0; i<3; ++i) {
-			for(int j=0; j<3; ++j) {
-				Rrl[i*3+j]=0;
-			}
-			trl[i]=0;
-			Rrl[i*3+i]=1;
-		}
-	}
+	CalibRig() : nTags(-1), start_id(-1) {}
 
 	operator std::string() const {
 		std::stringstream ss;
-#define report_arr(varname,len) ss<< #varname << "="; \
-	for(int i=0; i<len; ++i) ss<<varname[i]<<" "; ss<<std::endl
-		report_arr(Rrl,9);
-		report_arr(trl,3);
-#undef report_arr
-#define report_var(varname) ss<< #varname << "=" << varname <<std::endl
-		report_var(left_start_id);
-		report_var(left_rows);
-		report_var(left_cols);
-		report_var(left_tag_black_length);
-		report_var(left_tag_len);
-
-		report_var(right_start_id);
-		report_var(right_rows);
-		report_var(right_cols);
-		report_var(right_tag_black_length);
-		report_var(right_tag_len);
-#undef report_var
+		for(int i=0; i<(int)id2Xw.size(); ++i) {
+			const cv::Point3d& pt=id2Xw[i];
+			ss<<"CalibRig::tag"<<(i+start_id)<<"="
+			  <<pt.x<<" "<<pt.y<<" "<<pt.z<<"\n";
+		}
 		return ss.str();
 	}
 
 	void loadFromConfig() {
-		{std::stringstream ss;
-		ss.str(GConfig::Instance().getRawString("Rrl"));
-		for(int i=0; i<9; ++i) ss>>Rrl[i];}
-
-		{std::stringstream ss;
-		ss.str(GConfig::Instance().getRawString("trl"));
-		for(int i=0; i<3; ++i) ss>>trl[i];}
-
-#define get_var(varname) {std::stringstream ss; \
-	ss.str(GConfig::Instance().getRawString( #varname )); \
-	ss>>varname;}
-		get_var(left_start_id);
-		get_var(left_rows);
-		get_var(left_cols);
-		get_var(left_tag_black_length);
-
-		get_var(right_start_id);
-		get_var(right_rows);
-		get_var(right_cols);
-		get_var(right_tag_black_length);
-#undef get_var
-
-		left_tag_len=(double)(left_tag_black_length*gTagFamilies[0]->getTagRenderDimension())
-					 /(double)(gTagFamilies[0]->d+2*gTagFamilies[0]->blackBorder);
-		right_tag_len=(double)(right_tag_black_length*gTagFamilies[0]->getTagRenderDimension())
-					  /(double)(gTagFamilies[0]->d+2*gTagFamilies[0]->blackBorder);
+		ConfigHelper::Config& cfg = GConfig::Instance();
+		this->nTags=cfg.get<int>("CalibRig::nTags",0);
+		if(nTags<8) {
+			logle("[CalibRig error] a 3D calibration rig must have more than 8 tags!");
+			exit(-1);
+		}
+		this->id2Xw.resize(nTags);
+		this->start_id=cfg.get<int>("CalibRig::start_id",0);
+		for(int i=0, j=start_id; i<nTags; ++i,++j) {
+			std::string str=cfg.getRawString(
+				std::string("CalibRig::tag")+helper::num2str(j));
+			std::stringstream ss;
+			ss.str(str);
+			double x=0,y=0,z=0;
+			ss>>x>>y>>z;
+			id2Xw[i]=cv::Point3d(x,y,z);
+		}
 	}
 
-	int id2worldPt(const int id, double worldPt[3]) const {
-		if(left_start_id<=id && id<(left_start_id+left_rows*left_cols)) {
-			const double worldW=left_tag_len*left_cols, worldH=left_tag_len*left_rows;
-			const int nid=id-left_start_id;
-			const int r=nid/left_cols;
-			const int c=nid-r*left_cols;
-			double worldx=left_tag_len/2+c*left_tag_len;
-			double worldy=left_tag_len/2+r*left_tag_len;
-			worldx-=worldW/2;
-			worldy=worldH/2-worldy;
-			worldPt[0]=worldx;
-			worldPt[1]=worldy;
-			worldPt[2]=0;
-			return 1;
-		} else if(right_start_id<=id && id<(right_start_id+right_rows*right_cols)) {
-			const double worldW=right_tag_len*right_cols, worldH=right_tag_len*right_rows;
-			const int nid=id-right_start_id;
-			const int r=nid/right_cols;
-			const int c=nid-r*right_cols;
-			double worldx=right_tag_len/2+c*right_tag_len;
-			double worldy=right_tag_len/2+r*right_tag_len;
-			worldx-=worldW/2;
-			worldy=worldH/2-worldy;
-			//transform to world frame (i.e. left frame)
-			worldPt[0]=Rrl[0]*worldx+Rrl[1]*worldy+trl[0];
-			worldPt[1]=Rrl[3]*worldx+Rrl[4]*worldy+trl[1];
-			worldPt[2]=Rrl[6]*worldx+Rrl[7]*worldy+trl[2];
-			return -1;
-		}
-		return 0;
+	bool id2worldPt(const int id, double worldPt[3]) const {
+		const int rid=id-start_id;
+		if(rid<0 || rid>=nTags) return false;
+		const cv::Point3d& pt=id2Xw[rid];
+		worldPt[0]=pt.x;
+		worldPt[1]=pt.y;
+		worldPt[2]=pt.z;
+		return true;
 	}
 } gRig;
 
@@ -198,8 +140,9 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	bool doLog;
 	bool isPhoto;
 	bool useEachValidFrame;
-	std::string sourceDir;
+	std::string outputDir;
 
+	int nDistCoeffs;
 	std::vector<std::vector<cv::Point2f> > imagePtsArr;
 	std::vector<std::vector<cv::Point3f> > worldPtsArr;
 	cv::Mat K;
@@ -209,14 +152,19 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 		tagTextThickness = GConfig::Instance().get<int>("AprilCalibprocessor::tagTextThickness",1);
 		useEachValidFrame = GConfig::Instance().get<int>("AprilCalibprocessor::useEachValidFrame",false);
 		rmsThresh = GConfig::Instance().get<int>("AprilCalibprocessor::rmsThresh",2);
+		nDistCoeffs = GConfig::Instance().get<int>("AprilCalib::nDistCoeffs",0);
+		if(nDistCoeffs>5) {
+			nDistCoeffs=5;
+			logli("[AprilCalibprocessor warn] AprilCalib::nDistCoeffs>5, set back to 5!");
+		}
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
 		static helper::PerformanceMeasurer PM;
 		vector<TagDetection> detections;
-		PM.tic();
 		cv::Mat orgFrame;
 		frame.copyTo(orgFrame);
+		PM.tic();
 		gDetector->process(frame, detections);
 		logld("[TagDetector] process time = "<<PM.toc()<<" sec.");
 
@@ -224,21 +172,17 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 		std::vector<cv::Point2f> imagePts;
 		worldPts.reserve(detections.size());
 		imagePts.reserve(detections.size());
-		int leftCnt=0, rightCnt=0;
 
 		logld(">>> find: ");
-		for(int id=0; id<(int)detections.size(); ++id) {
-			TagDetection &dd = detections[id];
+		for(int i=0; i<(int)detections.size(); ++i) {
+			TagDetection &dd = detections[i];
 			if(dd.hammingDistance>0) continue; //strict!
 
 			double worldPt[3];
-			int leftRightCnt=0;
-			if((leftRightCnt=gRig.id2worldPt(dd.id, worldPt))==0) {
+			if(!gRig.id2worldPt(dd.id, worldPt)) {
 				logli("[AprilCalibprocessor info] ignore tag with id="<<dd.id);
 				continue;
 			}
-			if(leftRightCnt>0) leftCnt++;
-			else rightCnt++;
 			worldPts.push_back(cv::Point3f(worldPt[0],worldPt[1],worldPt[2]));
 			imagePts.push_back(cv::Point2f(dd.cxy[0], dd.cxy[1]));
 
@@ -247,17 +191,11 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]),
 				         CV_FONT_NORMAL, tagTextScale, helper::CV_BLUE, tagTextThickness );
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
-			static double crns[4][2]={
-				{-1, -1},
-				{ 1, -1},
-				{ 1,  1},
-				{-1,  1}
-			};
-			helper::drawHomography(frame, Homo, crns);
+			helper::drawHomography(frame, Homo);
 			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
 		}
 
-		if(leftCnt>=4 && rightCnt>=4) {//frame is valid if with enough detections on both left & right
+		if(worldPts.size()>=8) {//TODO: need to judge whether is planar structure
 			cv::Mat P,K0,Rwc,twc;
 			cv::Mat Ut, Xwt;
 			cv::Mat(imagePts).reshape(1).convertTo(Ut, cv::DataType<double>::type);
@@ -270,21 +208,24 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 			if(doLog || (isPhoto && useEachValidFrame)) {
 				doLog=false;
 				static int cnt=0;
-				std::ofstream ofs((sourceDir+"/"+helper::num2str(cnt,5)+"_log.m").c_str());
-				ofs<<"%log "<<cnt<<std::endl;
-				ofs<<"%@ "<<LogHelper::getCurrentTimeString()<<std::endl;
+				std::ofstream ofs((outputDir+"/AprilCalib_log_"+helper::num2str(cnt,5)+".m").c_str());
+				ofs<<"% AprilCalib log "<<cnt<<std::endl;
+				ofs<<"% @ "<<LogHelper::getCurrentTimeString()<<std::endl;
 				ofs<<"U="<<Ut.t()<<";"<<std::endl;
 				ofs<<"Xw="<<Xwt.t()<<";"<<std::endl;
 				ofs<<"P="<<P<<";"<<std::endl;
 	
-				cv::imwrite(sourceDir+"/"+helper::num2str(cnt,5)+"_frame.png", frame);
-				if(!isPhoto) cv::imwrite(sourceDir+"/"+helper::num2str(cnt,5)+"_orgFrame.png", orgFrame);
+				cv::imwrite(outputDir+"/AprilCalib_frame_"+helper::num2str(cnt,5)+".png", frame);
+				if(!isPhoto) cv::imwrite(outputDir+"/AprilCalib_orgframe_"+helper::num2str(cnt,5)+".png", orgFrame);
 				++cnt;
 
 				this->imagePtsArr.push_back(imagePts);
 				this->worldPtsArr.push_back(worldPts);
 				if(cnt>=2) {
 					cv::Mat distCoeffs, CovK;
+					if(this->nDistCoeffs>0) {
+						distCoeffs=cv::Mat::zeros(nDistCoeffs,1,CV_64FC1);
+					}
 					std::vector<cv::Mat> rvecs, tvecs, Covrs, Covts;
 					double rms=0;
 					helper::calibration3d(imagePtsArr, worldPtsArr,
@@ -341,7 +282,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 
 };//end of struct AprilCalibprocessor
 
-void usage( int argc, char **argv ) {
+void usage(const int argc, const char **argv ) {
 	cout<< "[usage] " <<argv[0]<<" <url> [TagFamilies ID]"<<endl;
 	cout<< "Assume an AprilCalib.cfg file at the same directory with"<<argv[0]<<std::endl;
 	cout<< "Supported TagFamily ID List:\n";
@@ -351,11 +292,12 @@ void usage( int argc, char **argv ) {
 	cout<<"default ID: 0"<<endl;
 }
 
-int main( int argc, char **argv )
+int main(const int argc, const char **argv )
 {
 	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
 
-	if(argc<2) {
+	const int MIN_ARGS=2, CFG_ARGS_START=3;
+	if(argc<MIN_ARGS) {
 		usage(argc,argv);
 		return -1;
 	}
@@ -367,6 +309,10 @@ int main( int argc, char **argv )
 		return -1;
 	} else {
 		logli("[main] loaded "<<exeDir<<"AprilCalib.cfg");
+	}
+	if(argc>CFG_ARGS_START) {
+		logli("[main] add/reset config info from command line arguments.");
+		cfg.set(argc-1-CFG_ARGS_START, argv+CFG_ARGS_START);
 	}
 
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
@@ -405,7 +351,9 @@ int main( int argc, char **argv )
 	tagli("the Calibration Rig is:\n"<<std::string(gRig));
 	AprilCalibprocessor processor;
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
-	processor.sourceDir = is->getSourceDir();
+	processor.outputDir = cfg.getRawString("AprilCalibprocessor::outputDir",
+		is->getSourceDir());
+	logli("[main] detection will be logged to outputDir="<<processor.outputDir);
 	is->run(processor,-1, false,
 			cfg.get<bool>("ImageSource::pause", is->getPause()),
 			cfg.get<bool>("ImageSource::loop", is->getLoop()) );

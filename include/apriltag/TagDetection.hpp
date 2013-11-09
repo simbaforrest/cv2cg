@@ -55,6 +55,7 @@
 #include <string>
 //opencv include
 #include "OpenCVHelper.h"
+#include "TagUtils.hpp"
 
 namespace april
 {
@@ -105,6 +106,33 @@ struct TagDetection {
 		double z = homography[2][0]*x + homography[2][1]*y + homography[2][2];
 		ret[0] = (homography[0][0]*x + homography[0][1]*y + homography[0][2])/z;
 		ret[1] = (homography[1][0]*x + homography[1][1]*y + homography[1][2])/z;
+	}
+
+	template<typename MatType>
+	inline void undistort(const cv::Mat& K, const cv::Mat& distCoeffs) {
+		static const double pts[5][2]={
+			{-1,-1},
+			{ 1,-1},
+			{ 1, 1},
+			{-1, 1},
+			{ 0, 0}
+		};
+		Homography33b homoCalc;
+		std::vector<cv::Point2d> uv(5);
+		for(int i=0; i<4; ++i)
+			uv[i]=cv::Point2d(p[i][0],p[i][1]);
+		uv[4]=cv::Point2d(cxy[0],cxy[1]);
+		std::vector<cv::Point2d> xy(5);
+		cv::undistortPoints(uv,xy,K,distCoeffs);
+		for(int i=0; i<4; ++i) {
+			uv[i].x=p[i][0]=(K.at<MatType>(0,0)*xy[i].x+K.at<MatType>(0,2))/K.at<MatType>(2,2);
+			uv[i].y=p[i][1]=(K.at<MatType>(1,1)*xy[i].y+K.at<MatType>(1,2))/K.at<MatType>(2,2);
+			homoCalc.addCorrespondence(pts[i][0],pts[i][1],uv[i].x,uv[i].y);
+		}
+		uv[4].x=cxy[0]=(K.at<MatType>(0,0)*xy[4].x+K.at<MatType>(0,2))/K.at<MatType>(2,2);
+		uv[4].y=cxy[1]=(K.at<MatType>(1,1)*xy[4].y+K.at<MatType>(1,2))/K.at<MatType>(2,2);
+		homoCalc.addCorrespondence(pts[4][0],pts[4][1],uv[4].x,uv[4].y);
+		homoCalc.getH(this->homography);
 	}
 
 	inline std::string toString(bool bshort=true) const {

@@ -143,7 +143,7 @@ struct Segment {
 	double x0, y0, x1, y1;
 	double theta;  // gradient direction (points towards white)
 	double length; // length of line segment in pixels
-	vector<Segment *> children;
+	std::vector<Segment *> children;
 
 	inline void swap() {
 		std::swap(x0,x1);
