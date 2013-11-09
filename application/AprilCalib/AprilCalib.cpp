@@ -312,7 +312,7 @@ int main(const int argc, const char **argv )
 	}
 	if(argc>CFG_ARGS_START) {
 		logli("[main] add/reset config info from command line arguments.");
-		cfg.set(argc-1-CFG_ARGS_START, argv+CFG_ARGS_START);
+		cfg.set(argc-CFG_ARGS_START, argv+CFG_ARGS_START);
 	}
 
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
