@@ -190,6 +190,8 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			std::ofstream fs((outputDir+"/AprilTagFinder_log_"+fileid+".m").c_str());
 			fs<<"% AprilTagFinder log "<<cnt<<std::endl;
 			fs<<"% @ "<<LogHelper::getCurrentTimeString()<<std::endl;
+			fs<<"K="<<K<<";"<<std::endl;
+			fs<<"distCoeffs="<<distCoeffs<<";"<<std::endl;
 			fs<<"tags={};\n"<<std::endl;
 			for(int i=0,j=0; i<(int)detections.size(); ++i) {
 				TagDetection &dd = detections[i];
@@ -266,7 +268,7 @@ int main(const int argc, const char **argv )
 	}
 	if(argc>CFG_ARGS_START) {
 		logli("[main] add/reset config info from command line arguments.");
-		cfg.set(argc-1-CFG_ARGS_START, argv+CFG_ARGS_START);
+		cfg.set(argc-CFG_ARGS_START, argv+CFG_ARGS_START);
 	}
 
 	cv::Ptr<ImageSource> is = helper::createImageSource(argv[URL_POS]);

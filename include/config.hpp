@@ -86,7 +86,7 @@ namespace ConfigHelper {
 
 		//parse string in form "key=val" and insert to ConfigMap
 		//return true if successuflly parsed and false otherwise
-		inline bool parseLine(const std::string& line)
+		inline bool parseLine(const std::string& line, std::string& key, std::string& val)
 		{
 			size_t split_pos = line.find_first_of('=');
 			if(split_pos==std::string::npos
@@ -95,8 +95,8 @@ namespace ConfigHelper {
 			{
 				return false;
 			}
-			std::string key(line,0,split_pos);
-			std::string val(line,split_pos+1,line.size()-split_pos-1);
+			key=std::string(line,0,split_pos);
+			val=std::string(line,split_pos+1,line.size()-split_pos-1);
 			trim(key); trim(val);
 			cm[key]=val;
 			return true;
@@ -105,26 +105,37 @@ namespace ConfigHelper {
 		inline bool load(std::string fn) {
 			std::ifstream is(fn.c_str());
 			if(!is.is_open()) return false;
+			std::cout<<"[Config] load:"<<std::endl;
 			while(is) {
 				std::string line;
 				std::getline(is, line);
 				if(line.empty() || line[0]=='#') continue;
 
-				if(!parseLine(line)) {
+				std::string key, val;
+				if(!parseLine(line, key, val)) {
 					std::cout<<"[Config warn] skip invalid line: "<<line<<std::endl;
+				} else {
+					std::cout<<key<<"->"<<val<<std::endl;
 				}
 			}//while
+			std::cout<<std::endl;
 			return true;
 		}
 
 		//can be used to reset/add the ConfigMap from command line
 		inline void set(const int argc, const char **argv) {
-			for(int i=0; i<argc; ++i) {
-				std::string arg(argv[i]);
-				if(!parseLine(arg)) {
-					std::cout<<"[Config warn] skip invalid argument: "<<arg<<std::endl;
-				}
+			if(argc>0) {
+				std::cout<<"[Config] add/reset:"<<std::endl;
 			}
+			for(int i=0; i<argc; ++i) {
+				std::string arg(argv[i]), key, val;
+				if(!parseLine(arg, key, val)) {
+					std::cout<<"[Config warn] skip invalid argument: "<<arg<<std::endl;
+				} else {
+					std::cout<<key<<"=>"<<val<<std::endl;
+				}
+			}//end for
+			std::cout<<std::endl;
 		}
 
 		ConfigMap& map() { return cm; }
