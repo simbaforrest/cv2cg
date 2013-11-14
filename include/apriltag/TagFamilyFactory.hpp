@@ -68,9 +68,9 @@ namespace tag
 struct TagFamilyFactory {
 	enum SUPPORT_TYPE {TAG16H5=0, TAG25H7=1, TAG25H9=2, TAG36H9=3, TAG36H11=4, TAGTOTAL};
 
-	inline static Ptr<TagFamily> create(unsigned int type) {
-		Ptr<TagFamily> ret;
-		vector<UINT64> codes;
+	inline static cv::Ptr<TagFamily> create(unsigned int type) {
+		cv::Ptr<TagFamily> ret;
+		std::vector<UINT64> codes;
 		switch(type) {
 #define MacroCreate(d,m) \
 	codes.insert(codes.begin(), codes##d##h##m, codes##d##h##m+sizeof(codes##d##h##m)/sizeof(UINT64)); \
@@ -96,6 +96,24 @@ struct TagFamilyFactory {
 		}
 
 		return ret;
+	}
+
+	/** 
+	 *	create more than one tag families from tagids
+	 */
+	inline static int create(std::string tagids, std::vector<cv::Ptr<TagFamily> >& families) {
+		families.clear();
+		for(int i=0; i<(int)tagids.size(); ++i) {
+			const char curchar[] = {tagids[i],'\0'};
+			unsigned int curid = atoi(curchar);//atoi works on an array of char, not on a single char!!
+			cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(curid);
+			if(tagFamily.empty()) {
+				tagle("create TagFamily "<<curid<<" fail, skip!");
+				continue;
+			}
+			families.push_back(tagFamily);
+		}
+		return (int)families.size();
 	}
 };
 
