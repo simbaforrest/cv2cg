@@ -251,11 +251,11 @@ struct Normalize2D {
 	{
 		double eX = mX / N;
         double eY = mY / N;
-        double stddevX = 1; //Math.sqrt(mXX / N + eX*eX);
-        double stddevY = 1; //Math.sqrt(mYY / N + eY*eY);
+		double stddevX = sqrt(mXX / N + eX*eX); //sf: this has to be done!
+		double stddevY = sqrt(mYY / N + eY*eY);
 
-        double scaleX = stddevX;
-        double scaleY = stddevY;
+		double scaleX = stddevX==0 ? 1 : stddevX; //sf: be careful if std==0
+		double scaleY = stddevY==0 ? 1 : stddevY;
 
         T[0][0]=scaleX; T[0][1]=0; T[0][2]=eX;
 		T[1][0]=0; T[1][1]=scaleY; T[1][2]=eY;
