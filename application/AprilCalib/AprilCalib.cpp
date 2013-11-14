@@ -325,17 +325,7 @@ int main(const int argc, const char **argv )
 	//// create tagFamily
 	string tagid("0"); //default tag16h5
 	if(argc>2) tagid = string(argv[2]);
-	for(int i=0; i<(int)tagid.size(); ++i) {
-		const char curchar[] = {tagid[i],'\0'};
-		unsigned int curid = atoi(curchar);//atoi works on an array of char, not on a single char!!
-		cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(curid);
-		if(tagFamily.empty()) {
-			tagle("create TagFamily "<<curid<<" fail, skip!");
-			continue;
-		}
-		gTagFamilies.push_back(tagFamily);
-		break;//in this app we only need one tagFamily, keep the first one
-	}
+	TagFamilyFactory::create(tagid, gTagFamilies);
 	if(gTagFamilies.size()<=0) {
 		tagle("create TagFamily failed all! exit...");
 		return -1;

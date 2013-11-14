@@ -51,6 +51,7 @@
 #include <sstream>
 
 #include "OpenCVHelper.h"
+#define TAG_DEBUG_PERFORMANCE 1
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 #include "config.hpp"
@@ -71,7 +72,7 @@ cv::Ptr<TagDetector> gDetector;
 struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	double tagTextScale;
 	int tagTextThickness;
-	bool doLog;
+	bool doLog,doRecord;
 	bool isPhoto; //whether image source is photo/list or others
 	bool useEachValidFrame; //whether do log for each frame
 	std::string outputDir;
@@ -82,7 +83,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	cv::Mat K, distCoeffs;
 	bool no_distortion;
 
-	AprilTagprocessor() : isPhoto(false), doLog(false), no_distortion(false) {
+	AprilTagprocessor() : isPhoto(false), doLog(false), doRecord(false), no_distortion(true) {
 		tagTextScale = GConfig::Instance().get<double>("AprilTagprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilTagprocessor::tagTextThickness",1);
 		useEachValidFrame = GConfig::Instance().get<bool>("AprilTagprocessor::useEachValidFrame",false);
@@ -100,6 +101,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			if(!good) {
 				logli("[loadIntrinsics warn] calibration matrix K not specified in config!");
 				this->undistortImage=false;
+				this->no_distortion=true;
 				return;
 			}
 			cv::Mat(3,3,CV_64FC1,K_).copyTo(K);
@@ -163,10 +165,12 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		logld("[TagDetector] process time = "<<PM.toc()<<" sec.");
 
 		//visualization
+		int nValidDetections=0;
 		logld(">>> find: ");
 		for(int i=0; i<(int)detections.size(); ++i) {
 			TagDetection &dd = detections[i];
 			if(dd.hammingDistance>this->hammingThresh) continue;
+			++nValidDetections;
 
 			logld("id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation);
 			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]),
@@ -177,7 +181,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		}
 
 		//logging results
-		if(doLog || (isPhoto && useEachValidFrame)) {
+		if(nValidDetections>0 && (doLog || (isPhoto && useEachValidFrame) || (!isPhoto && doRecord))) {
 			doLog=false;
 			static int cnt=0;
 			std::string fileid = helper::num2str(cnt, 5);
@@ -217,6 +221,8 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			logli("[ProcessVideo] gDetector.segDecimate="<<gDetector->segDecimate); break;
 		case 'l':
 			doLog=true; break;
+		case 'r':
+			doRecord=true; break;
 		case '1':
 			LogHelper::GLogControl::Instance().level = LogHelper::LOG_DEBUG; break;
 		case '2':
@@ -224,6 +230,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		case 'h':
 			cout<<"d: segDecimate\n"
 				"l: do log\n"
+				"r: do record\n"
 				"1: debug output\n"
 				"2: info output\n"<<endl; break;
 		}
@@ -281,16 +288,7 @@ int main(const int argc, const char **argv )
 	//// create tagFamily
 	string tagid("0"); //default tag16h5
 	if(argc>TAG_FAMILY_ID_POS) tagid = string(argv[TAG_FAMILY_ID_POS]);
-	for(int i=0; i<(int)tagid.size(); ++i) {
-		const char curchar[] = {tagid[i],'\0'};
-		unsigned int curid = atoi(curchar);//atoi works on an array of char, not on a single char!!
-		cv::Ptr<TagFamily> tagFamily = TagFamilyFactory::create(curid);
-		if(tagFamily.empty()) {
-			tagle("create TagFamily "<<curid<<" fail, skip!");
-			continue;
-		}
-		gTagFamilies.push_back(tagFamily);
-	}
+	TagFamilyFactory::create(tagid, gTagFamilies);
 	if(gTagFamilies.size()<=0) {
 		tagle("create TagFamily failed all! exit...");
 		return -1;
