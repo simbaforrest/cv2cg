@@ -80,56 +80,131 @@ CalibRig::tagi=Xi Yi Zi
 
 For example, if there are 18 Tags used as a calibration rig, id start from 3, then
 the following lines should appear in AprilCalib.cfg file
-CalibRig::nTags=18
+CalibRig::mode=3d
+#optional, default start_id is 0
 CalibRig::start_id=3
-CalibRig::tag3=X3 Y3 Z3
-CalibRig::tag4=X4 Y4 Z4
+CalibRig::nTags=18
+CalibRig::tagCenters=[X3 Y3 Z3;
+ X4 Y4 Z4;
 ...
-CalibRig::tag20=X20 Y20 Z20
+ X20 Y20 Z20]
+
+Calibration rig defined above is a 3d rig, we can also use 2d rig (planar rig), which
+can be defined as follows:
+CalibRig::mode=2d
+#assume the upper left tag is the first tag
+#i.e. tags are assumed to be arrange as follows:
+#tag0 tag1 tag2 ... tagN-1
+#tagN ...           tag2N-1
+#...
+#tagMN-N ...        tagMN-1
+CalibRig::start_id=S
+CalibRig::w=N
+CalibRig::h=M
+#dx means distance between two neighboring tags along width direction
+#dy means distance between two neighboring tags along height direction
+#center of tag0 is assumed to have coordinate (0,0) in the world plane
+CalibRig::dx=Dx
+CalibRig::dy=Dy
 */
 struct CalibRig {
-	std::vector<cv::Point3d> id2Xw;
-	int nTags,start_id;
+	bool isTag3d;
+	int start_id;
 
-	CalibRig() : nTags(-1), start_id(-1) {}
+	//for 3d rig
+	int nTags;
+	std::vector<cv::Point3d> id2Xw;
+
+	//for 2d rig
+	int w,h;
+	double dx,dy;
+
+	CalibRig() : isTag3d(true), start_id(-1),
+		nTags(-1),
+		w(0),h(0),dx(0),dy(0)
+	{}
 
 	operator std::string() const {
 		std::stringstream ss;
-		for(int i=0; i<(int)id2Xw.size(); ++i) {
-			const cv::Point3d& pt=id2Xw[i];
-			ss<<"CalibRig::tag"<<(i+start_id)<<"="
-			  <<pt.x<<" "<<pt.y<<" "<<pt.z<<"\n";
+		ss<<"CalibRig::start_id="<<this->start_id<<"\n";
+		if(isTag3d) {
+			ss<<"CalibRig::mode=3d\n";
+			ss<<"CalibRig::nTags="<<this->nTags<<"\n"
+			  <<"CalibRig::tagCenters=[\n";
+			for(int i=0; i<(int)id2Xw.size(); ++i) {
+				const cv::Point3d& pt=id2Xw[i];
+				ss<<pt.x<<" "<<pt.y<<" "<<pt.z<<"\n";
+			}
+			ss<<"]\n";
+		} else {
+			ss<<"CalibRig::mode=2d\n";
+			ss<<"CalibRig::w="<<this->w<<"\n"
+			  <<"CalibRig::h="<<this->h<<"\n"
+			  <<"CalibRig::dx="<<this->dx<<"\n"
+			  <<"CalibRig::dy="<<this->dy<<"\n";
 		}
 		return ss.str();
 	}
 
 	void loadFromConfig() {
 		ConfigHelper::Config& cfg = GConfig::Instance();
-		this->nTags=cfg.get<int>("CalibRig::nTags",0);
-		if(nTags<8) {
-			logle("[CalibRig error] a 3D calibration rig must have more than 8 tags!");
-			exit(-1);
-		}
-		this->id2Xw.resize(nTags);
+		
+		//get rig mode and start_id
+		std::string mode=cfg.get<std::string>("CalibRig::mode");
 		this->start_id=cfg.get<int>("CalibRig::start_id",0);
-		for(int i=0, j=start_id; i<nTags; ++i,++j) {
-			std::string str=cfg.getRawString(
-				std::string("CalibRig::tag")+helper::num2str(j));
-			std::stringstream ss;
-			ss.str(str);
-			double x=0,y=0,z=0;
-			ss>>x>>y>>z;
-			id2Xw[i]=cv::Point3d(x,y,z);
+		if(mode.compare("3d")==0) {
+			this->isTag3d=true;
+			this->nTags=cfg.get<int>("CalibRig::nTags",0);
+			if(nTags<8) {
+				logle("[CalibRig error] a 3D calibration rig must have more than 8 tags!");
+				exit(-1);
+			}
+			std::vector<double> buf(nTags*3);
+			if( !cfg.get< double, std::vector<double> >("CalibRig::tagCenters", nTags*3, buf) ) {
+				logle("[CalibRig error] not CalibRig::tagCenters in Config!");
+				exit(-1);
+			}//TODO: check if the points forms a 3d rig really by PCA
+			this->id2Xw.resize(nTags);
+			for(int i=0; i<nTags; ++i) {
+				id2Xw[i]=cv::Point3d(buf[i*3+0],buf[i*3+1],buf[i*3+2]);
+			}
+		} else {
+			this->isTag3d=false; //2d rig
+			this->w=cfg.get<int>("CalibRig::w",0);
+			this->h=cfg.get<int>("CalibRig::h",0);
+			this->nTags=this->w*this->h;
+			if(this->nTags<4) {
+				logle("[CalibRig error] a 2D calibration rig must have at least 4 tags!");
+				exit(-1);
+			}
+			if(this->w<=1 || this->h<=1) {
+				logle("[CalibRig error] a 2D calibration rig must ensure w>1 and h>1!");
+				exit(-1);
+			}
+			this->dx=cfg.get<double>("CalibRig::dx",0);
+			this->dy=cfg.get<double>("CalibRig::dy",0);
+			if(this->dx<=0 || this->dy<=0) {
+				logle("[CalibRig error] a 2D calibration rig must ensure dx>0 and dy>0!");
+				exit(-1);
+			}
 		}
 	}
 
 	bool id2worldPt(const int id, double worldPt[3]) const {
 		const int rid=id-start_id;
 		if(rid<0 || rid>=nTags) return false;
-		const cv::Point3d& pt=id2Xw[rid];
-		worldPt[0]=pt.x;
-		worldPt[1]=pt.y;
-		worldPt[2]=pt.z;
+		if(isTag3d) {
+			const cv::Point3d& pt=id2Xw[rid];
+			worldPt[0]=pt.x;
+			worldPt[1]=pt.y;
+			worldPt[2]=pt.z;
+		} else {
+			int r=rid/this->w;
+			int c=rid-r*this->w;
+			worldPt[0]=c*this->dx;
+			worldPt[1]=r*this->dy;
+			worldPt[2]=0;
+		}
 		return true;
 	}
 } gRig;
@@ -139,7 +214,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	int tagTextThickness;
 	bool doLog;
 	bool isPhoto;
-	bool useEachValidFrame;
+	bool useEachValidPhoto;
 	std::string outputDir;
 
 	int nDistCoeffs;
@@ -150,13 +225,14 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	AprilCalibprocessor() : doLog(false), isPhoto(false) {
 		tagTextScale = GConfig::Instance().get<double>("AprilCalibprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilCalibprocessor::tagTextThickness",1);
-		useEachValidFrame = GConfig::Instance().get<int>("AprilCalibprocessor::useEachValidFrame",false);
+		useEachValidPhoto = GConfig::Instance().get<int>("AprilCalibprocessor::useEachValidPhoto",false);
 		rmsThresh = GConfig::Instance().get<int>("AprilCalibprocessor::rmsThresh",2);
 		nDistCoeffs = GConfig::Instance().get<int>("AprilCalib::nDistCoeffs",0);
 		if(nDistCoeffs>5) {
 			nDistCoeffs=5;
 			logli("[AprilCalibprocessor warn] AprilCalib::nDistCoeffs>5, set back to 5!");
 		}
+		gDetector->segDecimate = GConfig::Instance().get<bool>("AprilTag::segDecimate",false);
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
@@ -195,25 +271,30 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
 		}
 
-		if(worldPts.size()>=8) {//TODO: need to judge whether is planar structure
-			cv::Mat P,K0,Rwc,twc;
-			cv::Mat Ut, Xwt;
+		if((worldPts.size()>=8 && gRig.isTag3d)
+			|| (worldPts.size()>=4 && !gRig.isTag3d))
+		{//TODO: need to judge whether is planar structure
+			cv::Mat Ut, Xwt, P;
 			cv::Mat(imagePts).reshape(1).convertTo(Ut, cv::DataType<double>::type);
 			cv::Mat(worldPts).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
-			helper::dlt3<double>(Ut.t(), Xwt.t(), P);
-			helper::decomposeP10<double>(P, K0, Rwc, twc);
-			logli("K_dlt="<<K0);
-			if(K.empty()) K0.copyTo(K);
+			if(gRig.isTag3d) {
+				cv::Mat K0,Rwc,twc;
+				helper::dlt3<double>(Ut.t(), Xwt.t(), P);
+				helper::decomposeP10<double>(P, K0, Rwc, twc);
+				logli("K_dlt="<<K0);
+				if(this->K.empty()) K0.copyTo(this->K);
+			}
 
-			if(doLog || (isPhoto && useEachValidFrame)) {
+			if(doLog || (isPhoto && useEachValidPhoto)) {
 				doLog=false;
 				static int cnt=0;
 				std::ofstream ofs((outputDir+"/AprilCalib_log_"+helper::num2str(cnt,5)+".m").c_str());
 				ofs<<"% AprilCalib log "<<cnt<<std::endl;
+				ofs<<"% CalibRig::mode="<<(gRig.isTag3d?"3d":"2d")<<std::endl;
 				ofs<<"% @ "<<LogHelper::getCurrentTimeString()<<std::endl;
 				ofs<<"U="<<Ut.t()<<";"<<std::endl;
 				ofs<<"Xw="<<Xwt.t()<<";"<<std::endl;
-				ofs<<"P="<<P<<";"<<std::endl;
+				if(gRig.isTag3d) ofs<<"P="<<P<<";"<<std::endl;
 	
 				cv::imwrite(outputDir+"/AprilCalib_frame_"+helper::num2str(cnt,5)+".png", frame);
 				if(!isPhoto) cv::imwrite(outputDir+"/AprilCalib_orgframe_"+helper::num2str(cnt,5)+".png", orgFrame);
@@ -228,7 +309,8 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 					}
 					std::vector<cv::Mat> rvecs, tvecs, Covrs, Covts;
 					double rms=0;
-					helper::calibration3d(imagePtsArr, worldPtsArr,
+					helper::intrinsicCalibration(imagePtsArr, worldPtsArr,
+						gRig.isTag3d,
 						cv::Size(frame.cols, frame.rows), K, distCoeffs,
 						rvecs, tvecs, rms, &CovK, &Covrs, &Covts);
 
@@ -341,7 +423,7 @@ int main(const int argc, const char **argv )
 	tagli("the Calibration Rig is:\n"<<std::string(gRig));
 	AprilCalibprocessor processor;
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
-	processor.outputDir = cfg.getRawString("AprilCalibprocessor::outputDir",
+	processor.outputDir = cfg.getValAsString("AprilCalibprocessor::outputDir",
 		is->getSourceDir());
 	logli("[main] detection will be logged to outputDir="<<processor.outputDir);
 	is->run(processor,-1, false,

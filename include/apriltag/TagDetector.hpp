@@ -293,6 +293,7 @@ struct TagDetector {
 			std::string win = "fim";
 			cv::namedWindow(win);
 			cv::imshow(win, fim);
+			cv::imwrite("fim.png",fim);
 		}
 #endif
 		///////////////////////////////////////////////////////////
@@ -348,6 +349,9 @@ struct TagDetector {
 			std::string win2 = "fimMag";
 			cv::namedWindow(win2);
 			cv::imshow(win2, debugMag);
+
+			cv::imwrite("fimTheta.png",debugTheta);
+			cv::imwrite("fimMag.png",debugMag);
 		}
 #endif
 		///////////////////////////////////////////////////////////
@@ -810,6 +814,7 @@ struct TagDetector {
 		std::string win = "debugSegmentation";
 		cv::namedWindow(win);
 		cv::imshow(win, debugSegmentation);
+		cv::imwrite("debugSegmentation.png",debugSegmentation);
 #endif
 		////////////////////////////////////////////////////////////////
 		// Step nine. Some quads may be detected more than once, due

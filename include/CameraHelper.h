@@ -282,10 +282,12 @@ inline void decomposeP10(const cv::Mat& P, cv::Mat& K, cv::Mat& Rwc, cv::Mat& tw
 }
 
 /**
-calibrate camera using 2d-3d point correspondences, inited by dlt3, optimized by LM
+calibrate camera using 2d-3d/2d-2d point correspondences(if 2d-3d,inited by dlt3), optimized by LM
 
 @param imagePtsArr <nxnix2>: measured 2d image points
 @param worldPtsArr <nxnix3>: measured 3d world points
+@param isRig3d <1x1>: true if the rig is 3d and false otherwise
+@param imageSize <2x1>: width and height of image
 @param K <3x3>: calibration matrix
 @param distCoeffs <5x1>: distortion coefficients, [k1, k2, p1, p2, k3]
 @param rvecs <nx3x1>: rotation vectors (from world to camera)
@@ -294,8 +296,9 @@ calibrate camera using 2d-3d point correspondences, inited by dlt3, optimized by
 @param CovK <9x9>: covariance matrix for all intrinsics with order [fx,fy,cx,cy,k1,k2,p1,p2,k3]
 @param Covrs, Covts <nx3x3>: covariance matrix for each extrinsics
 */
-inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePtsArr,
+inline void intrinsicCalibration(const std::vector<std::vector<cv::Point2f> >& imagePtsArr,
 						  const std::vector<std::vector<cv::Point3f> >& worldPtsArr,
+						  bool isRig3d,
 						  const cv::Size& imageSize,
 						  cv::Mat& K, cv::Mat& distCoeffs,
 						  std::vector<cv::Mat>& rvecs, std::vector<cv::Mat>& tvecs,
@@ -306,16 +309,19 @@ inline void calibration3d(const std::vector<std::vector<cv::Point2f> >& imagePts
 	assert(imagePtsArr.size()==worldPtsArr.size());
 	const int nImgs = imagePtsArr.size();
 
-	if(K.empty()) {//1. init by dlt3 from the first view
-		cv::Mat P, Rwc, twc;
-		cv::Mat Ut, Xwt;
-		cv::Mat(imagePtsArr[0]).reshape(1).convertTo(Ut, cv::DataType<double>::type);
-		cv::Mat(worldPtsArr[0]).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
-		dlt3<double>(Ut.t(), Xwt.t(), P);
-		decomposeP10<double>(P, K, Rwc, twc);
+	int flag=0;
+	if(isRig3d) {
+		if(K.empty()) {//1. init by dlt3 from the first view
+			cv::Mat P, Rwc, twc;
+			cv::Mat Ut, Xwt;
+			cv::Mat(imagePtsArr[0]).reshape(1).convertTo(Ut, cv::DataType<double>::type);
+			cv::Mat(worldPtsArr[0]).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
+			dlt3<double>(Ut.t(), Xwt.t(), P);
+			decomposeP10<double>(P, K, Rwc, twc);
+		}
+		flag=CV_CALIB_USE_INTRINSIC_GUESS;
 	}
 	const int nDistCoeffs = 5;
-	int flag=CV_CALIB_USE_INTRINSIC_GUESS;
 	switch(distCoeffs.total()) {
 		case 0: flag|=CV_CALIB_FIX_K1|CV_CALIB_FIX_K2|CV_CALIB_FIX_K3|CV_CALIB_ZERO_TANGENT_DIST; break;
 		case 1: flag|=CV_CALIB_FIX_K2|CV_CALIB_FIX_K3|CV_CALIB_ZERO_TANGENT_DIST; break;
