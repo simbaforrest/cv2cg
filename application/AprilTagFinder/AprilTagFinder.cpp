@@ -51,7 +51,8 @@
 #include <sstream>
 
 #include "OpenCVHelper.h"
-#define TAG_DEBUG_PERFORMANCE 1
+#define TAG_DEBUG_PERFORMANCE 0
+#define TAG_DEBUG_DRAW 0
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
 #include "config.hpp"
@@ -74,7 +75,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	int tagTextThickness;
 	bool doLog,doRecord;
 	bool isPhoto; //whether image source is photo/list or others
-	bool useEachValidFrame; //whether do log for each frame
+	bool useEachValidPhoto; //whether do log for each frame
 	std::string outputDir;
 
 	bool undistortImage;
@@ -86,20 +87,18 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	AprilTagprocessor() : isPhoto(false), doLog(false), doRecord(false), no_distortion(true) {
 		tagTextScale = GConfig::Instance().get<double>("AprilTagprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilTagprocessor::tagTextThickness",1);
-		useEachValidFrame = GConfig::Instance().get<bool>("AprilTagprocessor::useEachValidFrame",false);
+		useEachValidPhoto = GConfig::Instance().get<bool>("AprilTagprocessor::useEachValidPhoto",false);
 		hammingThresh = GConfig::Instance().get<int>("AprilTagprocessor::hammingThresh",0);
 		undistortImage = GConfig::Instance().get<int>("AprilTagprocessor::undistortImage",false);
+		gDetector->segDecimate = GConfig::Instance().get<bool>("AprilTag::segDecimate",false);
 	}
 
 	void loadIntrinsics() {
 		{
 			double K_[9];
-			std::stringstream ss;
-			ss.str(GConfig::Instance().getRawString("K"));
-			bool good=true;
-			for(int i=0; i<9 && good; ++i) good=ss>>K_[i];
-			if(!good) {
-				logli("[loadIntrinsics warn] calibration matrix K not specified in config!");
+			if(9!=GConfig::Instance().get<double, double[9]>("K",9,K_)) {
+				logli("[loadIntrinsics warn] calibration matrix K"
+					" not correctly specified in config!");
 				this->undistortImage=false;
 				this->no_distortion=true;
 				return;
@@ -110,13 +109,10 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 
 		{
 			double distCoeffs_[5]={0,0,0,0,0};
-			std::stringstream ss;
-			ss.str(GConfig::Instance().getRawString("distCoeffs"));
-			bool good=true;
-			for(int i=0; i<5; ++i) good=ss>>distCoeffs_[i];
-			if(!good) {
+			if(5!=GConfig::Instance().get<double,double[5]>("distCoeffs",5,distCoeffs_)) {
 				logli("[loadIntrinsics warn] distortion coefficients "
-					"distCoeffs not specified in config! Assume all zero!");
+					"distCoeffs not correctly specified in config! Assume all zero!");
+				for(int i=0; i<5; ++i) distCoeffs_[i]=0;
 			}
 			double sum=distCoeffs_[0]+distCoeffs_[1]
 			+distCoeffs_[2]+distCoeffs_[3]+distCoeffs_[4];
@@ -151,7 +147,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		dd.undistort<double>(this->K, this->distCoeffs);
 		os<<varname<<".uH="<<H<<"';"<<std::endl;
 		os<<varname<<".up="<<p<<"';"<<std::endl;
-		os<<varname<<".uc="<<c<<"';"<<std::endl;
+		os<<varname<<".uc="<<c<<";"<<std::endl;
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
@@ -181,7 +177,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		}
 
 		//logging results
-		if(nValidDetections>0 && (doLog || (isPhoto && useEachValidFrame) || (!isPhoto && doRecord))) {
+		if(nValidDetections>0 && (doLog || (isPhoto && useEachValidPhoto) || (!isPhoto && doRecord))) {
 			doLog=false;
 			static int cnt=0;
 			std::string fileid = helper::num2str(cnt, 5);
@@ -303,7 +299,7 @@ int main(const int argc, const char **argv )
 	AprilTagprocessor processor;
 	processor.loadIntrinsics();
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
-	processor.outputDir = cfg.getRawString("AprilTagprocessor::outputDir",
+	processor.outputDir = cfg.getValAsString("AprilTagprocessor::outputDir",
 		is->getSourceDir());
 	logli("[main] detection will be logged to outputDir="<<processor.outputDir);
 	is->run(processor,-1, false,
