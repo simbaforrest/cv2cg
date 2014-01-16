@@ -14,9 +14,9 @@
  *
  */
 
-/* IOHelper.h */
+/* IOHelper.h
+   helpers related to input/output  */
 
-//standard include
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -26,26 +26,21 @@
 #include <vector>
 #include <set>
 #include <stdio.h>
-#include <time.h>
 
 namespace IOHelper
 {
-#define IDX(m,n,N) ((m)*(N)+(n)) //N cols
-
 //read one valid line, i.e. non-empty line
 //return false if no valid line, i.e. end-of-file
 inline bool readValidLine(std::istream &in,
                           std::string &line, char commentchar='#')
 {
 	line = "";//clear;
-	bool haschar = false;
 	while(in) {
 		std::string str;
 		std::getline(in, str);
 		if(str.length()==0 || str[0]==commentchar) {
 			continue;
 		}
-		haschar = true;
 
 		//take care of CR/LF, see details:
 		// http://www.codeguru.com/forum/showthread.php?t=253826
@@ -60,7 +55,7 @@ inline bool readValidLine(std::istream &in,
 		line = str;
 		break;
 	}
-	return line.length()!=0 || haschar;
+	return line.length()!=0;
 }
 
 //read calibration matrix from stream
@@ -158,6 +153,7 @@ struct PrintMat {
 		rows=r;
 		p=ptr;
 	}
+#define IDX(m,n,N) ((m)*(N)+(n)) //N cols
 	friend inline std::ostream &operator<<(
 	    std::ostream &o, const PrintMat &m) {
 		o.setf((std::ios_base::fmtflags)iosflag);
@@ -173,6 +169,7 @@ struct PrintMat {
 		o.unsetf((std::ios_base::fmtflags)iosflag);
 		return o;
 	}
+#undef IDX
 };
 
 template<typename T>

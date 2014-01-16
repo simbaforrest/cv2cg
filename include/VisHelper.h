@@ -17,19 +17,9 @@
 /* VisHelper.h
    Visualization related helper functions*/
 
-//standard include
-#include <stdio.h>
-#include <stdlib.h>
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "OpenCVHelper.h"
+#include <stdlib.h> //rand
+
+#include "OpenCVHeaders.h"
 
 namespace VisHelper
 {

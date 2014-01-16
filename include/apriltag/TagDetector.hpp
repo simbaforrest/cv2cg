@@ -54,8 +54,7 @@
 #include <iostream>
 #include <string>
 #include <map>
-//opencv include
-#include "OpenCVHelper.h"
+#include "AllHelpers.h"
 
 #include "TagUtils.hpp"
 

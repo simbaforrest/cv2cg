@@ -17,17 +17,7 @@
 /* DetectorHelper.h
    my own detectors */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "OpenCVHelper.h"
+#include "OpenCVHeaders.h"
 
 namespace DetectorHelper
 {

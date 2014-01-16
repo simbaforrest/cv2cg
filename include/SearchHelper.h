@@ -22,28 +22,6 @@
   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   
-  Authors:
-
-			Chen Feng
-            Laboratory for Interactive Visualization in Engineering (LIVE)
-			Department of Civil and Environmental Engineering
-            2350 Hayward Street, Suite 2340 GG Brown Building
-            University of Michigan
-            Ann Arbor, MI 48109-2125
-			Phone:    (734)764-8495
-			EMail:    simbaforrest@gmail.com
-			WWW site: http://www.umich.edu/~cforrest
-            
-			Vineet R. Kamat
-            Laboratory for Interactive Visualization in Engineering (LIVE)
-			Department of Civil and Environmental Engineering
-            2350 Hayward Street, Suite 2340 GG Brown Building
-            University of Michigan
-            Ann Arbor, MI 48109-2125
-            Phone:    (734)764-4325
-			EMail:    vkamat@umich.edu
-			WWW site: http://pathfinder.engin.umich.edu
-
 \************************************************************************/
 
 /* SearchHelper.h
@@ -51,21 +29,7 @@
 	git://april.eecs.umich.edu/home/git/april.git
 */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
 #include <vector>
-#include <list>
-#include <set>
-#include <stdarg.h>
-#include <stdio.h>
-#include <time.h>
-
-//opencv include
-#include "OpenCVHelper.h"
 
 namespace SearchHelper {
 

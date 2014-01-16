@@ -17,17 +17,8 @@
 /* ClusterHelper.h
    helper functions related to clusterring */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
 #include <vector>
 #include <set>
-#include <stdarg.h>
-#include <stdio.h>
-#include <time.h>
 
 namespace ClusterHelper
 {

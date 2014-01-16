@@ -17,17 +17,10 @@
 /* RotationHelper.h
    rotation related helper functions */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "OpenCVHelper.h"
+#include <math.h>  //sqrt
+
+#include "OpenCVHeaders.h"
+#include "CvMatHelper.h"
 
 namespace RotationHelper
 {

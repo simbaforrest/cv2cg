@@ -17,15 +17,7 @@
 /* FilterHelper.h
    some filter functions */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
+#include <math.h>
 
 namespace FilterHelper
 {

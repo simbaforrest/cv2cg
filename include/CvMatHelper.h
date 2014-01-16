@@ -17,23 +17,14 @@
 /* CvMatHelper.h
    CvMat related helper functions */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <algorithm>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "OpenCVHelper.h"
+#include <string.h> //memset
+#include <math.h>   //sqrt
+
+#include "OpenCVHeaders.h"
 
 namespace CvMatHelper
 {
 #define CreateCvMatHead(h,r,c,p)  CvMat h = cvMat(r,c,CV_64FC1, const_cast<double*>(p))
-#define IDX(m,n,N) ((m)*(N)+(n)) //N cols
 
 inline void identity(int n, double *A)
 {

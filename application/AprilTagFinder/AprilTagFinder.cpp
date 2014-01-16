@@ -50,12 +50,11 @@
 #include <fstream>
 #include <sstream>
 
-#include "OpenCVHelper.h"
+#include "AllHelpers.h"
 #define TAG_DEBUG_PERFORMANCE 0
 #define TAG_DEBUG_DRAW 0
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
-#include "config.hpp"
 
 using namespace std;
 using namespace cv;
@@ -84,7 +83,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	cv::Mat K, distCoeffs;
 	bool no_distortion;
 
-	AprilTagprocessor() : isPhoto(false), doLog(false), doRecord(false), no_distortion(true) {
+	AprilTagprocessor() : doLog(false), doRecord(false), isPhoto(false), no_distortion(true) {
 		tagTextScale = GConfig::Instance().get<double>("AprilTagprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilTagprocessor::tagTextThickness",1);
 		useEachValidPhoto = GConfig::Instance().get<bool>("AprilTagprocessor::useEachValidPhoto",false);
@@ -251,6 +250,29 @@ void usage(const int argc, const char **argv ) {
 #endif
 }
 
+bool loadConfig(std::string fname, std::string fdir) {
+	ConfigHelper::Config& cfg = GConfig::Instance();
+	std::string fpath = fdir+fname;
+	if (cfg.load(fpath))
+		return true;
+	logli("tried but failed to load "<<fpath);
+
+	//1. try to use current dir
+	fpath = DirHelper::getCurrentDir()+"/"+fname;
+	if (cfg.load(fpath))
+		return true;
+	logli("tried but failed to load "<<fpath);
+
+	//2. try to search in path
+	std::vector<std::string> all_path=DirHelper::getEnvPath();
+	for(int i=0; i<(int)all_path.size(); ++i) {
+		std::string& path=all_path[i];
+		if(cfg.load(path+"/"+fname)) return true;
+		logli("tried but failed to load "<<path);
+	}
+	return false;
+}
+
 int main(const int argc, const char **argv )
 {
 	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
@@ -263,11 +285,8 @@ int main(const int argc, const char **argv )
 	}
 
 	ConfigHelper::Config& cfg = GConfig::Instance();
-	std::string exeDir=helper::getFileDir(argv[0]);
-	if(!cfg.load(exeDir+"AprilTagFinder.cfg")) {
-		logli("[main] no "<<exeDir<<"AprilTagFinder.cfg file");
-	} else {
-		logli("[main] loaded "<<exeDir<<"AprilTagFinder.cfg");
+	if(!loadConfig("AprilTagFinder.cfg",DirHelper::getFileDir(argv[0]))) {
+		logli("[main] no AprilTagFinder.cfg file loaded");
 	}
 	if(argc>CFG_ARGS_START) {
 		logli("[main] add/reset config info from command line arguments.");

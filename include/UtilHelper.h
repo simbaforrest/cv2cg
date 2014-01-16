@@ -17,19 +17,10 @@
 /* UtilHelper.h
    Utility helper functions */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
 #include <string>
-#include <vector>
-#include <stdarg.h>
-#include <stdio.h>
-#include <time.h>
 #include <bitset>
 
-#include "OpenCVHelper.h"
+#include "OpenCVHeaders.h"
 
 namespace UtilHelper
 {
@@ -62,45 +53,6 @@ if(rgb.channels()==3) {
 	}
 }
 
-}
-
-//string split function from http://stackoverflow.com/a/236803/2303236
-inline std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems)
-{
-    std::stringstream ss(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
-    return elems;
-}
-
-inline std::vector<std::string> split(const std::string &s, char delim) {
-    std::vector<std::string> elems;
-    split(s, delim, elems);
-    return elems;
-}
-
-template<typename TYPE>
-void num2str(TYPE num, std::string &str, const int width=0, const char fill='0')
-{
-	std::stringstream ss;
-	if(width>0)
-		ss << std::setw(width) 
-			<< std::setfill(fill);
-	ss << num;
-	ss >> str;
-}
-
-template<typename TYPE>
-std::string num2str(TYPE num, const int width=0, const char fill='0')
-{
-	std::ostringstream oss;
-	if(width>0)
-		oss << std::setw(width) 
-			<< std::setfill(fill);
-	oss << num;
-	return oss.str();
 }
 
 //make sure INT64 has 64bits, i.e. sizeof(INT64)=8
@@ -187,4 +139,4 @@ inline double rad2deg(double rad)
 	return rad*180/CV_PI;
 }
 
-}
+}//end of UtilHelper
