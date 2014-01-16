@@ -17,7 +17,7 @@ IF(NOT CMAKE_BUILD_TYPE)
 ENDIF()
 
 IF(UNIX AND NOT WIN32)
- SET(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter -fpermissive")		# Enable lots of warning flags
+ SET(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter")		# Enable lots of warning flags
 ELSE()
 	SET(CMAKE_CXX_FLAGS "/fp:precise /fp:except /bigobj /Zm1000 /EHsc /DWIN32")	# Refer to Stellarium. Flags used on purpose
 ENDIF()
