@@ -17,18 +17,8 @@
 /* PerformanceHelper.h
    measure performance */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
-#include <limits.h>
-//opencv include
-#include "OpenCVHelper.h"
+#include <limits.h> //quiet_NaN
+#include "OpenCVHeaders.h"
 
 namespace PerformanceHelper
 {
@@ -86,7 +76,7 @@ double zncc(const cv::Mat& w, const cv::Mat& t, const cv::Mat *mask=0)
 	if(!maskRow.empty() && validN==0)
 		return std::numeric_limits<double>::quiet_NaN();
 
-	Scalar mw, mt, dw, dt;
+	cv::Scalar mw, mt, dw, dt;
 	cv::Mat wRow = w.reshape(0,1);
 	cv::Mat tRow = t.reshape(0,1);
 	if(maskRow.empty()) {

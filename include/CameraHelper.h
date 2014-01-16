@@ -17,20 +17,14 @@
 /* CameraHelper.h
    Multiple View Geometry related helper functions */
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "OpenCVHelper.h"
+#include "OpenCVHeaders.h"
+
+#include "CvMatHelper.h"
 
 namespace CameraHelper
 {
+
+#define IDX(m,n,N) ((m)*(N)+(n)) //N cols
 
 // s[u,v,1]' = P * [x,y,z,1]'
 // P<3x4>, projection matrix
@@ -52,6 +46,8 @@ inline void project(double const *P,
 		v/=w;
 	}
 }
+
+#undef IDX
 
 inline void project(double const *P,
                     double const *X, double *p)
@@ -145,7 +141,7 @@ inline void RTfromKH(const double K[9], const double H[9],
 	double s2 = sqrt(A[1]*A[1]+A[4]*A[4]+A[7]*A[7]);
 	double s = (A[8]>=0?1.0:-1.0)/sqrt(s1*s2); //ensure T[3]>0
 	if(fabs(A[8])<1e-8) {
-		logli("[RTfromKH warn] T[3]~0, please check!");
+		std::cout<<"[RTfromKH warn] T[3]~0, please check!"<<std::endl;
 	}
 	CvMatHelper::scale(3,3,A,s,A);
 	//TODO, should we normalize r1 and r2 respectively?

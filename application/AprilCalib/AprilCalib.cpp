@@ -50,10 +50,9 @@
 #include <fstream>
 #include <sstream>
 
-#include "OpenCVHelper.h"
+#include "AllHelpers.h"
 #include "apriltag/apriltag.hpp"
 #include "apriltag/TagFamilyFactory.hpp"
-#include "config.hpp"
 
 using namespace std;
 using namespace cv;
@@ -374,6 +373,28 @@ void usage(const int argc, const char **argv ) {
 	cout<<"default ID: 0"<<endl;
 }
 
+bool loadConfig(std::string fname, std::string fdir) {
+	ConfigHelper::Config& cfg = GConfig::Instance();
+	std::string fpath = fdir+fname;
+	if (cfg.load(fpath))
+		return true;
+	logli("tried but failed to load "<<fpath);
+
+	//1. try to use current dir
+	fpath = DirHelper::getCurrentDir()+"/"+fname;
+	if (cfg.load(fpath))
+		return true;
+	logli("tried but failed to load "<<fpath);
+
+	//2. try to search in path
+	std::vector<std::string> all_path=DirHelper::getEnvPath();
+	for(int i=0; i<(int)all_path.size(); ++i) {
+		std::string& path=all_path[i];
+		if(cfg.load(path+"/"+fname)) return true;
+		logli("tried but failed to load "<<path);
+	}
+	return false;
+}
 int main(const int argc, const char **argv )
 {
 	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
@@ -385,12 +406,9 @@ int main(const int argc, const char **argv )
 	}
 
 	ConfigHelper::Config& cfg = GConfig::Instance();
-	std::string exeDir=helper::getFileDir(argv[0]);
-	if(!cfg.load(exeDir+"AprilCalib.cfg")) {
-		logli("[main] no "<<exeDir<<"AprilCalib.cfg file");
+	if(!loadConfig("AprilCalib.cfg",DirHelper::getFileDir(argv[0]))) {
+		logli("[main] no AprilCalib.cfg file loaded");
 		return -1;
-	} else {
-		logli("[main] loaded "<<exeDir<<"AprilCalib.cfg");
 	}
 	if(argc>CFG_ARGS_START) {
 		logli("[main] add/reset config info from command line arguments.");

@@ -17,23 +17,19 @@
 /* ImageHelper.h
    Image Processing related helper functions*/
 
-//standard include
 #include <stdio.h>
 #include <stdlib.h>
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
-#include <stdio.h>
-#include <time.h>
-//opencv include
-#include "OpenCVHelper.h"
+
+#include "StringHelper.h"
+#include "LogHelper.h"
+
+#include "OpenCVHeaders.h"
 #include "PerformanceHelper.h"
 
 #ifdef USE_FLYCAP
-#ifdef WIN32
+#ifdef _WIN32
 	#pragma warning (disable:4819)
 #endif
 #include "flycap2opencv.hpp"
@@ -268,7 +264,7 @@ private:
 	bool isDone;
 public:
 	ImageSource_Camera(std::string content) {
-		std::vector<std::string> contentParts=UtilHelper::split(content, '?');
+		std::vector<std::string> contentParts=StringHelper::split(content, '?');
 		logli("[ImageSource_Camera] open from device: "<<contentParts[0]);
 		if( !cap.open(atoi(contentParts[0].c_str())) ) {
 			logle("[ImageSource_Camera error] failed to open!");
@@ -279,7 +275,7 @@ public:
 		int ideal_width=640, ideal_height=480;
 		int framerate=30;
 		for(int i=1; i<(int)contentParts.size(); ++i) {
-			std::vector<std::string> par=UtilHelper::split(contentParts[i], '=');
+			std::vector<std::string> par=StringHelper::split(contentParts[i], '=');
 			if(par.size()!=2) {
 				logli("[ImageSource_Camera] ignore "<<contentParts[i]);
 				continue;

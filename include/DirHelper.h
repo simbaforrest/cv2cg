@@ -15,20 +15,56 @@
  */
 
 /* DirHelper.h
-   modified from openscenegraph osgDB*/
+   helpers related to directory, path, filename*/
 
-//standard include
-#include <iostream>
-#include <iomanip>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
-#include <stdio.h>
-#include <time.h>
+#include <stdlib.h> //getenv
+
+#include "StringHelper.h"
 
 namespace DirHelper
 {
+#ifdef __linux
+#include <unistd.h>
+inline std::string getCurrentDir()
+{
+	char cwd[FILENAME_MAX];
+	if(getcwd(cwd,sizeof(cwd))==NULL) return std::string("./");
+	return std::string(cwd);
+}
+
+#elif _WIN32
+#include <direct.h>
+inline std::string getCurrentDir()
+{
+	char* pcwd;
+	if((pcwd=getcwd(NULL,0))==NULL) return std::string(".\\");
+	std::string ret(pcwd);
+	free(pcwd);
+	return ret;
+}
+
+#else
+inline std::string getCurrentDir()
+{
+	return std::string("./");
+}
+#endif
+
+/**
+ * return the $PATH environment variable as a list of directory strings
+ */
+inline std::vector<std::string> getEnvPath()
+{
+	std::string path(getenv("PATH"));
+#ifdef unix
+	char delim=':';
+#else
+	char delim=';';
+#endif
+	return StringHelper::split(path,delim);
+}
 
 //dir, "D:/test/test.txt" -> "D:/test/"
 inline std::string getFileDir(const std::string &fileName)
@@ -55,8 +91,7 @@ inline std::string getNameNoExtension(const std::string &str)
 	if(last == str.npos) {
 		last = str.length()-1;
 	}
-	if( (begin == str.npos) ||
-	        (begin > last) ) {
+	if ((begin == str.npos) || (begin > last)) {
 		return str;
 	} else {
 		return str.substr(begin+1, last-begin-1);

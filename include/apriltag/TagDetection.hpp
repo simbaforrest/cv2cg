@@ -54,7 +54,7 @@
 #include <iostream>
 #include <string>
 //opencv include
-#include "OpenCVHelper.h"
+#include "AllHelpers.h"
 #include "TagUtils.hpp"
 
 namespace april
@@ -96,9 +96,9 @@ struct TagDetection {
 	double homography[3][3];
 
 	TagDetection() {
-		helper::zeros(4,2,p[0]);
+		helper::zeros(4, 2, p[0]);
 		cxy[0]=cxy[1]=0;
-		helper::zeros(3,3,homography[0]);
+		helper::zeros(3, 3, homography[0]);
 	}
 
 	/** interpolate point given (x,y) is in tag coordinate space from (-1,-1) to (1,1) **/

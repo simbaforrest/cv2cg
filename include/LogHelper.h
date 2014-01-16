@@ -43,11 +43,9 @@ cloge("an error happened, par=%d\n",par);
 
 #include <iostream>
 #include <iomanip>
-#include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
-#include <ctime>
+#include <time.h>
 
 #include "singleton.hpp"
 
