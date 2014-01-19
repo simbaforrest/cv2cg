@@ -508,7 +508,7 @@ private:
 	bool isDone;
 public:
 	ImageSource_PGR(std::string content) {
-		std::vector<std::string> contentParts=UtilHelper::split(content, '?');
+		std::vector<std::string> contentParts=StringHelper::split(content, '?');
 		logli("[ImageSource_PGR] open from device: "<<contentParts[0]);
 		if( !cap.init(atoi(contentParts[0].c_str())) ) {
 			logle("[ImageSource_PGR error] failed to open!");
@@ -520,7 +520,7 @@ public:
 		int fi=(int)FlyCapture2::FRAMERATE_30;
 		int colormode=2; //0:mono, 1:rgb, 2:bgr
 		for(int i=1; i<(int)contentParts.size(); ++i) {
-			std::vector<std::string> par=UtilHelper::split(contentParts[i], '=');
+			std::vector<std::string> par=StringHelper::split(contentParts[i], '=');
 			if(par.size()!=2) {
 				logli("[ImageSource_PGR] ignore "<<contentParts[i]);
 				continue;

@@ -15,7 +15,7 @@ struct FlyCap2OpenCV {
 	static const char *videoModeName[(int)FlyCapture2::NUM_VIDEOMODES];
 	static const char *frameRateValue[(int)FlyCapture2::NUM_FRAMERATES];
 
-	FlyCap2OpenCV(): frame(0), outPixelFmt(FlyCapture2::PIXEL_FORMAT_MONO8) {
+	FlyCap2OpenCV(): outPixelFmt(FlyCapture2::PIXEL_FORMAT_MONO8), frame(0) {
 		unsigned int nCameras=0;
 		error=busMgr.GetNumOfCameras(&nCameras);
 		if(error!=FlyCapture2::PGRERROR_OK) {
