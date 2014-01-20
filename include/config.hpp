@@ -92,8 +92,8 @@ struct Config {
 
 	 return number of numbers read
 	 */
-	template<typename T, typename A>
-	int get(const std::string& key, const int N, A& dst) const {
+	template<typename ArrayType>
+	int get(const std::string& key, const int N, ArrayType& dst) const {
 		std::string line = getValAsString(key);
 		if (line.empty())
 			return 0;
@@ -101,13 +101,13 @@ struct Config {
 		int i = 0;
 		for (int cnt = 0; i < N && cnt < (int)line.length(); ++i) {
 			int skip = 0;
-			T val;
+			double val;
 			sscanf(start + cnt, "%*[^0-9-+.eE]%lf%n", &val, &skip);
 			if (skip <= 0) {
 				throw std::runtime_error(
 						"[Config::get error] not enough data!");
 			}
-			dst[i] = val;
+			dst[i] = val; //auto hidden convert to dst[i]'s type
 			cnt += skip;
 		}
 		return i;

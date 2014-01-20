@@ -69,6 +69,126 @@ using helper::GConfig;
 std::vector< cv::Ptr<TagFamily> > gTagFamilies;
 cv::Ptr<TagDetector> gDetector;
 
+//A set of markers to be used for camera pose optimization
+struct MarkerSet {
+	enum OPTMETHOD{
+		OPT_LM = 0, OPT_EPNP, OPT_CAM, OPT_RAW, OPT_NONE
+	} optimizeMethod;
+	int nTags;
+	std::vector<cv::Point3f> markerXs; //Marker corner's coordinate in Marker's local frame (i.e. model frame)
+	std::map<int, int> markerOrder; //markerOrder[detection.id] is the row index of the tag
+
+	MarkerSet() {
+		ConfigHelper::Config& cfg = GConfig::Instance();
+		std::string method = cfg.getValAsString("MarkerSet::optimizeMethod","lm");
+		if(method.compare("lm")==0) {
+			optimizeMethod=OPT_LM;
+		} else if(method.compare("epnp")==0) {
+			optimizeMethod=OPT_EPNP;
+		} else if(method.compare("cam")==0) {
+			optimizeMethod=OPT_CAM;
+		} else if(method.compare("raw")==0) {
+			optimizeMethod=OPT_RAW;
+		} else {
+			optimizeMethod=OPT_NONE;
+			logli("[MarkerSet] optimizeMethod not recognized, set to none.");
+			return;
+		}
+
+		nTags = cfg.get<int>("MarkerSet::nTags",0);
+		if(nTags<2) {
+			optimizeMethod=OPT_NONE;
+			logli("[MarkerSet] MarkerSet::nTags("<<nTags<<")<2, optimization not necessary!");
+			return;
+		}
+
+		std::vector<int> markerIds(nTags);
+		try {
+			if(nTags!=cfg.get< std::vector<int> >(
+					"MarkerSet::ids",nTags,markerIds)) {
+				for(int i=0; i<nTags; ++i) {
+					markerOrder[markerIds[i]]=i;
+				}
+			} else {
+				logle("[MarkerSet error] MarkerSet::nTags="<<nTags
+						<<", but length of MarkerSet::ids="<<markerIds.size());
+				optimizeMethod=OPT_NONE;
+				return;
+			}
+		} catch (std::exception& e) {
+			logle("[MarkerSet error] skip parsing error for "
+					"MarkerSet::ids:\n"<<e.what());
+			optimizeMethod=OPT_NONE;
+			return;
+		}
+
+		std::vector<double> buf(nTags*4*3);
+		try {
+			if((int)buf.size()!=cfg.get< std::vector<double> >(
+					"MarkerSet::Xs",buf.size(),buf)) {
+				const int nCorners = nTags*4;
+				markerXs.resize(nCorners);
+				for(int i=0; i<nCorners; ++i) {
+					markerXs[i]=cv::Point3f(buf[i*3+0],buf[i*3+1],buf[i*3+2]);
+				}
+			} else {
+				logle("[MarkerSet error] fail to read "<<buf.size()
+						<<" numbers for MarkerSet::Xs");
+				optimizeMethod=OPT_NONE;
+				return;
+			}
+		} catch (std::exception& e) {
+			logle("[MarkerSet error] skip parsing error for "
+					"MarkerSet::Xs:\n"<<e.what());
+			optimizeMethod=OPT_NONE;
+			return;
+		}
+	}
+
+	//X: marker corner's 3D coords
+	//U: corresponding raw image points (i.e. without undistort yet)
+	//K: camera calibration matrix
+	//distCoeffs: distortion coefficients
+	//R: Rwc, from world (or model) frame to camera frame
+	//t: twc, similar to R
+	bool optimize(const std::vector<cv::Point3f>& X,
+			const std::vector<cv::Point2f>& U, const cv::Mat& K,
+			const cv::Mat& distCoeffs, cv::Mat& R, cv::Mat& t) const {
+		if(optimizeMethod==OPT_NONE) return false; //shouldn't reach here, just for safe
+		if(optimizeMethod==OPT_EPNP || optimizeMethod==OPT_LM) {
+			cv::Mat r;
+			cv::solvePnP(X,U,K,distCoeffs,r,t,false,optimizeMethod==OPT_EPNP?CV_EPNP:CV_ITERATIVE);
+			cv::Rodrigues(r,R);
+			return true;
+		}
+		if (optimizeMethod == OPT_RAW) {
+			//TODO: temporarily assumes X are xy-planar and use homography and RTfromKH for OPT_RAW
+			cv::Mat u; //undistorted image points
+			cv::undistortPoints(U, u, K, distCoeffs);
+			std::vector<cv::Point2f> x(X.size());
+			for (int i = 0; i < (int) x.size(); ++i) {
+				if (X[i].z != 0) {
+					logle("[MarkerSet::optimize error] all z coordinate"
+							" of MarkerSet::X should be zero if OPT_RAW!");
+					return false;
+				}
+				x[i] = cv::Point2f(X[i].x, X[i].y);
+			}
+			cv::Mat Hmi = cv::findHomography(x, u); //u=Hmi*x, Hmi maps marker coords => image coords
+			R.create(3, 3, CV_64FC1);
+			t.create(3, 1, CV_64FC1);
+			helper::RTfromKH(K.ptr<double>(0), Hmi.ptr<double>(0),
+					R.ptr<double>(0), t.ptr<double>(0), true);
+			return true;
+		}
+		if (optimizeMethod == OPT_CAM) { //TODO: add support to optimize both intrinsic and extrinsics together
+			logle("[MarkerSet::optimize error] OPT_CAM not supported yet...");
+			return false;
+		}
+		return false;
+	}
+};
+
 struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	double tagTextScale;
 	int tagTextThickness;
@@ -83,19 +203,25 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	cv::Mat K, distCoeffs;
 	bool no_distortion;
 
+	MarkerSet markerSet;
+
+	virtual ~AprilTagprocessor() {}
 	AprilTagprocessor() : doLog(false), doRecord(false), isPhoto(false), no_distortion(true) {
-		tagTextScale = GConfig::Instance().get<double>("AprilTagprocessor::tagTextScale",1.0f);
-		tagTextThickness = GConfig::Instance().get<int>("AprilTagprocessor::tagTextThickness",1);
-		useEachValidPhoto = GConfig::Instance().get<bool>("AprilTagprocessor::useEachValidPhoto",false);
-		hammingThresh = GConfig::Instance().get<int>("AprilTagprocessor::hammingThresh",0);
-		undistortImage = GConfig::Instance().get<int>("AprilTagprocessor::undistortImage",false);
-		gDetector->segDecimate = GConfig::Instance().get<bool>("AprilTag::segDecimate",false);
+		ConfigHelper::Config& cfg = GConfig::Instance();
+		tagTextScale = cfg.get<double>("AprilTagprocessor::tagTextScale",1.0f);
+		tagTextThickness = cfg.get<int>("AprilTagprocessor::tagTextThickness",1);
+		useEachValidPhoto = cfg.get<bool>("AprilTagprocessor::useEachValidPhoto",false);
+		hammingThresh = cfg.get<int>("AprilTagprocessor::hammingThresh",0);
+		undistortImage = cfg.get<int>("AprilTagprocessor::undistortImage",false);
+		gDetector->segDecimate = cfg.get<bool>("AprilTag::segDecimate",false);
+
+		loadIntrinsics();
 	}
 
 	void loadIntrinsics() {
 		{
 			double K_[9];
-			if(9!=GConfig::Instance().get<double, double[9]>("K",9,K_)) {
+			if(9!=GConfig::Instance().get<double[9]>("K",9,K_)) {
 				logli("[loadIntrinsics warn] calibration matrix K"
 					" not correctly specified in config!");
 				this->undistortImage=false;
@@ -108,7 +234,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 
 		{
 			double distCoeffs_[5]={0,0,0,0,0};
-			if(5!=GConfig::Instance().get<double,double[5]>("distCoeffs",5,distCoeffs_)) {
+			if(5!=GConfig::Instance().get<double[5]>("distCoeffs",5,distCoeffs_)) {
 				logli("[loadIntrinsics warn] distortion coefficients "
 					"distCoeffs not correctly specified in config! Assume all zero!");
 				for(int i=0; i<5; ++i) distCoeffs_[i]=0;
@@ -200,6 +326,47 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 				writeMatlab(fs, dd, "tag", !this->undistortImage && !this->no_distortion);
 				fs<<"tags{"<<j<<"}=tag;\n"<<std::endl;
 			}
+			fs.close();
+
+			//camera pose optimization using MarkerSet
+			if(markerSet.optimizeMethod!=MarkerSet::OPT_NONE && nValidDetections>1) {
+				std::vector< cv::Point2f > U;
+				std::vector< cv::Point3f > X;
+				U.reserve(nValidDetections*4);
+				X.reserve(nValidDetections*4);
+				for(int i=0; i<(int)detections.size(); ++i) {
+					TagDetection &dd = detections[i];
+					if(dd.hammingDistance>this->hammingThresh) continue;
+
+					std::map<int,int>::const_iterator itr=markerSet.markerOrder.find(dd.id);
+					if(itr==markerSet.markerOrder.end()) continue;
+
+					const int rowID=itr->second*4;
+					for(int k=0; k<4; ++k) { //each marker <=> 4 corners <=> 4 2D-3D correspondences
+						U.push_back(cv::Point2f(dd.p[k][0], dd.p[k][1]));
+						X.push_back(markerSet.markerXs[rowID+k]);
+					}
+				}
+				cv::Mat Rwc, twc;
+				if(!markerSet.optimize(X,U,this->K,this->distCoeffs,Rwc,twc)) {
+					logle("[MarkerSet::optimize error] optimization failed, strange...");
+				} else {
+					//log optimization
+					std::ofstream os(
+							(outputDir + "/AprilTagFinder_opt_" + fileid + ".m").c_str());
+					os << "% AprilTagFinder optimization log " << cnt << std::endl;
+					os << "% @ " << LogHelper::getCurrentTimeString() << std::endl;
+					os << "K=" << K << ";" << std::endl;
+					os << "distCoeffs=" << distCoeffs << ";" << std::endl;
+					os << "% note U are distorted image points (raw image points)" << std::endl;
+					os << "U=" << cv::Mat(U).reshape(1) <<"';" << std::endl;
+					os << "X=" << cv::Mat(X).reshape(1) <<"';" << std::endl;
+					os << "Rwc=" << Rwc << ";" << std::endl;
+					os << "twc=" << twc << ";" << std::endl;
+					os << "optimizeMethod=" << (int)markerSet.optimizeMethod << std::endl;
+					os.close();
+				}
+			}//if(!OPT_NONE)
 
 			++cnt;
 		}//if doLog
@@ -316,7 +483,6 @@ int main(const int argc, const char **argv )
 	}
 
 	AprilTagprocessor processor;
-	processor.loadIntrinsics();
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
 	processor.outputDir = cfg.getValAsString("AprilTagprocessor::outputDir",
 		is->getSourceDir());
