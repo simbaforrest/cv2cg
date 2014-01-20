@@ -159,7 +159,7 @@ struct CalibRig {
 				exit(-1);
 			}
 			std::vector<double> buf(nTags*3);
-			if( !cfg.get< double, std::vector<double> >("CalibRig::tagCenters", nTags*3, buf) ) {
+			if( !cfg.get< std::vector<double> >("CalibRig::tagCenters", nTags*3, buf) ) {
 				logle("[CalibRig error] not CalibRig::tagCenters in Config!");
 				exit(-1);
 			}//TODO: check if the points forms a 3d rig really by PCA
@@ -221,6 +221,8 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	std::vector<std::vector<cv::Point3f> > worldPtsArr;
 	cv::Mat K;
 	double rmsThresh;
+
+	virtual ~AprilCalibprocessor() {}
 	AprilCalibprocessor() : doLog(false), isPhoto(false) {
 		tagTextScale = GConfig::Instance().get<double>("AprilCalibprocessor::tagTextScale",1.0f);
 		tagTextThickness = GConfig::Instance().get<int>("AprilCalibprocessor::tagTextThickness",1);
