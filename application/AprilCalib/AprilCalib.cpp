@@ -214,6 +214,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	bool doLog;
 	bool isPhoto;
 	bool useEachValidPhoto;
+	bool logVisFrame;
 	std::string outputDir;
 
 	int nDistCoeffs;
@@ -224,16 +225,18 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 
 	virtual ~AprilCalibprocessor() {}
 	AprilCalibprocessor() : doLog(false), isPhoto(false) {
-		tagTextScale = GConfig::Instance().get<double>("AprilCalibprocessor::tagTextScale",1.0f);
-		tagTextThickness = GConfig::Instance().get<int>("AprilCalibprocessor::tagTextThickness",1);
-		useEachValidPhoto = GConfig::Instance().get<int>("AprilCalibprocessor::useEachValidPhoto",false);
-		rmsThresh = GConfig::Instance().get<int>("AprilCalibprocessor::rmsThresh",2);
-		nDistCoeffs = GConfig::Instance().get<int>("AprilCalib::nDistCoeffs",0);
+		ConfigHelper::Config& cfg = GConfig::Instance();
+		tagTextScale = cfg.get<double>("AprilCalibprocessor::tagTextScale",1.0f);
+		tagTextThickness = cfg.get<int>("AprilCalibprocessor::tagTextThickness",1);
+		useEachValidPhoto = cfg.get<int>("AprilCalibprocessor::useEachValidPhoto",false);
+		rmsThresh = cfg.get<int>("AprilCalibprocessor::rmsThresh",2);
+		nDistCoeffs = cfg.get<int>("AprilCalib::nDistCoeffs",0);
+		logVisFrame = cfg.get<bool>("AprilCalib::logVisFrame",false);
 		if(nDistCoeffs>5) {
 			nDistCoeffs=5;
 			logli("[AprilCalibprocessor warn] AprilCalib::nDistCoeffs>5, set back to 5!");
 		}
-		gDetector->segDecimate = GConfig::Instance().get<bool>("AprilTag::segDecimate",false);
+		gDetector->segDecimate = cfg.get<bool>("AprilTag::segDecimate",false);
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
@@ -297,7 +300,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 				ofs<<"Xw="<<Xwt.t()<<";"<<std::endl;
 				if(gRig.isTag3d) ofs<<"P="<<P<<";"<<std::endl;
 	
-				cv::imwrite(outputDir+"/AprilCalib_frame_"+helper::num2str(cnt,5)+".png", frame);
+				if(logVisFrame) cv::imwrite(outputDir+"/AprilCalib_frame_"+helper::num2str(cnt,5)+".png", frame);
 				if(!isPhoto) cv::imwrite(outputDir+"/AprilCalib_orgframe_"+helper::num2str(cnt,5)+".png", orgFrame);
 				++cnt;
 
@@ -367,12 +370,19 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 
 void usage(const int argc, const char **argv ) {
 	cout<< "[usage] " <<argv[0]<<" <url> [TagFamilies ID]"<<endl;
-	cout<< "Assume an AprilCalib.cfg file at the same directory with"<<argv[0]<<std::endl;
+	cout<< "Assume an AprilCalib.cfg file at the same directory with "<<argv[0]<<std::endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<april::tag::TagFamilyFactory_SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
 	cout<<"default ID: 0"<<endl;
+	cout<<"Example ImageSource url:\n";
+	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
+	cout<<"camera://0?w=640?h=480?f=60\n";
+	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
+#ifdef USE_FLYCAP
+	cout<<"pgr://0?v=5?f=4"<<endl;
+#endif
 }
 
 bool loadConfig(std::string fname, std::string fdir) {

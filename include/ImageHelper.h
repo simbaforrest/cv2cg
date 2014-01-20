@@ -69,7 +69,7 @@ public:
 	}
 
 	/**
-	return the directory of the source, WITHOUT any seprator '/' or '\\'
+	return the directory of the source, WITHOUT any separator '/' or '\\'
 	*/
 	inline std::string getSourceDir() const {
 		return sourceDir;

@@ -104,14 +104,15 @@ struct MarkerSet {
 
 		std::vector<int> markerIds(nTags);
 		try {
-			if(nTags!=cfg.get< std::vector<int> >(
-					"MarkerSet::ids",nTags,markerIds)) {
+			const int readNumber=cfg.get< std::vector<int> >(
+					"MarkerSet::ids",nTags,markerIds);
+			if(nTags==readNumber) {
 				for(int i=0; i<nTags; ++i) {
 					markerOrder[markerIds[i]]=i;
 				}
 			} else {
 				logle("[MarkerSet error] MarkerSet::nTags="<<nTags
-						<<", but length of MarkerSet::ids="<<markerIds.size());
+						<<", but length of MarkerSet::ids="<<readNumber);
 				optimizeMethod=OPT_NONE;
 				return;
 			}
@@ -124,8 +125,9 @@ struct MarkerSet {
 
 		std::vector<double> buf(nTags*4*3);
 		try {
-			if((int)buf.size()!=cfg.get< std::vector<double> >(
-					"MarkerSet::Xs",buf.size(),buf)) {
+			const int readNumber=cfg.get< std::vector<double> >(
+					"MarkerSet::Xs",buf.size(),buf);
+			if((int)buf.size()==readNumber) {
 				const int nCorners = nTags*4;
 				markerXs.resize(nCorners);
 				for(int i=0; i<nCorners; ++i) {
@@ -145,21 +147,38 @@ struct MarkerSet {
 		}
 	}
 
+	double reProjError(const std::vector<cv::Point3f>& X,
+			const std::vector<cv::Point2f>& U, const cv::Mat& K,
+			const cv::Mat& distCoeffs, cv::Mat& r, cv::Mat& t) const {
+		assert(X.size()>0);
+		std::vector<cv::Point2f> V;
+		cv::projectPoints(X, r, t, K, distCoeffs, V);
+		assert(V.size()==U.size());
+		double ret=0;
+		for(int i=0; i<(int)V.size(); ++i) {
+			const cv::Point2f& u=U[i];
+			const cv::Point2f& v=V[i];
+			ret+=(u.x-v.x)*(u.x-v.x)+(u.y-v.y)*(u.y-v.y);
+		}
+		return cv::sqrt(ret/(double)V.size());
+	}
+
 	//X: marker corner's 3D coords
 	//U: corresponding raw image points (i.e. without undistort yet)
 	//K: camera calibration matrix
 	//distCoeffs: distortion coefficients
 	//R: Rwc, from world (or model) frame to camera frame
 	//t: twc, similar to R
-	bool optimize(const std::vector<cv::Point3f>& X,
+	//return re-projection error
+	double optimize(const std::vector<cv::Point3f>& X,
 			const std::vector<cv::Point2f>& U, const cv::Mat& K,
 			const cv::Mat& distCoeffs, cv::Mat& R, cv::Mat& t) const {
-		if(optimizeMethod==OPT_NONE) return false; //shouldn't reach here, just for safe
+		if(optimizeMethod==OPT_NONE) return -1; //shouldn't reach here, just for safe
 		if(optimizeMethod==OPT_EPNP || optimizeMethod==OPT_LM) {
 			cv::Mat r;
 			cv::solvePnP(X,U,K,distCoeffs,r,t,false,optimizeMethod==OPT_EPNP?CV_EPNP:CV_ITERATIVE);
 			cv::Rodrigues(r,R);
-			return true;
+			return reProjError(X,U,K,distCoeffs,r,t);
 		}
 		if (optimizeMethod == OPT_RAW) {
 			//TODO: temporarily assumes X are xy-planar and use homography and RTfromKH for OPT_RAW
@@ -170,7 +189,7 @@ struct MarkerSet {
 				if (X[i].z != 0) {
 					logle("[MarkerSet::optimize error] all z coordinate"
 							" of MarkerSet::X should be zero if OPT_RAW!");
-					return false;
+					return -1;
 				}
 				x[i] = cv::Point2f(X[i].x, X[i].y);
 			}
@@ -179,13 +198,15 @@ struct MarkerSet {
 			t.create(3, 1, CV_64FC1);
 			helper::RTfromKH(K.ptr<double>(0), Hmi.ptr<double>(0),
 					R.ptr<double>(0), t.ptr<double>(0), true);
-			return true;
+			cv::Mat r;
+			cv::Rodrigues(R,r);
+			return reProjError(X,U,K,distCoeffs,r,t);
 		}
 		if (optimizeMethod == OPT_CAM) { //TODO: add support to optimize both intrinsic and extrinsics together
 			logle("[MarkerSet::optimize error] OPT_CAM not supported yet...");
-			return false;
+			return -1;
 		}
-		return false;
+		return -1;
 	}
 };
 
@@ -195,6 +216,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	bool doLog,doRecord;
 	bool isPhoto; //whether image source is photo/list or others
 	bool useEachValidPhoto; //whether do log for each frame
+	bool logVisFrame;
 	std::string outputDir;
 
 	bool undistortImage;
@@ -212,6 +234,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		tagTextThickness = cfg.get<int>("AprilTagprocessor::tagTextThickness",1);
 		useEachValidPhoto = cfg.get<bool>("AprilTagprocessor::useEachValidPhoto",false);
 		hammingThresh = cfg.get<int>("AprilTagprocessor::hammingThresh",0);
+		logVisFrame = cfg.get<bool>("AprilTagprocessor::logVisFrame",false);
 		undistortImage = cfg.get<int>("AprilTagprocessor::undistortImage",false);
 		gDetector->segDecimate = cfg.get<bool>("AprilTag::segDecimate",false);
 
@@ -308,7 +331,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			std::string fileid = helper::num2str(cnt, 5);
 
 			//log images
-			cv::imwrite(outputDir+"/AprilTagFinder_frame_"+fileid+".png", frame);
+			if(logVisFrame) cv::imwrite(outputDir+"/AprilTagFinder_frame_"+fileid+".png", frame);
 			if(!isPhoto) cv::imwrite(outputDir+"/AprilTagFinder_orgframe_"+fileid+".png", orgFrame);
 
 			//log detections
@@ -348,7 +371,8 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 					}
 				}
 				cv::Mat Rwc, twc;
-				if(!markerSet.optimize(X,U,this->K,this->distCoeffs,Rwc,twc)) {
+				double err=-1;
+				if((err=markerSet.optimize(X,U,this->K,this->distCoeffs,Rwc,twc))<0) {
 					logle("[MarkerSet::optimize error] optimization failed, strange...");
 				} else {
 					//log optimization
@@ -363,6 +387,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 					os << "X=" << cv::Mat(X).reshape(1) <<"';" << std::endl;
 					os << "Rwc=" << Rwc << ";" << std::endl;
 					os << "twc=" << twc << ";" << std::endl;
+					os << "%rms=" << err << std::endl;
 					os << "optimizeMethod=" << (int)markerSet.optimizeMethod << std::endl;
 					os.close();
 				}
