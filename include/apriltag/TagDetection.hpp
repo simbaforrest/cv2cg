@@ -109,7 +109,7 @@ struct TagDetection {
 	}
 
 	template<typename MatType>
-	inline void undistort(const cv::Mat& K, const cv::Mat& distCoeffs) {
+	inline void undistort(const cv::Mat& K, const cv::Mat& distCoeffs, std::vector<cv::Point2d>& up, cv::Point2d& uc, cv::Mat& uH) const {
 		static const double pts[5][2]={
 			{-1,-1},
 			{ 1,-1},
@@ -123,16 +123,20 @@ struct TagDetection {
 			uv[i]=cv::Point2d(p[i][0],p[i][1]);
 		uv[4]=cv::Point2d(cxy[0],cxy[1]);
 		std::vector<cv::Point2d> xy(5);
+		up.resize(4);
 		cv::undistortPoints(uv,xy,K,distCoeffs);
 		for(int i=0; i<4; ++i) {
-			uv[i].x=p[i][0]=(K.at<MatType>(0,0)*xy[i].x+K.at<MatType>(0,2))/K.at<MatType>(2,2);
-			uv[i].y=p[i][1]=(K.at<MatType>(1,1)*xy[i].y+K.at<MatType>(1,2))/K.at<MatType>(2,2);
+			uv[i].x=up[i].x=(K.at<MatType>(0,0)*xy[i].x+K.at<MatType>(0,2))/K.at<MatType>(2,2);
+			uv[i].y=up[i].y=(K.at<MatType>(1,1)*xy[i].y+K.at<MatType>(1,2))/K.at<MatType>(2,2);
 			homoCalc.addCorrespondence(pts[i][0],pts[i][1],uv[i].x,uv[i].y);
 		}
-		uv[4].x=cxy[0]=(K.at<MatType>(0,0)*xy[4].x+K.at<MatType>(0,2))/K.at<MatType>(2,2);
-		uv[4].y=cxy[1]=(K.at<MatType>(1,1)*xy[4].y+K.at<MatType>(1,2))/K.at<MatType>(2,2);
+		uv[4].x=uc.x=(K.at<MatType>(0,0)*xy[4].x+K.at<MatType>(0,2))/K.at<MatType>(2,2);
+		uv[4].y=uc.y=(K.at<MatType>(1,1)*xy[4].y+K.at<MatType>(1,2))/K.at<MatType>(2,2);
 		homoCalc.addCorrespondence(pts[4][0],pts[4][1],uv[4].x,uv[4].y);
-		homoCalc.getH(this->homography);
+		double newH[3][3];
+		homoCalc.getH(newH);
+		cv::Mat newH_(3,3,CV_64FC1,(void*)newH);
+		newH_.copyTo(uH);
 	}
 
 	inline std::string toString(bool bshort=true) const {
