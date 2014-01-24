@@ -398,10 +398,6 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 
 			++cnt;
 		}//if doLog
-
-		if(frame.cols>640) {
-			cv::resize(frame, frame, cv::Size(640,480));
-		}
 	}
 
 	void handle(char key) {

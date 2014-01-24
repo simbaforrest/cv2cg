@@ -103,7 +103,7 @@ public:
 		bool pa=false, bool lo=false) {
 		pause(pa);
 		loop(lo);
-		cv::namedWindow("frame");
+		cv::namedWindow("frame",cv::WINDOW_NORMAL);
 		cvMoveWindow("frame",10,10);
 		bool openFromWebcam = (this->classname() == "ImageSource_Camera"
 #ifdef USE_FLYCAP
