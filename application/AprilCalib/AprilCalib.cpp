@@ -341,10 +341,6 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 				ofs.close();
 			}//if doLog
 		}//if leftCnt>=4
-
-		if(frame.cols>640) {
-			cv::resize(frame, frame, cv::Size(640,480));
-		}
 	}
 
 	void handle(char key) {
