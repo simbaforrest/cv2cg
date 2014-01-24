@@ -292,10 +292,13 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 
 		if(!ud) return;
 
-		dd.undistort<double>(this->K, this->distCoeffs);
-		os<<varname<<".uH="<<H<<"';"<<std::endl;
-		os<<varname<<".up="<<p<<"';"<<std::endl;
-		os<<varname<<".uc="<<c<<";"<<std::endl;
+		cv::Mat uH(3,3,CV_64FC1);
+		std::vector<cv::Point2d> up;
+		cv::Point2d uc;
+		dd.undistort<double>(this->K, this->distCoeffs, up, uc, uH);
+		os<<varname<<".uH="<<uH<<"';"<<std::endl;
+		os<<varname<<".up="<<cv::Mat(up).reshape(1)<<"';"<<std::endl;
+		os<<varname<<".uc="<<uc<<";"<<std::endl;
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
