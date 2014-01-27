@@ -182,8 +182,8 @@ struct MarkerSet {
 		}
 		if (optimizeMethod == OPT_RAW) {
 			//TODO: temporarily assumes X are xy-planar and use homography and RTfromKH for OPT_RAW
-			cv::Mat u; //undistorted image points
-			cv::undistortPoints(U, u, K, distCoeffs);
+			std::vector<cv::Point2f> u; //undistorted image points
+			cv::undistortPoints(U, u, K, distCoeffs,cv::noArray(),K); //be careful! don't forget the last K!
 			std::vector<cv::Point2f> x(X.size());
 			for (int i = 0; i < (int) x.size(); ++i) {
 				if (X[i].z != 0) {
