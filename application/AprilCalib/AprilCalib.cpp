@@ -146,21 +146,28 @@ struct CalibRig {
 	}
 
 	void loadFromConfig() {
-		ConfigHelper::Config& cfg = GConfig::Instance();
+		using namespace ConfigHelper;
+		ConfigNode::Ptr cfg = GConfig::Instance().getRoot().getChild("CalibRig");
+		if (cfg==0) {
+			logle("[CalibRig error] no CalibRig in Config!");
+			exit(-1);
+		}
+		ConfigNode& cfn = *cfg;
 		
 		//get rig mode and start_id
-		std::string mode=cfg.get<std::string>("CalibRig::mode");
-		this->start_id=cfg.get<int>("CalibRig::start_id",0);
+		std::string mode = cfn["mode"].str();
+		this->start_id=cfn.get<int>("start_id",0);
 		if(mode.compare("3d")==0) {
 			this->isTag3d=true;
-			this->nTags=cfg.get<int>("CalibRig::nTags",0);
+			this->nTags=cfn.get<int>("nTags",0);
 			if(nTags<8) {
 				logle("[CalibRig error] a 3D calibration rig must have more than 8 tags!");
 				exit(-1);
 			}
-			std::vector<double> buf(nTags*3);
-			if( !cfg.get< std::vector<double> >("CalibRig::tagCenters", nTags*3, buf) ) {
-				logle("[CalibRig error] not CalibRig::tagCenters in Config!");
+			std::vector<double> buf;
+			cfn["tagCenters"]>>buf;
+			if( nTags*3 != (int)buf.size() ) {
+				logle("[CalibRig error] CalibRig:tagCenters invalid in Config!");
 				exit(-1);
 			}//TODO: check if the points forms a 3d rig really by PCA
 			this->id2Xw.resize(nTags);
@@ -169,21 +176,24 @@ struct CalibRig {
 			}
 		} else {
 			this->isTag3d=false; //2d rig
-			this->w=cfg.get<int>("CalibRig::w",0);
-			this->h=cfg.get<int>("CalibRig::h",0);
+			this->w=cfn.get<int>("w",0);
+			this->h=cfn.get<int>("h",0);
 			this->nTags=this->w*this->h;
 			if(this->nTags<4) {
-				logle("[CalibRig error] a 2D calibration rig must have at least 4 tags!");
+				logle("[CalibRig error] a 2D calibration rig must have"
+						" at least 4 tags, but currently only "<<nTags<<"!");
 				exit(-1);
 			}
 			if(this->w<=1 || this->h<=1) {
-				logle("[CalibRig error] a 2D calibration rig must ensure w>1 and h>1!");
+				logle("[CalibRig error] a 2D calibration rig must ensure"
+						" w>1 and h>1, but currently w="<<w<<", h="<<h<<"!");
 				exit(-1);
 			}
-			this->dx=cfg.get<double>("CalibRig::dx",0);
-			this->dy=cfg.get<double>("CalibRig::dy",0);
+			this->dx=cfn.get<double>("dx",0);
+			this->dy=cfn.get<double>("dy",0);
 			if(this->dx<=0 || this->dy<=0) {
-				logle("[CalibRig error] a 2D calibration rig must ensure dx>0 and dy>0!");
+				logle("[CalibRig error] a 2D calibration rig must ensure"
+						" dx>0 and dy>0, but currently dx="<<dx<<", dy="<<dy<<"!");
 				exit(-1);
 			}
 		}
@@ -225,18 +235,20 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 
 	virtual ~AprilCalibprocessor() {}
 	AprilCalibprocessor() : doLog(false), isPhoto(false) {
-		ConfigHelper::Config& cfg = GConfig::Instance();
-		tagTextScale = cfg.get<double>("AprilCalibprocessor::tagTextScale",1.0f);
-		tagTextThickness = cfg.get<int>("AprilCalibprocessor::tagTextThickness",1);
-		useEachValidPhoto = cfg.get<int>("AprilCalibprocessor::useEachValidPhoto",false);
-		rmsThresh = cfg.get<int>("AprilCalibprocessor::rmsThresh",2);
-		nDistCoeffs = cfg.get<int>("AprilCalib::nDistCoeffs",0);
-		logVisFrame = cfg.get<bool>("AprilCalib::logVisFrame",false);
+		ConfigHelper::ConfigNode::Ptr cfg_ptr = GConfig::Instance()->getChild("AprilCalibprocessor");
+		assert(cfg_ptr!=0);
+		ConfigHelper::ConfigNode& cfg=*cfg_ptr;
+		tagTextScale = cfg.get<double>("tagTextScale",1.0f);
+		tagTextThickness = cfg.get<int>("tagTextThickness",1);
+		useEachValidPhoto = cfg.get<bool>("useEachValidPhoto",false);
+		rmsThresh = cfg.get<int>("rmsThresh",2);
+		nDistCoeffs = cfg.get<int>("nDistCoeffs",0);
+		logVisFrame = cfg.get<bool>("logVisFrame",false);
 		if(nDistCoeffs>5) {
 			nDistCoeffs=5;
 			logli("[AprilCalibprocessor warn] AprilCalib::nDistCoeffs>5, set back to 5!");
 		}
-		gDetector->segDecimate = cfg.get<bool>("AprilTag::segDecimate",false);
+		gDetector->segDecimate = cfg.get<bool>("segDecimate",false);
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
@@ -365,65 +377,48 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 };//end of struct AprilCalibprocessor
 
 void usage(const int argc, const char **argv ) {
-	cout<< "[usage] " <<argv[0]<<" <url> [TagFamilies ID]"<<endl;
-	cout<< "Assume an AprilCalib.cfg file at the same directory with "<<argv[0]<<std::endl;
+	cout<< "[usage] " <<argv[0]<<" [url] [tagfamiliesID]"<<endl;
 	cout<< "Supported TagFamily ID List:\n";
 	for(int i=0; i<(int)TagFamilyFactory::TAGTOTAL; ++i) {
 		cout<<"\t"<<april::tag::TagFamilyFactory_SUPPORT_NAME[i]<<" id="<<i<<endl;
 	}
-	cout<<"default ID: 0"<<endl;
+	cout<<"Combination of TagFamily ID: 014 (use tagFamily 0, 1 and 4)"<<endl;
+	cout<<"default tagfamiliesID=0"<<endl;
+	cout<<"default url=camera://0"<<endl;
 	cout<<"Example ImageSource url:\n";
-	cout<<"photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
-	cout<<"camera://0?w=640?h=480?f=60\n";
-	cout<<"video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
+	cout<<"url=photo:///home/simbaforrest/Videos/Webcam/seq_UMshort/*\n";
+	cout<<"url=camera://0?w=640?h=480?f=60\n";
+	cout<<"url=video:///home/simbaforrest/Videos/Webcam/keg_april.ogv"<<endl;
 #ifdef USE_FLYCAP
-	cout<<"pgr://0?v=5?f=4"<<endl;
+	cout<<"url=pgr://0?v=5?f=4"<<endl;
 #endif
 }
 
-bool loadConfig(std::string fname, std::string fdir) {
-	ConfigHelper::Config& cfg = GConfig::Instance();
-	std::string fpath = fdir+fname;
-	if (cfg.load(fpath))
-		return true;
-	logli("tried but failed to load "<<fpath);
-
-	//1. try to use current dir
-	fpath = DirHelper::getCurrentDir()+"/"+fname;
-	if (cfg.load(fpath))
-		return true;
-	logli("tried but failed to load "<<fpath);
-
-	//2. try to search in path
-	std::vector<std::string> all_path=DirHelper::getEnvPath();
-	for(int i=0; i<(int)all_path.size(); ++i) {
-		std::string& path=all_path[i];
-		if(cfg.load(path+"/"+fname)) return true;
-		logli("tried but failed to load "<<path);
-	}
-	return false;
-}
 int main(const int argc, const char **argv )
 {
 	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
 
-	const int MIN_ARGS=2, CFG_ARGS_START=3;
-	if(argc<MIN_ARGS) {
-		usage(argc,argv);
-		return -1;
+	if (argc > 1) {
+		std::string arg1(argv[1]);
+		if (arg1 == "-h" || arg1 == "/?" || arg1 == "--help") {
+			usage(argc, argv);
+			return -1;
+		}
 	}
 
 	ConfigHelper::Config& cfg = GConfig::Instance();
-	if(!loadConfig("AprilCalib.cfg",DirHelper::getFileDir(argv[0]))) {
+	if(!cfg.autoLoad("AprilCalib.cfg",DirHelper::getFileDir(argv[0]))) {
 		logli("[main] no AprilCalib.cfg file loaded");
 		return -1;
 	}
-	if(argc>CFG_ARGS_START) {
-		logli("[main] add/reset config info from command line arguments.");
-		cfg.set(argc-CFG_ARGS_START, argv+CFG_ARGS_START);
+	if(argc>1) {
+		cfg.reset(argc-1, argv+1);
 	}
+	logli("[main] final Config:");
+	cfg->print(std::cout);
+	logli("");
 
-	cv::Ptr<ImageSource> is = helper::createImageSource(argv[1]);
+	cv::Ptr<ImageSource> is = helper::createImageSource(cfg.get("url","camera://0"));
 	if(is.empty()) {
 		tagle("createImageSource failed!");
 		return -1;
@@ -431,8 +426,7 @@ int main(const int argc, const char **argv )
 	is->reportInfo();
 
 	//// create tagFamily
-	string tagid("0"); //default tag16h5
-	if(argc>2) tagid = string(argv[2]);
+	string tagid = cfg.get("tagfamiliesID","0"); //defaul Tag16h5
 	TagFamilyFactory::create(tagid, gTagFamilies);
 	if(gTagFamilies.size()<=0) {
 		tagle("create TagFamily failed all! exit...");
@@ -449,12 +443,11 @@ int main(const int argc, const char **argv )
 	tagli("the Calibration Rig is:\n"<<std::string(gRig));
 	AprilCalibprocessor processor;
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
-	processor.outputDir = cfg.getValAsString("AprilCalibprocessor::outputDir",
-		is->getSourceDir());
+	processor.outputDir = cfg.get("outputDir", is->getSourceDir());
 	logli("[main] detection will be logged to outputDir="<<processor.outputDir);
 	is->run(processor,-1, false,
-			cfg.get<bool>("ImageSource::pause", is->getPause()),
-			cfg.get<bool>("ImageSource::loop", is->getLoop()) );
+			cfg.get<bool>("ImageSource:pause", is->getPause()),
+			cfg.get<bool>("ImageSource:loop", is->getLoop()) );
 
 	cout<<"[main] DONE...exit!"<<endl;
 	return 0;

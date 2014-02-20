@@ -108,8 +108,17 @@ struct TagDetection {
 		ret[1] = (homography[1][0]*x + homography[1][1]*y + homography[1][2])/z;
 	}
 
+	/**
+	 * undistort the detection results using K and distCoeffs
+	 * output undistorted results to up, uc, uH:
+	 *
+	 * @param up: corresponding to this->p
+	 * @param uc: corresponding to this->cxy
+	 * @param uH: corresponding to this->homography
+	 */
 	template<typename MatType>
-	inline void undistort(const cv::Mat& K, const cv::Mat& distCoeffs, std::vector<cv::Point2d>& up, cv::Point2d& uc, cv::Mat& uH) const {
+	inline void undistort(const cv::Mat& K, const cv::Mat& distCoeffs,
+			std::vector<cv::Point2d>& up, cv::Point2d& uc, cv::Mat& uH) const {
 		static const double pts[5][2]={
 			{-1,-1},
 			{ 1,-1},
@@ -137,6 +146,10 @@ struct TagDetection {
 		homoCalc.getH(newH);
 		cv::Mat newH_(3,3,CV_64FC1,(void*)newH);
 		newH_.copyTo(uH);
+	}
+
+	inline std::string name() const {
+		return familyName + cv::format(".%d", id);
 	}
 
 	inline std::string toString(bool bshort=true) const {
