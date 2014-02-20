@@ -33,35 +33,42 @@
 
 namespace ConfigHelper {
 /**
- Config can be loaded from config file and also reset by command line arguments
- config file format:
- key=val
- key=[array]
+Config can be loaded from config file and also reset by command line arguments
+Format:
+A config file is internally a tree of ConfigNode. There are 3 types of such
+nodes:
+1. Simple:
+	key=val
+2. Array (nodes are separated by any of ",; \n\r\t"):
+	key=[node1,node2;node3 node4
+	 node5	node6]
+3. Map (similarly, nodes are separated by any of ",; \n\r\t"):
+	key={subkey1=node1, subkey2=node2;}
 
- for example:
- varInt=1
- varDouble=12.23
- varString=hello
- varArray=[1, 2, 3]
- varArray2=[1 2;
- 3,4
- 5 6]
+For example:
+varInt=1
+varDouble=12.23
+varString=hello
+varArray=[1, 2, 3]
+varArray2=[1 2;
+3,4
+5 6]
+varMap={key1=val1, key2=val2 key3=val3;
+key4=val4, key5=[v1,v2,v3;v4,v5 v6]}
+varArr=[
+v1, v2 v3, v4;
+v5, v6, v7, v8
+v9, v10, v11 v12;
+{key1=val1, key2=val2}
+]
 
- varMap={key1=val1, key2=val2 key3=val3;
- key4=val4, key5=[v1,v2,v3;v4,v5 v6]}
-
- varArr=[
- v1, v2 v3, v4;
- v5, v6, v7, v8
- v9, v10, v11 v12;
- {key1=val1, key2=val2}
- ]
-
- Note:
- 1. that comment line must be a separate line starting with character '#'
- 2. characters "=[]{},; \n\r\t" are reserved for parsing control; avoid using
-    these characters in your config file, otherwise parsing may fail; also
-    characters ":@" are reserved for key_path; avoid using these as key's name
+Note:
+1. that comment line must be a separate line whose first non-white char is '#'
+2. Array or map immediately followed by ";" means that when printing this node,
+it will be printed in a short format like [abc......] or {123......}
+3. characters "=[]{},; \n\r\t" are reserved for parsing control; avoid using
+these characters in your config file, otherwise parsing may fail; also
+characters ":@" are reserved for key_path; avoid using these as key's name
  */
 class ConfigNode {
 public:
@@ -152,7 +159,7 @@ public:
 	 *
 	 * @return 0 only if the key-path is invalid for current node
 	 */
-	ConfigNode::Ptr getChild(const std::string& key_path) {
+	inline ConfigNode::Ptr getChild(const std::string& key_path) {
 		std::vector<std::string> keys = StringHelper::split(key_path, ':');
 		ConfigNode::Ptr node_ptr = this;
 		for (int i = 0; i < (int) keys.size(); ++i) {
@@ -177,7 +184,7 @@ public:
 	/**
 	 * safe get even if the key-path doesn't exist
 	 */
-	std::string get(const std::string& key_path,
+	inline std::string get(const std::string& key_path,
 			std::string default_val) const {
 		try {
 			ConfigNode::ConstPtr node_ptr =
@@ -206,7 +213,7 @@ public:
 	/**
 	 * check if the key-path exist in current node
 	 */
-	bool exist(const std::string& key_path) const {
+	inline bool exist(const std::string& key_path) const {
 		return const_cast<ConfigNode::Ptr>(this)->getChild(key_path) != 0;
 	}
 
@@ -218,21 +225,6 @@ public:
 		std::queue<std::string> lines;
 		lines.push(line);
 		init(lines, UNKNOWN);
-	}
-
-	/**
-	 * insert/modify a key=val pair to the node of type MAP
-	 */
-	inline bool insert(std::string& line) {
-		assert(isMap());
-		std::string::size_type mpos = line.find_first_of("=");
-		if (mpos == std::string::npos) { //no = sign in this line
-			return false;
-		}
-		std::string key = line.substr(0, mpos);
-		StringHelper::trim(key);
-		(*data.map)[key]=ConfigNode::create(line.substr(mpos+1));
-		return true;
 	}
 
 	/**
@@ -266,7 +258,7 @@ public:
 	 * std::vector<double> mat;
 	 * cfg["my_mat"]>>mat;
 	 */
-	int operator>>(std::vector<std::string>& dst) {
+	inline int operator>>(std::vector<std::string>& dst) const {
 		if (type != ARRAY)
 			throw std::invalid_argument(
 					"[ConfigNode::operator>> error] current node type is not ARRAY!");
@@ -277,7 +269,7 @@ public:
 		return (int) dst.size();
 	}
 	template<class T>
-	int operator>>(std::vector<T>& dst) {
+	int operator>>(std::vector<T>& dst) const {
 		if(type!=ARRAY) throw std::invalid_argument("[ConfigNode::operator>> error] current node type is not ARRAY!");
 		dst.resize(this->size());
 		for (int i = 0; i < (int) data.array->size(); ++i) {
@@ -286,8 +278,6 @@ public:
 		return (int)dst.size();
 	}
 
-	inline operator std::string() const { return str();	}
-
 	/**
 	 * convert the simple node to desired data type
 	 * usually T will be raw data type such as int, double
@@ -295,6 +285,7 @@ public:
 	 * e.g.
 	 * int my_int = cfg["my_int"];
 	 */
+	inline operator std::string() const { return str();	}
 	template<class T>
 	operator T() const {
 		if(type!=SIMPLE) throw std::invalid_argument("[ConfigNode::operator T() error] current node type is not SIMPLE!");
@@ -350,19 +341,23 @@ public:
 		case ARRAY: {
 			if (!this->printAll) { //inline format
 				std::string content = str();
-				if((int)content.length()>printShortSizeTh) {
+				if ((int) content.length() > printShortSizeTh) {
 					content.resize(printShortSizeTh);
-					content+="......]";
+					content += "......]";
 				}
 				o << content;
 			} else {
-				if (level > 0) o << "[\n";
+				if (level > 0)
+					o << "[\n";
 				for (int i = 0; i < (int) data.array->size(); ++i) {
-					for (int k = 0; k < level; ++k) o << "\t";
-					data.array->at(i)->print(o, printShortSizeTh, level + 1) << "\n";
+					for (int k = 0; k < level; ++k)
+						o << "\t";
+					data.array->at(i)->print(o, printShortSizeTh, level + 1)
+							<< "\n";
 				}
 				if (level > 0) {
-					for (int k = 1; k < level; ++k) o << "\t";
+					for (int k = 1; k < level; ++k)
+						o << "\t";
 					o << "]";
 				}
 			}
@@ -400,7 +395,7 @@ public:
 					"[ConfigNode::print error] not recognized type="
 							+ StringHelper::num2str(type));
 		}
-		}
+		}//switch
 		return o;
 	}
 
@@ -675,12 +670,12 @@ public:
 	 * 2. get("keyArray:@1",0) means to get the value from a
 	 * ConfigNodeArray keyArray's 2nd inner node
 	 */
-	std::string get(const std::string& key, const char* default_val) const {
+	inline std::string get(const std::string& key, const char* default_val) const {
 		if (root != 0)
 			return root->get(key, std::string(default_val));
 		return std::string(default_val);
 	}
-	std::string get(const std::string& key, std::string default_val) const {
+	inline std::string get(const std::string& key, std::string default_val) const {
 		if(root!=0)
 			return root->get(key, default_val);
 		return default_val;
@@ -697,14 +692,12 @@ public:
 		std::cout<<"[Config] reset:"<<std::endl;
 		for(int i=0; i<argc; ++i) {
 			std::string line(argv[i]);
-			if(line[0]=='{') {
-				std::cout<<i<<":"<<line<<std::endl;
-				ConfigNode::Ptr node = ConfigNode::create(line);
-				root->merge(node);
-				delete node;
-			} else {
-				if(root->insert(line)) std::cout<<i<<":"<<line<<std::endl;
-			}
+			if(line[0]!='{')
+				line="{"+line+"}";
+			std::cout<<i<<":"<<line<<std::endl;
+			ConfigNode::Ptr node = ConfigNode::create(line);
+			root->merge(node);
+			delete node;
 		}
 		std::cout<<std::endl;
 	}
@@ -722,6 +715,8 @@ public:
 		std::string line;
 		lines.push("{");
 		while (IOHelper::readValidLine(is, line, '#')) {
+			StringHelper::trim(line);
+			if(line.empty() || line[0]=='#') continue; //skip lines like "   #blah"
 			lines.push(line);
 		}
 		if (lines.size()==1) return false; //nothing inside except for the first "{"
