@@ -90,17 +90,17 @@ public:
 	/**
 	 * construct a new node from a single line
 	 */
-	ConfigNode(const std::string& line, const TYPE node_type=UNKNOWN) : printAll(true) {
-		std::queue<std::string> lines;
-		lines.push(line);
-		init(lines, node_type);
+	static inline ConfigNode::Ptr create(const std::string& line, const TYPE node_type=UNKNOWN) {
+		ConfigNode::Ptr ret = new ConfigNode(line, node_type);
+		return ret;
 	}
 
 	/**
 	 * construct a new SIMPLE/ARRAY/MAP node from lines
 	 */
-	ConfigNode(std::queue<std::string>& lines, const TYPE node_type=UNKNOWN) : printAll(true) {
-		init(lines, node_type);
+	static inline ConfigNode::Ptr create(std::queue<std::string>& lines, const TYPE node_type=UNKNOWN) {
+		ConfigNode::Ptr ret = new ConfigNode(lines, node_type);
+		return ret;
 	}
 
 	~ConfigNode() { clear(); }
@@ -152,7 +152,7 @@ public:
 	 *
 	 * @return 0 only if the key-path is invalid for current node
 	 */
-	ConfigNode::Ptr get(const std::string& key_path) {
+	ConfigNode::Ptr getChild(const std::string& key_path) {
 		std::vector<std::string> keys = StringHelper::split(key_path, ':');
 		ConfigNode::Ptr node_ptr = this;
 		for (int i = 0; i < (int) keys.size(); ++i) {
@@ -177,11 +177,27 @@ public:
 	/**
 	 * safe get even if the key-path doesn't exist
 	 */
+	std::string get(const std::string& key_path,
+			std::string default_val) const {
+		try {
+			ConfigNode::ConstPtr node_ptr =
+					const_cast<ConfigNode::Ptr>(this)->getChild(key_path);
+			if (node_ptr == 0)
+				return default_val;
+			return node_ptr->str();
+		} catch (...) {
+			return default_val;
+		}
+		return default_val;
+	}
 	template<class T>
 	T get(const std::string& key_path, T default_val) const {
 		try {
-			ConfigNode::ConstPtr node_ptr=const_cast<ConfigNode::Ptr>(this)->get(key_path);
-			return (T)(*node_ptr);
+			ConfigNode::ConstPtr node_ptr =
+					const_cast<ConfigNode::Ptr>(this)->getChild(key_path);
+			if (node_ptr == 0)
+				return default_val;
+			return (T) (*node_ptr);
 		} catch (...) {
 			return default_val;
 		}
@@ -191,35 +207,7 @@ public:
 	 * check if the key-path exist in current node
 	 */
 	bool exist(const std::string& key_path) const {
-		return const_cast<ConfigNode::Ptr>(this)->get(key_path) != 0;
-	}
-
-	/**
-	 * deep copy of the node
-	 */
-	inline ConfigNode::Ptr copy() const {
-		switch(type) {
-		case SIMPLE:
-			return new ConfigNode(str());
-		case ARRAY:
-			ConfigNode::Ptr ret = new ConfigNode("[]");
-			for(int i=0; i<size(); ++i) {
-				ret->data.array->push_back(data.array->at(i)->copy());
-			}
-			return ret;
-		case MAP:
-			ConfigNode::Ptr ret = new ConfigNode("{}");
-			ConfigNodeMap::iterator itr = data.map->begin(), it_end =
-								data.map->end();
-			for(; itr!=it_end; ++itr) {
-				ret->data.map->insert(ConfigNodeMap::value_type(itr->first, itr->second->copy()));
-			}
-			return ret;
-		default:
-			throw std::invalid_argument(
-					"[ConfigNode::copy error] not recognized type="
-							+ StringHelper::num2str(type));
-		}
+		return const_cast<ConfigNode::Ptr>(this)->getChild(key_path) != 0;
 	}
 
 	/**
@@ -232,47 +220,73 @@ public:
 		init(lines, UNKNOWN);
 	}
 
-	inline void reset(ConfigNode::Ptr rhs) {
-		if(this->isMap()) {
-			//
-		} else {
-			//
+	/**
+	 * insert/modify a key=val pair to the node of type MAP
+	 */
+	inline bool insert(std::string& line) {
+		assert(isMap());
+		std::string::size_type mpos = line.find_first_of("=");
+		if (mpos == std::string::npos) { //no = sign in this line
+			return false;
 		}
+		std::string key = line.substr(0, mpos);
+		StringHelper::trim(key);
+		(*data.map)[key]=ConfigNode::create(line.substr(mpos+1));
+		return true;
 	}
 
 	/**
-	 * if node already exist, and is of type MAP
-	 * then
+	 * merge this node with ConfigNode src:
+	 * 1. if the two node are all map type, merge the two maps
+	 * 2. otherwise swap this node with src
 	 */
-	inline void insert(const std::string& line) {
-		//
-	}
-
 	inline void merge(ConfigNode::Ptr src) {
-		if(!src->isMap() || !this->isMap()) return;
+		assert(src!=0);
+		if(!src->isMap() || !this->isMap()) {
+			swap(src);
+			return;
+		}
 		ConfigNodeMap::iterator itr=src->data.map->begin(), it_end=src->data.map->end();
 		for(; itr!=it_end; ++itr) {
 			const std::string& srckey = itr->first;
-			ConfigNode::Ptr dst_ptr = get(srckey);
+			ConfigNode::Ptr dst_ptr = getChild(srckey);
 			if(dst_ptr!=0) dst_ptr->merge(itr->second);
-			//else
+			else {
+				(*data.map)[srckey]=itr->second;
+				itr->second = 0;
+			}
 		}
 	}
 
 	/**
 	 * convert the array node into a vector of T
+	 * and return the final size of dst
 	 *
 	 * e.g.
 	 * std::vector<double> mat;
 	 * cfg["my_mat"]>>mat;
 	 */
-	template<class T>
-	void operator>>(std::vector<T>& dst) {
-		if(type!=ARRAY) throw std::invalid_argument("[ConfigNode::operator>> error] current node type is not ARRAY!");
-		for(int i=0; i<(int)data.array->size(); ++i) {
-			dst.push_back((T)(*data.array->at(i)));
+	int operator>>(std::vector<std::string>& dst) {
+		if (type != ARRAY)
+			throw std::invalid_argument(
+					"[ConfigNode::operator>> error] current node type is not ARRAY!");
+		dst.resize(this->size());
+		for (int i = 0; i < (int) data.array->size(); ++i) {
+			dst[i] = data.array->at(i)->str();
 		}
+		return (int) dst.size();
 	}
+	template<class T>
+	int operator>>(std::vector<T>& dst) {
+		if(type!=ARRAY) throw std::invalid_argument("[ConfigNode::operator>> error] current node type is not ARRAY!");
+		dst.resize(this->size());
+		for (int i = 0; i < (int) data.array->size(); ++i) {
+			dst[i] = (T) (*data.array->at(i));
+		}
+		return (int)dst.size();
+	}
+
+	inline operator std::string() const { return str();	}
 
 	/**
 	 * convert the simple node to desired data type
@@ -280,7 +294,6 @@ public:
 	 *
 	 * e.g.
 	 * int my_int = cfg["my_int"];
-	 * double my_dbl = cfg("my_dbl","0.1")
 	 */
 	template<class T>
 	operator T() const {
@@ -293,11 +306,39 @@ public:
 	}
 
 	/**
-	 * retrieve the raw string of the simple node
+	 * retrieve the raw string of the node
 	 */
 	inline std::string str() const {
-		if(type!=SIMPLE) throw std::invalid_argument("[ConfigNode::operator T() error] current node type is not SIMPLE!");
-		return *data.simple;
+		std::string ret;
+		switch (type) {
+		case SIMPLE:
+			ret = *data.simple; break;
+		case ARRAY:
+			ret.push_back('[');
+			for(int i=0; i<size(); ++i) {
+				ret += data.array->at(i)->str();
+				ret.push_back(',');
+			}
+			ret[ret.length()-1]=']';
+			break;
+		case MAP: {
+			ret.push_back('{');
+			ConfigNodeMap::iterator itr = data.map->begin(), it_end =
+					data.map->end();
+			for (; itr != it_end; ++itr) {
+				const std::string& key = itr->first;
+				ret += key;
+				ret.push_back('=');
+				ret += itr->second->str();
+				ret.push_back(',');
+			}
+			ret[ret.length()-1]='}';
+			break;
+		}
+		default:
+			break;
+		}
+		return ret;
 	}
 
 	inline std::ostream& print(std::ostream& o, const int printShortSizeTh=10, const int level=0) const {
@@ -307,16 +348,13 @@ public:
 			break;
 		}
 		case ARRAY: {
-			if (size() < printShortSizeTh || !this->printAll) { //inline format
-				if (level > 0) o << "[ ";
-				if (size() >= 1)
-					data.array->at(0)->print(o, level + 1);
-				for (int i = 1; i < std::min(printShortSizeTh, (int)data.array->size()); ++i) {
-					o << ", ";
-					data.array->at(i)->print(o, printShortSizeTh, level + 1);
+			if (!this->printAll) { //inline format
+				std::string content = str();
+				if((int)content.length()>printShortSizeTh) {
+					content.resize(printShortSizeTh);
+					content+="......]";
 				}
-				if(printShortSizeTh<(int)data.array->size()) o << ", ......";
-				if (level > 0) o << " ]";
+				o << content;
 			} else {
 				if (level > 0) o << "[\n";
 				for (int i = 0; i < (int) data.array->size(); ++i) {
@@ -333,21 +371,27 @@ public:
 		case MAP: {
 			ConfigNodeMap::iterator itr = data.map->begin(), it_end =
 					data.map->end();
-			int thresh=printShortSizeTh;
-			if (this->printAll) thresh=(int)data.map->size();
-			if (level > 0) o << "{\n";
-			for (int cnt=0; itr != it_end && cnt<thresh; ++itr, ++cnt) {
-				for (int i = 0; i < level; ++i) o << "\t";
-				o << itr->first << "=";
-				itr->second->print(o, printShortSizeTh, level + 1) << "\n";
-			}
-			if (level > 0) {
-				if(thresh<(int)data.map->size()) {
-					for (int i = 0; i < level; ++i) o << "\t";
-					o << "......";
+			if (!this->printAll) {
+				std::string content = str();
+				if ((int) content.length() > printShortSizeTh) {
+					content.resize(printShortSizeTh);
+					content += "......}";
 				}
-				for (int k = 1; k < level; ++k) o << "\t";
-				o << "}";
+				o << content;
+			} else {
+				if (level > 0)
+					o << "{\n";
+				for (; itr != it_end; ++itr) {
+					for (int i = 0; i < level; ++i)
+						o << "\t";
+					o << itr->first << "=";
+					itr->second->print(o, printShortSizeTh, level + 1) << "\n";
+				}
+				if (level > 0) {
+					for (int k = 1; k < level; ++k)
+						o << "\t";
+					o << "}";
+				}
 			}
 			break;
 		}
@@ -361,6 +405,12 @@ public:
 	}
 
 protected:
+	inline void swap(ConfigNode::Ptr src) {
+		std::swap(this->data, src->data);
+		std::swap(this->printAll, src->printAll);
+		std::swap(this->type, src->type);
+	}
+
 	/**
 	 * clear everything inside the node
 	 */
@@ -576,6 +626,16 @@ protected:
 		key.clear();
 	}
 
+	//private ctor: disable ConfigNode to be created on stack
+	ConfigNode(const std::string& line, const TYPE node_type=UNKNOWN) : printAll(true) {
+		std::queue<std::string> lines;
+		lines.push(line);
+		init(lines, node_type);
+	}
+	ConfigNode(std::queue<std::string>& lines, const TYPE node_type=UNKNOWN) : printAll(true) {
+		init(lines, node_type);
+	}
+
 	//make ConfigNode not copy-able
     ConfigNode();
     ConfigNode(const ConfigNode&);
@@ -589,7 +649,9 @@ private:
 
 public:
 	Config() : root(0) {}
-	~Config() { if(root!=0) delete root; root=0; }
+	~Config() { clear(); }
+
+	inline void clear() { if(root!=0) delete root; root=0; }
 
 	inline ConfigNode& getRoot() {
 		assert(root!=0);
@@ -597,6 +659,10 @@ public:
 	}
 	inline ConfigNode& operator*() {
 		return getRoot();
+	}
+	inline ConfigNode::Ptr operator->() {
+		assert(root!=0);
+		return root;
 	}
 
 	/**
@@ -609,15 +675,38 @@ public:
 	 * 2. get("keyArray:@1",0) means to get the value from a
 	 * ConfigNodeArray keyArray's 2nd inner node
 	 */
+	std::string get(const std::string& key, const char* default_val) const {
+		if (root != 0)
+			return root->get(key, std::string(default_val));
+		return std::string(default_val);
+	}
+	std::string get(const std::string& key, std::string default_val) const {
+		if(root!=0)
+			return root->get(key, default_val);
+		return default_val;
+	}
 	template<class T>
-	T get(const std::string& key, T default_val) {
+	T get(const std::string& key, T default_val) const {
 		if (root != 0)
 			return root->get(key, default_val);
 		return default_val;
 	}
 
-	void insert(const std::string& cmd) {
-		if(root==0) root = new ConfigNode(cmd);
+	void reset(const int argc, const char** argv) {
+		if(root==0) root = ConfigNode::create("{}");
+		std::cout<<"[Config] reset:"<<std::endl;
+		for(int i=0; i<argc; ++i) {
+			std::string line(argv[i]);
+			if(line[0]=='{') {
+				std::cout<<i<<":"<<line<<std::endl;
+				ConfigNode::Ptr node = ConfigNode::create(line);
+				root->merge(node);
+				delete node;
+			} else {
+				if(root->insert(line)) std::cout<<i<<":"<<line<<std::endl;
+			}
+		}
+		std::cout<<std::endl;
 	}
 
 	/**
@@ -626,18 +715,19 @@ public:
 	 * return false if file not existed or empty file parsed
 	 */
 	inline bool load(std::string fn) {
+		clear();
 		std::ifstream is(fn.c_str());
 		if (!is.is_open()) return false; //not opened
 		std::queue<std::string> lines;
 		std::string line;
+		lines.push("{");
 		while (IOHelper::readValidLine(is, line, '#')) {
 			lines.push(line);
 		}
-		if (lines.empty()) return false; //nothing inside
-		lines.front().insert(0,1,'{');
-		lines.back().append(1,'}');
-		root = new ConfigNode(lines);
-		std::cout << "[ConfigRoot] loaded: " << fn << std::endl;
+		if (lines.size()==1) return false; //nothing inside except for the first "{"
+		lines.push("}");
+		root = ConfigNode::create(lines);
+		std::cout << "[Config] loaded: " << fn << std::endl;
 		return true;
 	}
 
