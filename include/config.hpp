@@ -147,7 +147,9 @@ public:
 
 	inline ConfigNode& operator[] (const std::string& key) {
 		if(type!=MAP) throw std::invalid_argument("[ConfigNode::operator[] error] current node type is not MAP!");
-		return *data.map->at(key);
+		ConfigNodeMap::iterator itr=data.map->find(key);
+		if (itr==data.map->end()) throw std::out_of_range("[ConfigNode::operator[] error] out of range error!");
+		return *(itr->second);
 	}
 	inline const ConfigNode& operator[] (const std::string& key) const { return (*this)[key]; }
 
@@ -175,7 +177,9 @@ public:
 						|| node_ptr->data.map->find(keys[i])
 								== node_ptr->data.map->end())
 					return 0;
-				node_ptr = node_ptr->data.map->at(keys[i]);
+				ConfigNodeMap::iterator itr=node_ptr->data.map->find(keys[i]);
+				if(itr==node_ptr->data.map->end()) throw std::out_of_range("[ConfigNode::getChild error] out of range error!");
+				node_ptr = itr->second;
 			}
 		}
 		return node_ptr;
