@@ -70,78 +70,33 @@ cv::Ptr<TagDetector> gDetector;
 /**
 Calibration rig
 To define Calibration rig in config file, simply write in AprilCalib.cfg as follows:
-CalibRig::nTags=N
-CalibRig::start_id=S
+CalibRig={
+	mode=3d
+#names of each tag
+	markerNames=[]
 #repeat follow lines N times with i=S...S+N-1, (Xi, Yi, Zi) is the world coordinate
 #of the center of the tagi
-CalibRig::tagi=Xi Yi Zi
-...
-
-For example, if there are 18 Tags used as a calibration rig, id start from 3, then
-the following lines should appear in AprilCalib.cfg file
-CalibRig::mode=3d
-#optional, default start_id is 0
-CalibRig::start_id=3
-CalibRig::nTags=18
-CalibRig::tagCenters=[X3 Y3 Z3;
- X4 Y4 Z4;
-...
- X20 Y20 Z20]
-
-Calibration rig defined above is a 3d rig, we can also use 2d rig (planar rig), which
-can be defined as follows:
-CalibRig::mode=2d
-#assume the upper left tag is the first tag
-#i.e. tags are assumed to be arrange as follows:
-#tag0 tag1 tag2 ... tagN-1
-#tagN ...           tag2N-1
-#...
-#tagMN-N ...        tagMN-1
-CalibRig::start_id=S
-CalibRig::w=N
-CalibRig::h=M
-#dx means distance between two neighboring tags along width direction
-#dy means distance between two neighboring tags along height direction
-#center of tag0 is assumed to have coordinate (0,0) in the world plane
-CalibRig::dx=Dx
-CalibRig::dy=Dy
+	tagCenters=[]
+}
 */
 struct CalibRig {
 	bool isTag3d;
-	int start_id;
 
-	//for 3d rig
-	int nTags;
-	std::vector<cv::Point3d> id2Xw;
+	typedef std::map<std::string, cv::Point3d> DataMap;
+	DataMap name2Xw;
 
-	//for 2d rig
-	int w,h;
-	double dx,dy;
-
-	CalibRig() : isTag3d(true), start_id(-1),
-		nTags(-1),
-		w(0),h(0),dx(0),dy(0)
+	CalibRig() : isTag3d(true)
 	{}
 
 	operator std::string() const {
 		std::stringstream ss;
-		ss<<"CalibRig::start_id="<<this->start_id<<"\n";
-		if(isTag3d) {
-			ss<<"CalibRig::mode=3d\n";
-			ss<<"CalibRig::nTags="<<this->nTags<<"\n"
-			  <<"CalibRig::tagCenters=[\n";
-			for(int i=0; i<(int)id2Xw.size(); ++i) {
-				const cv::Point3d& pt=id2Xw[i];
-				ss<<pt.x<<" "<<pt.y<<" "<<pt.z<<"\n";
-			}
-			ss<<"]\n";
-		} else {
-			ss<<"CalibRig::mode=2d\n";
-			ss<<"CalibRig::w="<<this->w<<"\n"
-			  <<"CalibRig::h="<<this->h<<"\n"
-			  <<"CalibRig::dx="<<this->dx<<"\n"
-			  <<"CalibRig::dy="<<this->dy<<"\n";
+		ss<<"CalibRig::mode="<<(isTag3d?"3d":"2d")<<std::endl;
+		ss<<"CalibRig::name2Xw=["<<std::endl;
+		DataMap::const_iterator itr=name2Xw.begin();
+		for(; itr!=name2Xw.end(); ++itr) {
+			ss<<"\t"<<itr->first<<" "<<itr->second<<std::endl;
 		}
+		ss<<"]"<<std::endl;
 		return ss.str();
 	}
 
@@ -156,64 +111,35 @@ struct CalibRig {
 		
 		//get rig mode and start_id
 		std::string mode = cfn["mode"].str();
-		this->start_id=cfn.get<int>("start_id",0);
-		if(mode.compare("3d")==0) {
-			this->isTag3d=true;
-			this->nTags=cfn.get<int>("nTags",0);
-			if(nTags<8) {
-				logle("[CalibRig error] a 3D calibration rig must have more than 8 tags!");
-				exit(-1);
-			}
-			std::vector<double> buf;
-			cfn["tagCenters"]>>buf;
-			if( nTags*3 != (int)buf.size() ) {
-				logle("[CalibRig error] CalibRig:tagCenters invalid in Config!");
-				exit(-1);
-			}//TODO: check if the points forms a 3d rig really by PCA
-			this->id2Xw.resize(nTags);
-			for(int i=0; i<nTags; ++i) {
-				id2Xw[i]=cv::Point3d(buf[i*3+0],buf[i*3+1],buf[i*3+2]);
-			}
-		} else {
-			this->isTag3d=false; //2d rig
-			this->w=cfn.get<int>("w",0);
-			this->h=cfn.get<int>("h",0);
-			this->nTags=this->w*this->h;
-			if(this->nTags<4) {
-				logle("[CalibRig error] a 2D calibration rig must have"
-						" at least 4 tags, but currently only "<<nTags<<"!");
-				exit(-1);
-			}
-			if(this->w<=1 || this->h<=1) {
-				logle("[CalibRig error] a 2D calibration rig must ensure"
-						" w>1 and h>1, but currently w="<<w<<", h="<<h<<"!");
-				exit(-1);
-			}
-			this->dx=cfn.get<double>("dx",0);
-			this->dy=cfn.get<double>("dy",0);
-			if(this->dx<=0 || this->dy<=0) {
-				logle("[CalibRig error] a 2D calibration rig must ensure"
-						" dx>0 and dy>0, but currently dx="<<dx<<", dy="<<dy<<"!");
-				exit(-1);
-			}
+		this->isTag3d=(mode.compare("3d")==0);
+		std::vector<std::string> markerNames;
+		cfn["markerNames"] >> markerNames;
+
+		const int nTags=(int)markerNames.size();
+		if(nTags<8) {
+			logle("[CalibRig error] a 3D calibration rig must have more than 8 tags!");
+			exit(-1);
+		}
+		std::vector<double> buf;
+		cfn["tagCenters"]>>buf;
+		if( nTags*3 != (int)buf.size() ) {
+			logle("[CalibRig error] CalibRig:tagCenters invalid in Config!");
+			exit(-1);
+		}//TODO: check if the points forms a 3d rig really by PCA
+
+		for(int i=0; i<nTags; ++i) {
+			const std::string& name=markerNames[i];
+			name2Xw[name]=cv::Point3d(buf[i*3+0],buf[i*3+1],buf[i*3+2]);
 		}
 	}
 
-	bool id2worldPt(const int id, double worldPt[3]) const {
-		const int rid=id-start_id;
-		if(rid<0 || rid>=nTags) return false;
-		if(isTag3d) {
-			const cv::Point3d& pt=id2Xw[rid];
-			worldPt[0]=pt.x;
-			worldPt[1]=pt.y;
-			worldPt[2]=pt.z;
-		} else {
-			int r=rid/this->w;
-			int c=rid-r*this->w;
-			worldPt[0]=c*this->dx;
-			worldPt[1]=r*this->dy;
-			worldPt[2]=0;
-		}
+	bool name2worldPt(const std::string& name, double worldPt[3]) const {
+		DataMap::const_iterator itr=name2Xw.find(name);
+		if(itr==name2Xw.end()) return false;
+		const cv::Point3d& pt=itr->second;
+		worldPt[0]=pt.x;
+		worldPt[1]=pt.y;
+		worldPt[2]=pt.z;
 		return true;
 	}
 } gRig;
@@ -271,7 +197,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 			if(dd.hammingDistance>0) continue; //strict!
 
 			double worldPt[3];
-			if(!gRig.id2worldPt(dd.id, worldPt)) {
+			if(!gRig.name2worldPt(dd.name(), worldPt)) {
 				logli("[AprilCalibprocessor info] ignore tag with id="<<dd.id);
 				continue;
 			}
