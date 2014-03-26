@@ -156,7 +156,7 @@ public:
 	/**
 	 * get a ConfigNode Ptr from key-path
 	 * key-path is the sequence of key's used to get from current node
-	 * to destination node, separated by ":"; array items are refered
+	 * to destination node, separated by ":"; array items are referred
 	 * by "@pos", e.g. "@1" means the 2nd item of the array
 	 *
 	 * @return 0 only if the key-path is invalid for current node
@@ -178,7 +178,7 @@ public:
 								== node_ptr->data.map->end())
 					return 0;
 				ConfigNodeMap::iterator itr=node_ptr->data.map->find(keys[i]);
-				if(itr==node_ptr->data.map->end()) throw std::out_of_range("[ConfigNode::getChild error] out of range error!");
+				if(itr==node_ptr->data.map->end()) return 0;
 				node_ptr = itr->second;
 			}
 		}
@@ -691,7 +691,7 @@ public:
 		return default_val;
 	}
 
-	void reset(const int argc, const char** argv) {
+	void reset(const int argc, const char * const * const argv) {
 		if(root==0) root = ConfigNode::create("{}");
 		std::cout<<"[Config] reset:"<<std::endl;
 		for(int i=0; i<argc; ++i) {
