@@ -23,6 +23,8 @@
 #include <vector>
 
 #include "StringHelper.h"
+#include "DirHelper.h"
+#include "IOHelper.h"
 #include "LogHelper.h"
 
 #include "OpenCVHeaders.h"
