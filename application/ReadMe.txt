@@ -49,35 +49,15 @@ Purpose: camera intrinsic calibration using a set of planar or non-planar AprilT
 ### Steps ###
 1. Create a calibration rig using a set of planar/non-planar AprilTags.
 2. Modify the AprilCalib.cfg file.
-A non-planar calibration rig with 18 AprilTags starts from id 0; and each
-AprilTag center's 3D coordinates are specified in the CalibRig:tagCenters
-sequentially:
+A non-planar calibration rig with 3 AprilTags; and each AprilTag center's 3D
+coordinates are specified in the CalibRig:tagCenters sequentially:
 	CalibRig={
 		mode=3d
-		start_id=0
-		nTags=18
+		markerNames=[Tag36h11.0, Tag36h11.1, Tag36h11.2]
 		tagCenters=[
 		-8.5 11 0
-		0 11 0
-		8.5 11 0
-		-8.5 0 0
-		...
-		]
-	}
-A planar calibration rig with 9 AprilTags starts from id 0, arranges as a
-3x3 matrix like:
-	0 1 2
-	3 4 5
-	6 7 8
-and the spacings are dx (distance between Tag0 and Tag1's center) by dy (
-distance between Tag0 and Tag3's center):
-	CalibRig={
-		mode=2d
-		start_id=0
-		w=3
-		h=3
-		dx=8.5
-		dy=11
+		0 11 1
+		8.5 11 2]
 	}
 3. Take n images (usually n>10).
 4. Run AprilCalib (assuming AprilTags in the calibration rig are in TagFamily 36h11):
