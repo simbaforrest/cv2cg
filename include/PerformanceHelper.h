@@ -29,9 +29,10 @@ computer rms error, only using valid region (non-zero region)
 @param mask[in] mask->at(i)!=0 means valid region, default is 0, means valid for all
 @return rms error
 */
-template<typename MatType>
-double rms(const cv::Mat &error, const cv::Mat *mask=0)
+inline double rms(const cv::Mat &error, const cv::Mat *mask=0)
 {
+	assert(error.dims<=2);
+
 	cv::Mat maskRow;
 	int validN;
 	if(mask) {
@@ -45,13 +46,14 @@ double rms(const cv::Mat &error, const cv::Mat *mask=0)
 
 	double ret = 0;
 	cv::Mat errorRow = error.reshape(0,1);
-	for(int i=0; i<(int)errorRow.total(); ++i) {
-		MatType ie = errorRow.at<MatType>(i);
-		bool valid = maskRow.empty() || maskRow.at<MatType>(i)!=0;
-		ret += valid*(ie*ie);
+	cv::Scalar errorSum;
+	if(mask) {
+		maskRow.convertTo(maskRow,errorRow.type(),1.0/255);
+		errorSum=cv::sum(errorRow.mul(errorRow).mul(maskRow));
+	} else {
+		errorSum=cv::sum(errorRow.mul(errorRow));
 	}
-	ret /= validN;
-	return sqrt(ret);
+	return sqrt(errorSum[0]/validN);
 }
 
 /**
@@ -62,9 +64,10 @@ only using valid region (non-zero region) specified by mask
 @param t vector t
 @return zncc
 */
-template<typename MatType>
-double zncc(const cv::Mat& w, const cv::Mat& t, const cv::Mat *mask=0)
+inline double zncc(const cv::Mat& w, const cv::Mat& t, const cv::Mat *mask=0)
 {
+	assert(w.dims<=2 || w.dims==t.dims);
+
 	cv::Mat maskRow;
 	int validN;
 	if(mask) {
@@ -87,14 +90,16 @@ double zncc(const cv::Mat& w, const cv::Mat& t, const cv::Mat *mask=0)
 		cv::meanStdDev(tRow, mt, dt, maskRow);
 	}
 
-	double ret = 0;
-	for(int i=0; i<(int)w.total(); ++i) {
-		MatType iw = wRow.at<MatType>(i);
-		MatType it = tRow.at<MatType>(i);
-		ret+= (iw!=0)*(iw-mw.val[0])*(it-mt.val[0]);
+	cv::Mat wRow_zm = wRow-mw.val[0];
+	cv::Mat tRow_zm = tRow-mt.val[0];
+	cv::Scalar errorSum;
+	if(mask) {
+		maskRow.convertTo(maskRow,wRow_zm.type(),1.0/255);
+		errorSum=cv::sum(wRow_zm.mul(tRow_zm).mul(maskRow));
+	} else {
+		errorSum=cv::sum(wRow_zm.mul(tRow_zm));
 	}
-	ret/=dw.val[0]*dt.val[0]*validN;
-	return ret;
+	return sqrt(errorSum[0]/(dw.val[0]*dt.val[0]*validN));
 }
 
 /**
