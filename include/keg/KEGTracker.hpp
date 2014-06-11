@@ -141,11 +141,9 @@ public:
 	load a single template image, extract keypoints using SURF/FAST
 	
 	@param templatename file path to the template image
-	@param threshLow lower bound for #template points
-	@param threshUp upper bound for #template points
+	@param maxNumKeys max number of keypoints needed
 	*/
-	inline void loadTemplate(string templatename,
-		int threshLow=800, int threshUp=1000)
+	inline void loadTemplate(string templatename, int maxNumKeys=100)
 	{
 		cout<<"[KEG] loading: "<<templatename<<endl;
 		tdata.push_back(TemplateData());
@@ -159,7 +157,6 @@ public:
 		td.crns.push_back(Point2f(0,td.img.rows));
 		//GaussianBlur(td.img, td.img, Size(5,5), 4);
 
-		//limit the number of keypoints to track to [800,1000]
 		const int mitr = 100000;
 		Ptr<FeatureDetector> detector;
 #if USE_DYNAMIC_PYRAMID_FAST
@@ -170,8 +167,7 @@ public:
 			detector->detect(td.img, td.keys);
 
 			int curNum = (int)td.keys.size();
-			if(curNum<threshLow) --fastThresh;
-			else if(curNum>threshUp) ++fastThresh;
+			if(curNum>maxNumKeys) ++fastThresh;
 			else break;
 		}
 		cout<<"[KEG] Final fastThresh="<<fastThresh<<endl;
@@ -181,6 +177,16 @@ public:
 		//	new SurfAdjuster, threshLow, threshUp, mitr);
 		detector->detect(td.img, td.keys);
 #endif //end of USE_DYNAMIC_PYRAMID_FAST
+		const int step=td.keys.size()/maxNumKeys;
+		if(step>0) {
+			std::vector< cv::KeyPoint > tmp;
+			tmp.reserve(maxNumKeys);
+			for(int i=0; i<(int)td.keys.size(); i+=step) {
+				tmp.push_back(td.keys[i]);
+			}
+			std::swap(tmp, td.keys);
+		}
+
 		cout<<"[KEG] #template keypoints="<<td.keys.size()<<endl;
 
 		td.X.resize(td.keys.size());//fill tpts by all td.keys

@@ -104,11 +104,11 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 	load multiple templates into the tracker
 	TODO currently no detection of multiple id error, user is responsible for this
 	*/
-	inline void loadTemplateList(vector<string> templatelist,
-		int threshLow=800, int threshUp=1000)
+	inline void loadTemplateList(vector<string> templatelist)
 	{
+		const int maxNumKeys = GConfig::Instance().get("keg:maxNumKeys", 100);
 		for(int i=0; i<(int)templatelist.size(); ++i)
-			tracker.loadTemplate(templatelist[i]);
+			tracker.loadTemplate(templatelist[i], maxNumKeys);
 		for(int i=0; i<(int)tracker.tdata.size(); ++i) {
 			keg::Tracker::TemplateData& td = tracker.tdata[i];
 			vector<int> ids;
@@ -129,10 +129,8 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 /////// Override
 	void operator()(cv::Mat& frame) {
 		if(frame.empty()) return;
-#if KEG_DEBUG
 		static helper::PerformanceMeasurer PM(1000);
 		PM.tic();
-#endif
 
 		cvtColor(frame, gray, CV_BGR2GRAY);
 		double rms=-1, ncc=-1;
@@ -167,16 +165,22 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 			needToInit=!tracker(gray, rms, ncc, &frame);
 		}
 
+		double dur = PM.toc();
+
 		if(!needToInit && expMode==-1) {
 			cv::putText( frame,
 				string("Currently around location ")
 				+helper::num2str(tracker.curT),
 				cv::Point(10,30), CV_FONT_NORMAL,
 				1, helper::CV_GREEN, 2 );
+		} else {
+			cv::putText( frame,
+				cv::format("FPS=%.2lfHz", 1000./dur),
+				cv::Point(10,30), CV_FONT_NORMAL,
+				1, helper::CV_GREEN, 2);
 		}
 
 #if KEG_DEBUG
-		double dur = PM.toc();
 		cout<<"process duration="<<dur<<endl;
 #endif
 
