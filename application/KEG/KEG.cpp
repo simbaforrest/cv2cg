@@ -75,7 +75,7 @@ using helper::GConfig;
 
 struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 /////// Vars
-	Ptr<keg::AprilTagRecognizer> recognizer;
+	Ptr<keg::Recognizer> recognizer;
 	keg::Tracker tracker;
 	Mat gray;
 	bool needToInit;
@@ -109,6 +109,14 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 		const int maxNumKeys = GConfig::Instance().get("keg:maxNumKeys", 100);
 		for(int i=0; i<(int)templatelist.size(); ++i)
 			tracker.loadTemplate(templatelist[i], maxNumKeys);
+
+		{
+			keg::BriefRecognizer* p = recognizer.ptr<keg::BriefRecognizer>();
+			if(p!=0) {
+				p->init(tracker.tdata[0].img);
+			}
+		}
+
 		for(int i=0; i<(int)tracker.tdata.size(); ++i) {
 			keg::Tracker::TemplateData& td = tracker.tdata[i];
 			vector<int> ids;
@@ -128,6 +136,8 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 
 /////// Override
 	void operator()(cv::Mat& frame) {
+		cv::Mat orgFrame;
+		frame.copyTo(orgFrame);
 		if(frame.empty()) return;
 		static helper::PerformanceMeasurer PM(1000);
 		PM.tic();
@@ -194,9 +204,9 @@ struct KEGprocessor : public ImageHelper::ImageSource::Processor {
 			}
 			rms = ncc = numeric_limits<double>::quiet_NaN();
 		}
-		if (doCapFrame && !videoFromWebcam) {//if file, then save each frame
+		if (doCapFrame && (!videoFromWebcam || needToCapframe)) {//if file, then save each frame
 			keg::CapKeyFrame(keyframes,
-				tracker.curT, expMode==-1?Mat():frame, camR, camT, rms, ncc
+				tracker.curT, expMode==-1?Mat():orgFrame, camR, camT, rms, ncc
 #if KEG_DEBUG
 				, dur
 #endif
@@ -280,10 +290,10 @@ int main( int argc, char **argv )
 	int& experimentMode = processor.expMode;
 	std::string keyframeSavingPath;
 	int apriltagFamilyID = 4;
-	cfg.get("experimentMode", experimentMode);
-	cfg.get("keyframeSavingPath",keyframeSavingPath);
-	processor.doCapFrame = keyframeSavingPath.empty();
-	cfg.get("apriltagFamilyID",apriltagFamilyID);
+	experimentMode = cfg.get("experimentMode", 0);
+	keyframeSavingPath = cfg.get("keyframeSavingPath","");
+	processor.doCapFrame = !keyframeSavingPath.empty();
+	apriltagFamilyID = cfg.get("apriltagFamilyID",4);
 
 	//// ImageSource
 	cv::Ptr<ImageSource> is = helper::createImageSource(cfg.get("url","camera://0"));
@@ -307,17 +317,23 @@ int main( int argc, char **argv )
 		std::vector<double> K_;
 		if(!cfg->exist("K") || 9!=(cfg.getRoot()["K"]>>K_)) {
 			logli("[main warn] calibration matrix K"
-				" not correctly specified in config!");
-			return -1;
+				" not correctly specified in config, use default K!");
+		} else {
+			for(int i=0; i<9; ++i) K[i]=K_[i]/K_[8];
+			processor.tracker.loadK(K);
 		}
-		for(int i=0; i<9; ++i) K[i]=K_[i]/K_[8];
 	}
-	processor.tracker.loadK(K);
 	tagli("K matrix loaded:");
 	logli(helper::PrintMat<>(3,3,K));
 
 	//// TagDetector
-	processor.recognizer = new keg::AprilTagRecognizer;
+	std::string kegRecognizerName=cfg.get("keg:recognizer","apriltag");
+	if(kegRecognizerName=="apriltag") {
+		processor.recognizer = new keg::AprilTagRecognizer;
+	} else if(kegRecognizerName=="brief") {
+		processor.recognizer = new keg::BriefRecognizer;
+	}
+	tagli("keg recognizer = "<<processor.recognizer->name());
 	Ptr<TagFamily> tagFamily;
 	Ptr<TagDetector> detector;
 	tagFamily = TagFamilyFactory::create(apriltagFamilyID);
@@ -332,8 +348,13 @@ int main( int argc, char **argv )
 		tagle("create TagDetector fail!");
 		return -1;
 	}
-	processor.recognizer->tagFamily = tagFamily;
-	processor.recognizer->detector = detector;
+	if(kegRecognizerName=="apriltag") {
+		keg::AprilTagRecognizer* p = processor.recognizer.ptr<keg::AprilTagRecognizer>();
+		if(p!=0) {
+			p->tagFamily = tagFamily;
+			p->detector = detector;
+		}
+	}
 
 	if(!cfg->exist("templateFiles")) {
 		tagle("templateFiles not specified in KEG.cfg!");

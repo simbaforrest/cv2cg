@@ -57,28 +57,25 @@
 
 namespace klt {
 
-using namespace std;
-using namespace cv;
-
 class Tracker {
 protected:
-	vector<Point2f> oldX; //old pts to track
-	vector<Point2f> newX; //new pts being tracked
-	Mat oldframe; //previous gray frame
+	std::vector<cv::Point2f> oldX; //old pts to track
+	std::vector<cv::Point2f> newX; //new pts being tracked
+	cv::Mat oldframe; //previous gray frame
 
 public:
-	vector<uchar> status;
-	vector<float> err;
-	TermCriteria termcrit;
-	Size winSize;
+	std::vector<uchar> status;
+	std::vector<float> err;
+	cv::TermCriteria termcrit;
+	cv::Size winSize;
 	int maxLevel;
 	double derivedLambda;
-	fast::TrackParam tp;
+	//fast::TrackParam tp;
 
 	double ransacThresh;
 	double inlierThresh; //percentage of inlier to be considered as valid
 
-	vector<unsigned char> match_mask;
+	std::vector<unsigned char> match_mask;
 
 public:
 	Tracker(int winW=8, int winH=8,
@@ -98,14 +95,14 @@ public:
 	@param[in] tplX points on template image
 	@param[in] H current homography
 	*/
-	inline void init(const Mat& newframe,
-		const vector<Point2f>& tplX, const Mat& H)
+	inline void init(const cv::Mat& newframe,
+		const std::vector<cv::Point2f>& tplX, const cv::Mat& H)
 	{
 		assert(newframe.type()==CV_8UC1);
 		newX.resize(tplX.size());
-		Mat nptsmat(newX);
-		perspectiveTransform(Mat(tplX), nptsmat, H);
-		cornerSubPix(newframe, newX, winSize, Size(-1,-1), termcrit);
+		cv::Mat nptsmat(newX);
+		perspectiveTransform(cv::Mat(tplX), nptsmat, H);
+		cornerSubPix(newframe, newX, winSize, cv::Size(-1,-1), termcrit);
 		oldX.resize(newX.size());
 		std::copy(newX.begin(), newX.end(), oldX.begin());
 		newframe.copyTo(oldframe);
@@ -119,8 +116,8 @@ public:
 	@param[out] H homography to be updated
 	@param[in,out] image visualization target, default 0 means do not draw
 	*/
-	inline bool operator()(const Mat& newframe,
-		const vector<Point2f>& tplX, Mat& H, Mat *image=0)
+	inline bool operator()(const cv::Mat& newframe,
+		const std::vector<cv::Point2f>& tplX, cv::Mat& H, cv::Mat *image=0)
 	{
 		if(oldX.empty()) return false;
 		if(oldX.size()!=tplX.size()) return false;
@@ -136,8 +133,8 @@ public:
 			                 maxLevel, termcrit, derivedLambda);
 		if(!validateKLT( (int)tplX.size() )) return false;
 
-		Mat tmpH = findHomography(Mat(tplX), Mat(newX),
-				           match_mask, RANSAC, ransacThresh);
+		cv::Mat tmpH = findHomography(cv::Mat(tplX), cv::Mat(newX),
+			match_mask, cv::RANSAC, ransacThresh);
 		if( !validateRANSAC(newframe.size(), (int)tplX.size()) ) return false;
 
 		H = tmpH;
@@ -146,11 +143,11 @@ public:
 	}
 
 	inline void globalGeometricConstraintEhancement(
-		const vector<Point2f>& tplX, const Mat& H)
+		const std::vector<cv::Point2f>& tplX, const cv::Mat& H)
 	{
 		assert(newX.size()==tplX.size());
-		Mat nptsmat(newX);
-		perspectiveTransform(Mat(tplX), nptsmat, H);
+		cv::Mat nptsmat(newX);
+		perspectiveTransform(cv::Mat(tplX), nptsmat, H);
 	}
 
 	/**
@@ -158,7 +155,7 @@ public:
 	
 	@param[in,out] newframe current frame to be stored in variable oldframe
 	*/
-	inline void update(Mat& newframe) {
+	inline void update(cv::Mat& newframe) {
 		std::swap(oldframe, newframe);
 		std::swap(newX, oldX);
 	}
@@ -168,14 +165,12 @@ public:
 	
 	@param[in,out] image visualization target
 	*/
-	inline void drawTrail(Mat& image) {
+	inline void drawTrail(cv::Mat& image) {
 		for(int i=0; i<(int)newX.size(); ++i) {
 			if( status[i] ) {
 				circle(image, newX[i], 2, helper::CV_GREEN, -1);
-				line(image, newX[i], oldX[i], helper::CV_BLUE );
-			}
-			if(match_mask[i]) {
-				circle( image, newX[i], 1, helper::CV_RED, -1);
+				line(image, newX[i], oldX[i], match_mask[i]?
+					helper::CV_BLUE : helper::CV_GB );
 			}
 		}
 	}
@@ -190,7 +185,7 @@ protected: //internal helper functions
 		int cnt=0;
 		for(int i=0; i<(int)newX.size(); ++i) {
 			//to make these points rejected by RANSAC
-			newX[i] = status[i]?newX[i]:Point2f(0,0);
+			newX[i] = status[i]?newX[i]:cv::Point2f(0,0);
 			cnt += status[i];
 		}
 		return cnt >= inlierThresh*tsize;
@@ -202,10 +197,10 @@ protected: //internal helper functions
 	@param s size of current frame
 	@return true if RANSAC valid
 	*/
-	inline bool validateRANSAC(const Size& s, int tsize) {
+	inline bool validateRANSAC(const cv::Size& s, int tsize) {
 		int cnt = 0;
 		for(int i=0; i<(int)newX.size(); ++i) {
-			const Point2f& p = newX[i];
+			const cv::Point2f& p = newX[i];
 			cnt += match_mask[i] &&
 				p.x>0 && p.y>0 && p.x<s.width && p.y<s.height;
 		}

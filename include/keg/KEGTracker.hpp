@@ -145,7 +145,7 @@ public:
 	*/
 	inline void loadTemplate(string templatename, int maxNumKeys=100)
 	{
-		cout<<"[KEG] loading: "<<templatename<<endl;
+		logli("[KEG] loading: "<<templatename);
 		tdata.push_back(TemplateData());
 		TemplateData& td = tdata.back();
 		//load template
@@ -177,17 +177,18 @@ public:
 		//	new SurfAdjuster, threshLow, threshUp, mitr);
 		detector->detect(td.img, td.keys);
 #endif //end of USE_DYNAMIC_PYRAMID_FAST
-		const int step=td.keys.size()/maxNumKeys;
-		if(step>0) {
-			std::vector< cv::KeyPoint > tmp;
-			tmp.reserve(maxNumKeys);
-			for(int i=0; i<(int)td.keys.size(); i+=step) {
-				tmp.push_back(td.keys[i]);
+		if(td.keys.size()>maxNumKeys) {
+			struct KeyPointLessThan {
+				bool operator()(const cv::KeyPoint& a, const cv::KeyPoint& b) const {
+					return a.response > b.response;
+				}
+			} kplt;
+			std::sort(td.keys.begin(), td.keys.end(), kplt);//descending order w.r.t. response
+			while(td.keys.size()>maxNumKeys) {
+				td.keys.pop_back();
 			}
-			std::swap(tmp, td.keys);
 		}
-
-		cout<<"[KEG] #template keypoints="<<td.keys.size()<<endl;
+		logli("[KEG] #template keypoints="<<td.keys.size());
 
 		td.X.resize(td.keys.size());//fill tpts by all td.keys
 		for(int i=0; i<(int)td.keys.size(); ++i) {
