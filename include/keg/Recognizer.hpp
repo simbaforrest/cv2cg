@@ -57,8 +57,6 @@
 
 namespace keg {
 
-using namespace cv;
-using namespace std;
 using april::tag::TagFamily;
 using april::tag::TagDetector;
 using april::tag::TagDetection;
@@ -67,17 +65,22 @@ using april::tag::TagDetection;
 interface for keg recognizer
 */
 struct Recognizer {
-	virtual void operator()(Mat &nframe,
-		vector<Mat>& retH, vector<int>& retId,
+	virtual void operator()(cv::Mat &nframe,
+		std::vector<cv::Mat>& retH,
+		std::vector<int>& retId,
 		int errorThresh=0) = 0;
+	virtual std::string name() const {
+		return "void";
+	}
 };
 
 struct AprilTagRecognizer : public Recognizer {
 	Ptr<TagFamily> tagFamily;
 	Ptr<TagDetector> detector;
 
-	inline void operator()(Mat &nframe,
-		vector<Mat>& retH, vector<int>& retId,
+	inline void operator()(cv::Mat &nframe,
+		std::vector<cv::Mat>& retH,
+		std::vector<int>& retId,
 		int errorThresh=0)
 	{
 		retH.clear(); retId.clear();
@@ -90,6 +93,93 @@ struct AprilTagRecognizer : public Recognizer {
 
 			retId.push_back(dd.id);
 			retH.push_back( cv::Mat(3,3,CV_64FC1,dd.homography[0]) );
+		}
+	}
+
+	inline std::string name() const { return "apriltag"; }
+};
+
+struct BriefRecognizer : public Recognizer {
+	cv::BriefDescriptorExtractor brief;
+	cv::BFMatcher desc_matcher;
+	cv::GridAdaptedFeatureDetector detector;
+
+	std::vector<cv::KeyPoint> tpltKeys;
+	cv::Mat tpltDesc;
+
+	cv::Mat tpltI;
+
+	BriefRecognizer() : brief(32), desc_matcher(NORM_HAMMING),
+		detector(new FastFeatureDetector(10, true), 500, 4, 4)
+	{}
+
+	void init(cv::Mat& target) {
+		target.copyTo(tpltI);
+		detector.detect(tpltI, tpltKeys);
+		brief.compute(tpltI,tpltKeys, tpltDesc);
+		logli("[BriefRecognizer] find in template image #keys="<<tpltKeys.size());
+	}
+
+	inline std::string name() const { return "brief"; }
+
+	//Converts matching indices to xy points
+	inline void matches2points(
+		const std::vector<cv::KeyPoint>& train,
+		const std::vector<cv::KeyPoint>& query,
+		const std::vector<cv::DMatch>& matches,
+		std::vector<cv::Point2f>& pts_train,
+		std::vector<cv::Point2f>& pts_query)
+	{
+		pts_train.clear();
+		pts_query.clear();
+		pts_train.reserve(matches.size());
+		pts_query.reserve(matches.size());
+
+		for (size_t i = 0; i < matches.size(); ++i)
+		{
+			const cv::DMatch & dmatch = matches[i];
+
+			pts_query.push_back(query[dmatch.queryIdx].pt);
+			pts_train.push_back(train[dmatch.trainIdx].pt);
+		}
+	}
+
+	inline void operator()(
+		cv::Mat &nframe,
+		std::vector<cv::Mat>& retH,
+		std::vector<int>& retId,
+		int errorThresh=0)
+	{
+		if(tpltKeys.empty()) {
+			logli("[BriefRecognizer warn] no keypoints of template image in this recognizer!");
+			return;
+		}
+		std::vector<cv::KeyPoint> nkeys;
+		detector.detect(nframe, nkeys);
+		logli("[BriefRecognizer] find #nkeys="<<nkeys.size());
+
+		cv::Mat ndesc;
+		brief.compute(nframe, nkeys, ndesc);
+
+		std::vector<cv::DMatch> matches;
+		desc_matcher.match(ndesc, tpltDesc, matches);
+
+		std::vector<cv::Point2f> tpltX, nX;
+		matches2points(tpltKeys, nkeys, matches, tpltX, nX);
+
+		retId.clear(); retH.clear();
+		if (matches.size() > 5)
+		{
+			std::vector<unsigned char> match_mask;
+			cv::Mat H = cv::findHomography(tpltX, nX, cv::RANSAC, 4, match_mask);
+			if(cv::countNonZero(match_mask)>20) {
+				retId.push_back(0);
+				retH.push_back(H);
+			} else {
+				logli("[BriefRecognizer] no enough RANSAC inliers!");
+			}
+		} else {
+			logli("[BriefRecognizer] no enough match inliers!");
 		}
 	}
 };
