@@ -1,3 +1,4 @@
+#pragma once
 /************************************************************************\
 
   Copyright 2011 The University of Michigan.
@@ -53,7 +54,7 @@
 
 #include "AllHelpers.h"
 
-#include "FastTracker.hpp"
+//#include "FastTracker.hpp"
 
 namespace klt {
 
