@@ -58,6 +58,7 @@
 	#define USE_DYNAMIC_PYRAMID_FAST 0 //not a big deal on PC
 #endif
 
+#include "TemplateData.hpp"
 #include "KLTTracker.hpp"
 #include "esm/ESMInterface.h"
 #include "KeyFrame.hpp"
@@ -65,12 +66,9 @@
 
 namespace keg {
 
-using namespace cv;
-using namespace std;
-
 double defaultK[9] = {
-	9.1556072719327040e+02, 0., 3.1659567931197148e+02,
-	0.,	9.2300384975219845e+02, 2.8310067999512370e+02,
+	915, 0., 320,
+	0.,	915, 240,
 	0., 0., 1.
 };
 
@@ -100,22 +98,14 @@ y-axis: top to bottom of marker image
 */
 struct Tracker {
 public:
-	struct TemplateData {
-		int id; //correspond to which april tag
-		vector<KeyPoint> keys;
-		vector<Point2f> X; //template points, get from recognizer/detector
-		vector<Point2f> crns; //corners of template image
-		Mat img; //template image, CV_8UC1
-		Mat iHI; //inverse of init Homography, X_tag = iHI * X_keg
-	};
-	vector<TemplateData> tdata;
+	std::vector<TemplateData> tdata;
 	int curT; //current template being tracked
 
 	klt::Tracker roughTracker;
 	esm::Tracker refiner;
 	double nccThresh;
 
-	Mat H; //current homography that maps template points -> current points
+	cv::Mat H; //current homography that maps template points -> current points
 	double K[9];
 
 	bool doKstep; //whether to perform KLT
@@ -143,7 +133,7 @@ public:
 	@param templatename file path to the template image
 	@param maxNumKeys max number of keypoints needed
 	*/
-	inline void loadTemplate(string templatename, int maxNumKeys=100)
+	inline void loadTemplate(std::string templatename, int maxNumKeys=100)
 	{
 		logli("[KEG] loading: "<<templatename);
 		tdata.push_back(TemplateData());
@@ -158,7 +148,7 @@ public:
 		//GaussianBlur(td.img, td.img, Size(5,5), 4);
 
 		const int mitr = 100000;
-		Ptr<FeatureDetector> detector;
+		cv::Ptr<cv::FeatureDetector> detector;
 #if USE_DYNAMIC_PYRAMID_FAST
 		int fastThresh=15;
 		for(int i=0; i<mitr; ++i) {
@@ -217,7 +207,7 @@ public:
 	@param[in] delta rms limit for ESM refinement, 0.001 by default
 	@return true if init success
 	*/
-	inline bool init(Mat &nframe, Mat &initH,
+	inline bool init(cv::Mat &nframe, cv::Mat &initH,
 			double& rms, double & ncc,
 			int tid=0,
 			int maxiter=20, double deltaRMS=0.001)
@@ -250,7 +240,7 @@ public:
 	@param[in,out] image visualization target, default 0 means do not draw
 	@return false if loss-of-track
 	*/
-	inline bool operator()(Mat &nframe, double& rms, double& ncc, Mat *image=0) {
+	inline bool operator()(cv::Mat &nframe, double& rms, double& ncc, Mat *image=0) {
 		if(curT<0 || curT>=(int)tdata.size()) return false;
 		const TemplateData& td = tdata[curT];
 		bool ret;
@@ -286,10 +276,10 @@ protected: //internal helper functions
 	@param[in] cpts 4 corner points on template image
 	@return true if estimated homography is valid
 	*/
-	inline bool validateH(const vector<Point2f>& cpts) const {
-		vector<Point2f> tmp(4);
-		Mat tmpmat(tmp);
-		perspectiveTransform(Mat(cpts), tmpmat, H);
+	inline bool validateH(const std::vector<cv::Point2f>& cpts) const {
+		std::vector<cv::Point2f> tmp(4);
+		cv::Mat tmpmat(tmp);
+		perspectiveTransform(cv::Mat(cpts), tmpmat, H);
 		double tmpdir[3][2]= {
 			{tmp[1].x-tmp[0].x, tmp[1].y-tmp[0].y},
 			{tmp[2].x-tmp[0].x, tmp[2].y-tmp[0].y},
@@ -329,7 +319,7 @@ public:
 		}
 	}
 
-	inline void drawHomo(Mat& image) {
+	inline void drawHomo(cv::Mat& image) {
 		const TemplateData& td = tdata[curT];
 		double crns[4][2]={
 				{0, td.img.rows},
@@ -340,7 +330,7 @@ public:
 		helper::drawHomography(image, this->H, crns);
 	}
 
-	inline void draw3D(Mat &image) {
+	inline void draw3D(cv::Mat &image) {
 		const TemplateData& td = tdata[curT];
 		double crns[8][3] = {
 			{0, 0, 0},

@@ -1,3 +1,4 @@
+#pragma once
 /************************************************************************\
 
   Copyright 2011 The University of Michigan.
@@ -55,6 +56,8 @@
 
 #include "apriltag/apriltag.hpp"
 
+#include "TemplateData.hpp"
+
 namespace keg {
 
 using april::tag::TagFamily;
@@ -69,9 +72,10 @@ struct Recognizer {
 		std::vector<cv::Mat>& retH,
 		std::vector<int>& retId,
 		int errorThresh=0) = 0;
-	virtual std::string name() const {
-		return "void";
-	}
+
+	virtual bool init(std::vector<TemplateData> &tds) = 0;
+
+	virtual std::string name() const { return ""; }
 };
 
 struct AprilTagRecognizer : public Recognizer {
@@ -96,6 +100,25 @@ struct AprilTagRecognizer : public Recognizer {
 		}
 	}
 
+	inline bool init(std::vector<TemplateData> &tds) {
+		for(int i=0; i<(int)tds.size(); ++i) {
+			keg::TemplateData& td = tds[i];
+			vector<int> ids;
+			vector<Mat> HIs;
+			(*this)(td.img, HIs, ids);
+			if((int)ids.size() != 1) {
+				logle("[AprilTagRecognizer.init error] found none/multiple apriltag"
+					" on template image #"<<i<<", exit.");
+				return false;
+			} else {
+				td.iHI = HIs.front().inv();
+				td.id = ids.front();
+				logli("[AprilTagRecognizer.init] found tag "<<td.id);
+			}
+		}
+		return true;
+	}
+
 	inline std::string name() const { return "apriltag"; }
 };
 
@@ -107,23 +130,31 @@ struct BriefRecognizer : public Recognizer {
 	std::vector<cv::KeyPoint> tpltKeys;
 	cv::Mat tpltDesc;
 
-	cv::Mat tpltI;
-
 	BriefRecognizer() : brief(32), desc_matcher(NORM_HAMMING),
 		detector(new FastFeatureDetector(10, true), 500, 4, 4)
 	{}
 
-	void init(cv::Mat& target) {
-		target.copyTo(tpltI);
-		detector.detect(tpltI, tpltKeys);
-		brief.compute(tpltI,tpltKeys, tpltDesc);
-		logli("[BriefRecognizer] find in template image #keys="<<tpltKeys.size());
+	inline bool init(std::vector<TemplateData> &tds) {
+		if(tds.size()>1) {
+			logle("[BriefRecognizer error] only accept one template; for multiple templates, use AprilTagRecognizer!");
+			return false;
+		}
+		TemplateData& tpltData = tds.front();
+		detector.detect(tpltData.img, tpltKeys);
+
+		vector<int> ids;
+		vector<Mat> HIs;
+		brief.compute(tpltData.img, tpltKeys, tpltDesc);
+		tpltData.iHI = cv::Mat::eye(3,3,CV_64FC1);
+		tpltData.id = 0;
+		logli("[BriefRecognizer.init] inited tag "<<tpltData.id<<" with #keys="<<tpltKeys.size());
+		return true;
 	}
 
 	inline std::string name() const { return "brief"; }
 
 	//Converts matching indices to xy points
-	inline void matches2points(
+	static inline void matches2points(
 		const std::vector<cv::KeyPoint>& train,
 		const std::vector<cv::KeyPoint>& query,
 		const std::vector<cv::DMatch>& matches,
@@ -151,7 +182,7 @@ struct BriefRecognizer : public Recognizer {
 		int errorThresh=0)
 	{
 		if(tpltKeys.empty()) {
-			logli("[BriefRecognizer warn] no keypoints of template image in this recognizer!");
+			logli("[BriefRecognizer warn] template data not inited yet in this recognizer!");
 			return;
 		}
 		std::vector<cv::KeyPoint> nkeys;
@@ -172,7 +203,7 @@ struct BriefRecognizer : public Recognizer {
 		{
 			std::vector<unsigned char> match_mask;
 			cv::Mat H = cv::findHomography(tpltX, nX, cv::RANSAC, 4, match_mask);
-			if(cv::countNonZero(match_mask)>20) {
+			if(cv::countNonZero(match_mask)>errorThresh) {
 				retId.push_back(0);
 				retH.push_back(H);
 			} else {
