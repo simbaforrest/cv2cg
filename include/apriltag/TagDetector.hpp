@@ -226,7 +226,7 @@ struct TagDetector {
 	static void countingSortLongArray(vector<UINT64>& v, int vlength, int maxv, UINT64 mask) {
 		if (maxv < 0) {
 			for (int i = 0; i < vlength; i++) {
-				maxv = std::max(maxv, (int) (v[i]&mask));
+				maxv = (std::max)(maxv, (int) (v[i]&mask));
 			}
 		}
 
@@ -280,7 +280,7 @@ struct TagDetector {
 
 		Mat fim = fimOrig;
 		if (sigma > 0) {
-			int filtsz = ((int) std::max(3.0, 3*sigma)) | 1;
+			int filtsz = ((int) (std::max)(3.0, 3*sigma)) | 1;
 			GaussianBlur(fimOrig, fim, cv::Size(filtsz,filtsz), sigma);
 		}
 #if TAG_DEBUG_PERFORMANCE
@@ -310,7 +310,7 @@ struct TagDetector {
 				fimseg = fim;
 			} else {
 				// blur anew.
-				int filtsz = ((int) std::max(3.0, 3*segSigma)) | 1;
+				int filtsz = ((int) (std::max)(3.0, 3*segSigma)) | 1;
 				GaussianBlur(fimOrig, fimseg, cv::Size(filtsz,filtsz), segSigma);
 			}
 		}
@@ -450,20 +450,20 @@ struct TagDetector {
 				// them.
 				double bshift = helper::mod2pi((tmina+tmaxa)/2, (tminb+tmaxb)/2) - (tminb+tmaxb)/2;
 
-				double tminab = std::min(tmina, tminb + bshift);
-				double tmaxab = std::max(tmaxa, tmaxb + bshift);
+				double tminab = (std::min)(tmina, tminb + bshift);
+				double tmaxab = (std::max)(tmaxa, tmaxb + bshift);
 
 				if (tmaxab - tminab > 2*CV_PI) { // corner case that's probably not useful to handle correctly. oh well.
 					tmaxab = tminab + 2*CV_PI;
 				}
 
-				double mmaxab = std::max(mmax[ida], mmax[idb]);
-				double mminab = std::min(mmin[ida], mmin[idb]);
+				double mmaxab = (std::max)(mmax[ida], mmax[idb]);
+				double mminab = (std::min)(mmin[ida], mmin[idb]);
 
 				// merge these two clusters?
 				double costab = (tmaxab - tminab);
-				if (costab <= (std::min(costa, costb) + thetaThresh/(sza+szb)) &&
-				        (mmaxab-mminab) <= std::min(mmax[ida]-mmin[ida], mmax[idb]-mmin[idb]) + magThresh/(sza+szb)) {
+				if (costab <= ((std::min)(costa, costb) + thetaThresh/(sza+szb)) &&
+				        (mmaxab-mminab) <= (std::min)(mmax[ida]-mmin[ida], mmax[idb]-mmin[idb]) + magThresh/(sza+szb)) {
 
 					int idab = uf.Union(ida, idb);
 
@@ -573,7 +573,7 @@ struct TagDetector {
 
 #if TAG_DEBUG_DRAW
 			double cx = (seg.x0 + seg.x1)/2, cy = (seg.y0 + seg.y1)/2;
-			double notch = std::max(2.0, 0.1*seg.length);
+			double notch = (std::max)(2.0, 0.1*seg.length);
 			cv::Scalar co(rand()%255, rand()%255, rand()%255);
 			line(debugSegmentation, cv::Point(seg.x0,seg.y0), cv::Point(seg.x1,seg.y1), co);
 			line(debugSegmentation, cv::Point(cx,cy), cv::Point(cx+notch*sin(seg.theta),cy-notch*cos(seg.theta)), co);
@@ -633,7 +633,7 @@ struct TagDetector {
 					continue;
 				}
 
-				if( std::max(distance(px,py, parent.x1, parent.y1),
+				if( (std::max)(distance(px,py, parent.x1, parent.y1),
 				             distance(px,py, child.x0 , child.y0 ) ) > parent.length ) {
 					continue;
 				}
@@ -948,8 +948,8 @@ struct TagDetector {
 					}
 
 					// check aspect ratio
-					double dmax = std::max(std::max(d0, d1), std::max(d2, d3));
-					double dmin = std::min(std::min(d0, d1), std::min(d2, d3));
+					double dmax = (std::max)((std::max)(d0, d1), (std::max)(d2, d3));
+					double dmin = (std::min)((std::min)(d0, d1), (std::min)(d2, d3));
 
 					if (dmax > dmin * maxQuadAspectRatio) {
 						bad = true;

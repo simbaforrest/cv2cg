@@ -320,10 +320,10 @@ struct TagFamily {
 
 			for (int j = i+1; j < (int)codes.size(); j++) {
 
-				int dd = std::min(std::min(hammingDistance(r0, codes[j]),
-				                           hammingDistance(r1, codes[j])),
-				                  std::min(hammingDistance(r2, codes[j]),
-				                           hammingDistance(r3, codes[j])));
+				int dd = (std::min)((std::min)(hammingDistance(r0, codes[j]),
+				                               hammingDistance(r1, codes[j])),
+				                    (std::min)(hammingDistance(r2, codes[j]),
+				                               hammingDistance(r3, codes[j])));
 
 				hammings[dd]++;
 			}

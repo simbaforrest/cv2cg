@@ -174,6 +174,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	bool useEachValidPhoto; //whether do log for each frame
 	bool logVisFrame;
 	std::string outputDir;
+	bool doLogIfNoValidDetections; //whether to log even if there is no valid detections
 
 	bool undistortImage;
 	int hammingThresh;
@@ -193,6 +194,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		logVisFrame = cfg.get<bool>("AprilTagprocessor:logVisFrame",false);
 		undistortImage = cfg.get<int>("AprilTagprocessor:undistortImage",false);
 		gDetector->segDecimate = cfg.get<bool>("AprilTagprocessor:segDecimate",false);
+		doLogIfNoValidDetections = cfg.get<bool>("AprilTagprocessor:doLogIfNoValidDetections",false);
 
 		loadIntrinsics();
 		loadMarkerSets();
@@ -344,7 +346,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		}
 
 		//logging results
-		if(nValidDetections>0 && (doLog || (isPhoto && useEachValidPhoto) || (!isPhoto && doRecord))) {
+		if((nValidDetections>0 || doLogIfNoValidDetections) && (doLog || (isPhoto && useEachValidPhoto) || (!isPhoto && doRecord))) {
 			doLog=false;
 			static int cnt=0;
 			std::string fileid = helper::num2str(cnt, 5);

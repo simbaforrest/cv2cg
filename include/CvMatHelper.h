@@ -144,7 +144,7 @@ inline void inv(int n, double const *A, double *Ainv, int method=cv::DECOMP_SVD)
 inline void svd(int m, int n,
                 double const *A, double *U, double *S, double *VT)
 {
-	int mn = std::min(m,n);
+	int mn = (std::min)(m,n);
 	cv::Mat mA(m,n,CV_64FC1,const_cast<double*>(A));
 	cv::Mat mU(m,mn,CV_64FC1,U);
 	cv::Mat mS(mn,mn,CV_64FC1,S);
