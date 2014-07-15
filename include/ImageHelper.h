@@ -128,7 +128,7 @@ public:
 			lastdur = PM.toc();
 			if(verbose) logli("[ImageSource::run] process duration = "<<lastdur<<" ms");
 			if(step) { step=false; pause(true); }
-			double waitdur = openFromWebcam?8:std::max(idealdur-lastdur, 8.0);
+			double waitdur = openFromWebcam?8:(std::max)(idealdur-lastdur, 8.0);
 			char key = cv::waitKey(waitdur);
 			processor.handle(key);
 			switch(key) {

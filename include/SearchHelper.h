@@ -146,17 +146,17 @@ struct Gridder {
 		int ix1 = (int) ((x + range - x0)/metersPerCell);
 		int iy1 = (int) ((y + range - y0)/metersPerCell);
 
-		ix0 = std::max(0, ix0);
-		ix0 = std::min(width-1, ix0);
+		ix0 = (std::max)(0, ix0);
+		ix0 = (std::min)(width-1, ix0);
 
-		ix1 = std::max(0, ix1);
-		ix1 = std::min(width-1, ix1);
+		ix1 = (std::max)(0, ix1);
+		ix1 = (std::min)(width-1, ix1);
 
-		iy0 = std::max(0, iy0);
-		iy0 = std::min(height-1, iy0);
+		iy0 = (std::max)(0, iy0);
+		iy0 = (std::min)(height-1, iy0);
 
-		iy1 = std::max(0, iy1);
-		iy1 = std::min(height-1, iy1);
+		iy1 = (std::max)(0, iy1);
+		iy1 = (std::min)(height-1, iy1);
 
 		return Iterator(ix0,ix1,iy0,iy1,this);
 	}

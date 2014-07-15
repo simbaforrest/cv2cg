@@ -162,8 +162,8 @@ struct Segment {
 		for (int i=0; i<(int)xyw.size(); ++i) {
 			const cv::Vec3d &tp = xyw[i];
 			double lcoord = lineCoordinate(tp[0],tp[1],dx,dy);
-			maxcoord = std::max(maxcoord, lcoord);
-			mincoord = std::min(mincoord, lcoord);
+			maxcoord = (std::max)(maxcoord, lcoord);
+			mincoord = (std::min)(mincoord, lcoord);
 		}
 		this->x0 = xp+mincoord*dx;
 		this->y0 = yp+mincoord*dy;
