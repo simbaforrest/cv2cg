@@ -24,17 +24,20 @@ ENDIF()
 
 ########### Find packages ###########
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/)
+### OpenCV
 FIND_PACKAGE(OpenCV REQUIRED)
 SET(CV2CG_3RDPARTY_LINKEROPTION
 	${CV2CG_3RDPARTY_LINKEROPTION}
 	${OpenCV_LIBS}
 )
 
+### Eigen
 #FIND_PACKAGE(Eigen3 REQUIRED)
 #INCLUDE_DIRECTORIES(
 #	${EIGEN3_INCLUDE_DIR}
 #)
 
+### FlyCap
 OPTION(USE_FLYCAP "Use Point Grey FlyCapture2 library" OFF)
 IF(USE_FLYCAP)
 	FIND_PACKAGE(FlyCapture REQUIRED)
@@ -45,13 +48,30 @@ IF(USE_FLYCAP)
 		${CV2CG_3RDPARTY_LINKEROPTION}
 		${FLYCAPTURE_LIBRARY}
 	)
-ENDIF(USE_FLYCAP)
+ENDIF()
+
+### LCM
+OPTION(USE_LCM "Use LCM for inter-process communication" OFF)
+IF(USE_LCM)
+	FIND_PACKAGE(LCM REQUIRED)
+	INCLUDE_DIRECTORIES(
+		${LCM_INCLUDE_DIR}
+		${LCM_INCLUDE_DIR}/WinSpecific/include
+	)
+	SET(CV2CG_3RDPARTY_LINKEROPTION
+		${CV2CG_3RDPARTY_LINKEROPTION}
+		${LCM_LIBRARY}
+	)
+ENDIF()
+
+############################# create cv2cgConfig.h
 CONFIGURE_FILE(
   "${CMAKE_CURRENT_SOURCE_DIR}/include/cv2cgConfig.h.in"
   "${CMAKE_CURRENT_BINARY_DIR}/include/cv2cgConfig.h")
 INCLUDE_DIRECTORIES(
 	"${CMAKE_CURRENT_BINARY_DIR}/include"
 )
+
 ########### uninstall files ###############
 CONFIGURE_FILE(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
@@ -64,6 +84,7 @@ ADD_CUSTOM_TARGET(uninstall
 ########### Macros ###############
 include(${CMAKE_SOURCE_DIR}/cmake/AutoAppConfig.cmake)
 include(${CMAKE_SOURCE_DIR}/cmake/AutoAddSubDir.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/BuildLCMType.cmake)
   
 ########### Subdirectories ###############
 ADD_SUBDIRECTORY(application)

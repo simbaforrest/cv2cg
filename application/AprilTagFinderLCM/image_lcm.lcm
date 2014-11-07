@@ -1,0 +1,11 @@
+package image_lcm;
+
+struct image_t
+{
+	int64_t	timestamp;
+	int32_t	w;
+	int32_t	h;
+	int32_t	c;
+	int32_t	len;
+	byte	I[len];
+}
