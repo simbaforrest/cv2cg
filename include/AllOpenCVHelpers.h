@@ -26,9 +26,7 @@
 #include "UtilHelper.h"
 #include "VisHelper.h"
 #include "ImageHelper.h"
-#include "RotationHelper.h"
 #include "PerformanceHelper.h"
-#include "DetectorHelper.h"
 
 namespace helper
 {
@@ -37,7 +35,5 @@ using namespace CameraHelper;
 using namespace VisHelper;
 using namespace UtilHelper;
 using namespace ImageHelper;
-using namespace RotationHelper;
 using namespace PerformanceHelper;
-using namespace DetectorHelper;
 }
