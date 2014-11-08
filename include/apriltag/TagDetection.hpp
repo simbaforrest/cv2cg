@@ -64,8 +64,8 @@ namespace tag
 
 struct TagDetection {
 	bool good;		/** Is the detection good enough? **/
-	long obsCode;	/** Observed code **/
-	long code;		/** Matched code **/
+	UINT64 obsCode;	/** Observed code **/
+	UINT64 code;		/** Matched code **/
 	int id;			/** What was the ID of the detected tag? **/
 	int hammingDistance; /** The hamming distance between the detected code and the true code. **/
 	int rotation;	/** How many 90 degree rotations were required to align the code. **/

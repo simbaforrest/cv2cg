@@ -129,7 +129,7 @@ public:
 			if(verbose) logli("[ImageSource::run] process duration = "<<lastdur<<" ms");
 			if(step) { step=false; pause(true); }
 			double waitdur = openFromWebcam?8:(std::max)(idealdur-lastdur, 8.0);
-			char key = cv::waitKey(waitdur);
+			char key = cv::waitKey(static_cast<int>(waitdur));
 			processor.handle(key);
 			switch(key) {
 			case 'v':
@@ -372,7 +372,7 @@ public:
 
 		char buf[1024]={0};
 		while( fgets(buf,1024,fptr)!=0 ) {
-			int len = strlen(buf);
+			int len = static_cast<int>(strlen(buf));
 			if(len>1) {
 #ifdef _WIN32
 				imnames.push_back(dirstr+std::string(buf,buf+len-1));

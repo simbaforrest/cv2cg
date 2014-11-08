@@ -258,8 +258,8 @@ struct TagFamily {
 	}
 
 	void writeAllImagesMosaic(std::string filepath) const {
-		int width = (int) sqrt((float)codes.size());
-		int height = codes.size()/width+1;
+		int width = static_cast<int>( sqrt((float)codes.size()) );
+		int height = static_cast<int>( codes.size()/width+1 );
 		int dim = getTagRenderDimension();
 
 		cv::Mat im(dim*height, dim*width, CV_8UC3, cv::Scalar(255,255,255));

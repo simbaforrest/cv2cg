@@ -36,6 +36,7 @@ inline std::string getCurrentDir()
 
 #elif _WIN32
 #include <direct.h>
+#pragma warning(disable: 4996)
 inline std::string getCurrentDir()
 {
 	char* pcwd;

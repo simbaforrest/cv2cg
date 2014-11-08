@@ -104,8 +104,8 @@ inline void drawPyramid(cv::Mat& image,
 	for(int i=0; i<3; ++i) {
 		for(int j=i*4; j<4+i*4; ++j) {
 			int s=lineidx[j][0], e=lineidx[j][1];
-			cv::Point r1(p[s][0],p[s][1]);
-			cv::Point r2(p[e][0],p[e][1]);
+			cv::Point r1(static_cast<int>(p[s][0]), static_cast<int>(p[s][1]));
+			cv::Point r2(static_cast<int>(p[e][0]), static_cast<int>(p[e][1]));
 			cv::line( image, r1, r2, linecolors[j%4], 2 );
 		}
 	}
