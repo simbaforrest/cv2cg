@@ -1,53 +1,43 @@
 #pragma once
-/*
-*  Copyright (c) 2011  Chen Feng (cforrest (at) umich.edu)
-*
-*  This program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2 of the License, or
-*  (at your option) any later version.
-*
-*  This program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*  GNU General Public License for more details.
-*
-*/
-
-/* LogHelper.h
-a lightweight logger with dynamic log level control at runtime
-Option before including this header file:
-Turn off all log by defining SUPPRESS_LOG
-Dynamically control log level by setting:
-LogHelper::GLogControl::Instance().level
-to following four types:
-LogHelper::LOG_QUIET -> completely quiet
-LogHelper::LOG_ERROR -> only log error
-LogHelper::LOG_INFO -> log error + info
-LogHelper::LOG_DEBUG -> log everything
-Provide 2 types of log:
-1. <log|tag>[l]<e|i|d>
-i.e. loge/logi/.../logle/.../logld/.../tage/.../tagld
-mix between c++ style and c style; same log speed
-with type 2.
-example:
-loge("an error happened!\n");
-logle("another error, par="<<par);
-
-2. c<log|tag><e|i|d>
-i.e. cloge/clogi/.../ctage/.../ctagd
-totally similar to printf
-example:
-cloge("an error happened, par=%d\n",par);
-*/
+/* LogHelper
+ * a lightweight logger with dynamic log level control at runtime
+ * Option before including this header file:
+ *   Turn off all log by defining SUPPRESS_LOG.
+ *
+ * Dynamically control log level by setting:
+ *   LogHelper::GLogControl::Instance().level
+ * to following four types:
+ *   LogHelper::LOG_QUIET -> completely quiet
+ *   LogHelper::LOG_ERROR -> only log error
+ *   LogHelper::LOG_INFO -> log error + info
+ *   LogHelper::LOG_DEBUG -> log everything
+ *
+ * Provide 2 types of log:
+ *   1. <log|tag>[l]<e|i|d>
+ *      i.e. loge/logi/.../logle/.../logld/.../tage/.../tagld
+ *      mix between c++ style and c style; same log speed
+ *      with type 2.
+ *      example:
+ *      loge("an error happened!\n");
+ *      logle("another error, par="<<par);
+ *
+ *   2. c<log|tag><e|i|d>
+ *      i.e. cloge/clogi/.../ctage/.../ctagd
+ *      totally similar to printf
+ *      example:
+ *      cloge("an error happened, par=%d\n",par); */
 
 #include <iostream>
 #include <iomanip>
 #include <string>
 #include <vector>
+
+#ifdef _MSC_VER
+#pragma warning(disable: 4996)
+#endif
 #include <time.h>
 
-#include "singleton.hpp"
+#include "Singleton.hpp"
 
 namespace LogHelper {
 
@@ -152,71 +142,3 @@ namespace LogHelper {
 #endif//SUPPRESS_LOG
 
 }//end of LogHelper
-
-///////////////////////////////////////////////////
-#ifdef LOG_TEST
-
-#include <time.h>
-#define NTIMES 10000
-
-const char LogMode[4][10] = {
-	{"LOG_QUIET"},
-	{"LOG_ERROR"},
-	{"LOG_INFO"},
-	{"LOG_DEBUG"}
-};
-
-namespace test {
-	struct Test{
-		void operator()() {
-			logle("logle"<<12);
-			logli("logli"<<13);
-			logld("logld"<<14);
-
-			loge("loge\\n\n");
-			logi("logi\\n\n");
-			logd("logd\\n\n");
-
-			//c style
-			cloge("test cloge: %d\n", 10);
-			ctage("test ctage: %f\n", 22.2);
-			clogi("test clogi: %d\n", 10);
-			ctagi("test ctagi: %f\n", 22.2);
-			clogd("test clogd: %d\n", 10);
-			ctagd("test ctagd: %f\n", 22.2);
-		}
-	};
-}
-
-int main(int argc, const char **argv)
-{
-	using namespace LogHelper;
-	int t;
-	test::Test tt;
-	GLogControl::Instance().level = LOG_ERROR;
-	for(int cnt=0; cnt<NTIMES; ++cnt) {
-		const int sw = cnt % 4;
-		switch(sw) {
-		case 0: GLogControl::Instance().level = LOG_QUIET; break;
-		case 1: GLogControl::Instance().level = LOG_ERROR; break;
-		case 2: GLogControl::Instance().level = LOG_INFO; break;
-		case 3: GLogControl::Instance().level = LOG_DEBUG; break;
-		};
-		//std::cout<<"-----------------------------"<<sw<<std::endl;
-		tt();
-	}
-	t = clock();
-
-	std::cout
-#ifdef SUPPRESS_LOG
-		<<"Suppressed Log "
-#else
-		<<"Log "
-#endif
-		<<NTIMES
-		<<" times took me "<<t
-		<<" clicks ("<<((float)t)/CLOCKS_PER_SEC
-		<<" seconds)."<<std::endl;
-	return 0;
-}
-#endif//LOG_TEST

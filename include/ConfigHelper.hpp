@@ -1,20 +1,43 @@
 #pragma once
-/*
- *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
+/* ConfigHelper
+ * provide easy config file for CPP applications
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Config can be loaded from config file and also reset by command line arguments.
+ * Format:
+ * A config file is internally a tree of ConfigNode. There are 3 types of such
+ * nodes:
+ * 1. Simple:
+ *    key=val
+ * 2. Array (nodes are separated by any of ",; \n\r\t"):
+ *    key=[node1,node2;node3 node4
+ *         node5 node6]
+ * 3. Map (similarly, nodes are separated by any of ",; \n\r\t"):
+ *    key={subkey1=node1, subkey2=node2;}
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * For example:
+ * varInt=1
+ * varDouble=12.23
+ * varString=hello
+ * varArray=[1, 2, 3]
+ * varArray2=[1 2;
+ * 3,4
+ * 5 6]
+ * varMap={key1=val1, key2=val2 key3=val3;
+ * key4=val4, key5=[v1,v2,v3;v4,v5 v6]}
+ * varArr=[
+ * v1, v2 v3, v4;
+ * v5, v6, v7, v8
+ * v9, v10, v11 v12;
+ * {key1=val1, key2=val2}
+ * ]
  *
- */
-
-/* config.hpp */
+ * Note:
+ * 1. that comment line must be a separate line whose first non-white char is '#'
+ * 2. Array or map immediately followed by ";" means that when printing this node,
+ *    it will be printed in a short format like [abc......] or {123......}
+ * 3. characters "=[]{},; \n\r\t" are reserved for parsing control; avoid using
+ *    these characters in your config file, otherwise parsing may fail; also
+ *    characters ":@" are reserved for key_path; avoid using these as key's name */
 
 #include <iostream>
 #include <fstream>
@@ -26,50 +49,13 @@
 #include <queue>
 #include <cassert>
 
-#include "singleton.hpp"
-#include "StringHelper.h"
-#include "IOHelper.h"
-#include "DirHelper.h"
+#include "Singleton.hpp"
+#include "StringHelper.hpp"
+#include "IOHelper.hpp"
+#include "DirHelper.hpp"
 
 namespace ConfigHelper {
-/**
-Config can be loaded from config file and also reset by command line arguments
-Format:
-A config file is internally a tree of ConfigNode. There are 3 types of such
-nodes:
-1. Simple:
-	key=val
-2. Array (nodes are separated by any of ",; \n\r\t"):
-	key=[node1,node2;node3 node4
-	 node5	node6]
-3. Map (similarly, nodes are separated by any of ",; \n\r\t"):
-	key={subkey1=node1, subkey2=node2;}
 
-For example:
-varInt=1
-varDouble=12.23
-varString=hello
-varArray=[1, 2, 3]
-varArray2=[1 2;
-3,4
-5 6]
-varMap={key1=val1, key2=val2 key3=val3;
-key4=val4, key5=[v1,v2,v3;v4,v5 v6]}
-varArr=[
-v1, v2 v3, v4;
-v5, v6, v7, v8
-v9, v10, v11 v12;
-{key1=val1, key2=val2}
-]
-
-Note:
-1. that comment line must be a separate line whose first non-white char is '#'
-2. Array or map immediately followed by ";" means that when printing this node,
-it will be printed in a short format like [abc......] or {123......}
-3. characters "=[]{},; \n\r\t" are reserved for parsing control; avoid using
-these characters in your config file, otherwise parsing may fail; also
-characters ":@" are reserved for key_path; avoid using these as key's name
- */
 class ConfigNode {
 public:
 	typedef ConfigNode* Ptr;
@@ -127,8 +113,8 @@ public:
 	inline int size() const {
 		switch(type) {
 		case SIMPLE: return 1;
-		case ARRAY: return data.array->size();
-		case MAP: return data.map->size();
+		case ARRAY: return static_cast<int>(data.array->size());
+		case MAP: return static_cast<int>(data.map->size());
 		default: throw std::invalid_argument(
 				"[ConfigNode::size error] not recognized type="
 						+ StringHelper::num2str(type));
@@ -638,7 +624,6 @@ protected:
 	//make ConfigNode not copy-able
     ConfigNode();
     ConfigNode(const ConfigNode&);
-    const ConfigNode& operator=(const ConfigNode& rhs);
     ConfigNode& operator=(ConfigNode& rhs);
 };
 
@@ -738,25 +723,25 @@ public:
 	 */
 	inline bool autoLoad(std::string fname, std::string fdir="") {
 		std::string fpath;
-		if (fdir != "") {
-			fpath = fdir + fname;
+		if (!fdir.empty()) {
+			fpath = DirHelper::FullFile()<<fdir<<fname;
 			if (load(fpath))
 				return true;
-			logli("tried but failed to load " << fpath);
+			std::cout<< "tried but failed to load " << fpath << std::endl;
 		}
 
 		//1. try to use current dir
-		fpath = DirHelper::getCurrentDir()+"/"+fname;
+		fpath = DirHelper::FullFile() << DirHelper::getCurrentDir() << fname;
 		if (load(fpath))
 			return true;
-		logli("tried but failed to load "<<fpath);
+		std::cout<< "tried but failed to load "<<fpath << std::endl;
 
 		//2. try to search in path
 		std::vector<std::string> all_path=DirHelper::getEnvPath();
 		for(int i=0; i<(int)all_path.size(); ++i) {
 			std::string& path=all_path[i];
-			if(load(path+"/"+fname)) return true;
-			logli("tried but failed to load "<<path);
+			if(load(DirHelper::FullFile()<<path<<fname)) return true;
+			std::cout<<"tried but failed to load "<<path<<std::endl;
 		}
 		return false;
 	}

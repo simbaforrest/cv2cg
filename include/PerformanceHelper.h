@@ -18,7 +18,7 @@
    measure performance */
 
 #include <limits.h> //quiet_NaN
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 
 namespace PerformanceHelper
 {
