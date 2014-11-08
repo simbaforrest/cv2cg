@@ -69,14 +69,14 @@ template<typename T>
 int hammingDistance(T a, T b)
 {
 	std::bitset<sizeof(T)*8> axb( (UINT64)a^b );
-	return axb.count();
+	return static_cast<int>(axb.count());
 }
 
 template<typename T>
 int popcount(T a)
 {
 	std::bitset<sizeof(T)*8> bita( (UINT64)a );
-	return bita.count();
+	return static_cast<int>(bita.count());
 }
 
 #undef UINT64

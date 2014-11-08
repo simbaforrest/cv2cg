@@ -303,7 +303,7 @@ inline void intrinsicCalibration(const std::vector<std::vector<cv::Point2f> >& i
 						  std::vector<cv::Mat>* pCovrs=0, std::vector<cv::Mat>* pCovts=0)
 {
 	assert(imagePtsArr.size()==worldPtsArr.size());
-	const int nImgs = imagePtsArr.size();
+	const int nImgs = static_cast<int>(imagePtsArr.size());
 
 	int flag=0;
 	if(isRig3d) {

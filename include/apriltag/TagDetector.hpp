@@ -330,7 +330,7 @@ struct TagDetector {
 				float Iy = fimseg.at<float>(y+1, x) - fimseg.at<float>(y-1, x);
 
 				fimMag.at<float>(y,x) = Ix*Ix + Iy*Iy;
-				fimTheta.at<float>(y,x) = fast_atan2(Iy, Ix);
+				fimTheta.at<float>(y,x) = static_cast<float>(fast_atan2(Iy, Ix));
 			}
 		}
 #if TAG_DEBUG_PERFORMANCE
