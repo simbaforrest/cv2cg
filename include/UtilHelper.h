@@ -20,7 +20,7 @@
 #include <string>
 #include <bitset>
 
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 
 namespace UtilHelper
 {

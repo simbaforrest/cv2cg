@@ -19,7 +19,7 @@
 
 #include <stdlib.h> //rand
 
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 
 namespace VisHelper
 {

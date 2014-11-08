@@ -22,12 +22,12 @@
 #include <string>
 #include <vector>
 
-#include "StringHelper.h"
-#include "DirHelper.h"
-#include "IOHelper.h"
-#include "LogHelper.h"
+#include "StringHelper.hpp"
+#include "DirHelper.hpp"
+#include "IOHelper.hpp"
+#include "LogHelper.hpp"
 
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 #include "PerformanceHelper.h"
 
 #ifdef USE_FLYCAP

@@ -20,7 +20,7 @@
 #include <string.h> //memset
 #include <math.h>   //sqrt
 
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 
 namespace CvMatHelper
 {

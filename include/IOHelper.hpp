@@ -1,21 +1,6 @@
 #pragma once
-/*
- *  Copyright (c) 2010  Chen Feng (cforrest (at) umich.edu)
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- */
-
-/* IOHelper.h
-   helpers related to input/output  */
+/* IOHelper
+ * helpers related to input/output */
 
 #include <iostream>
 #include <iomanip>
@@ -56,22 +41,6 @@ inline bool readValidLine(std::istream &in,
 		break;
 	}
 	return line.length()!=0;
-}
-
-//read calibration matrix from stream
-//format: (only numbers and white characters, no other stuff)
-//K[0] K[1] K[2]
-//K[3] K[4] K[5]
-//K[6] K[7] K[8]
-template<typename Precision>
-bool readCalibFile(std::istream &in, Precision K[9])
-{
-	for(int i=0; i<9; ++i) {
-		double val;
-		in >> val;
-		K[i] = (Precision) val;
-	}
-	return true;
 }
 
 /* print the given n x m matrix */

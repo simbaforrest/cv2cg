@@ -1,7 +1,7 @@
 #pragma once
-/*	singleton.h
- *		Author: (c) Chen Feng <simbaforrest@gmail.com>
- */
+/* Singleton
+ * template class Singleton for easy creation of Singleton class
+ * which is safer than global variables */
 
 namespace helper {
 

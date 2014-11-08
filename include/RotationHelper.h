@@ -19,7 +19,7 @@
 
 #include <math.h>  //sqrt
 
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 #include "CvMatHelper.h"
 
 namespace RotationHelper

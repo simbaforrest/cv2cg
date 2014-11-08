@@ -17,7 +17,7 @@
 /* DetectorHelper.h
    my own detectors */
 
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 
 namespace DetectorHelper
 {

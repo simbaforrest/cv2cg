@@ -17,7 +17,7 @@
 /* AllOpenCVHelpers.h
    a set of helper functions for easier access to opencv */
 
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 
 #include "cv2cgConfig.h"
 

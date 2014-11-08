@@ -17,7 +17,7 @@
 /* CameraHelper.h
    Multiple View Geometry related helper functions */
 
-#include "OpenCVHeaders.h"
+#include "AllOpenCVHeaders.h"
 
 #include "CvMatHelper.h"
 
