@@ -44,6 +44,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	lcm::LCM lcm;
 	std::string TAG_CHANNEL_NAME;
 	int publishImage;
+	double publishImageScale;
 	std::string IMG_CHANNEL_NAME;
 
 	virtual ~AprilTagprocessor() {}
@@ -62,6 +63,8 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		TAG_CHANNEL_NAME = cfg.get<std::string>("TAG_CHANNEL_NAME","AprilTagFinderLCM.tag");
 		IMG_CHANNEL_NAME = cfg.get<std::string>("IMG_CHANNEL_NAME","AprilTagFinderLCM.img");
 		publishImage = cfg.get<int>("publishImage",0); //by default: do not publish image
+		publishImageScale = cfg.get<double>("publishImageScale",1.0); //by default: no scaling
+		if(publishImageScale<=0) publishImageScale=1.0; //must be positive
 	}
 	
 	static void TagDetection2TagPose_t(const TagDetection& td, apriltag_lcm::TagPose_t& out)
@@ -141,7 +144,14 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		}
 		if(publishImage>0) {
 			image_lcm::image_t img_msg;
-			Mat2image_t(frame2process, img_msg);
+			cv::Mat frame2publish;
+			if (publishImageScale!=1.0) {
+				cv::resize(frame2process, frame2publish, cv::Size(),
+					publishImageScale, publishImageScale);
+			} else {
+				frame2publish = frame2process;
+			}
+			Mat2image_t(frame2publish, img_msg);
 			img_msg.timestamp=timestamp;
 			lcm.publish(IMG_CHANNEL_NAME, &img_msg);
 		}
@@ -231,7 +241,8 @@ int main(const int argc, const char **argv )
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
 	is->run(processor,-1, false,
 		cfg.get<bool>("ImageSource:pause", is->getPause()),
-		cfg.get<bool>("ImageSource:loop", is->getLoop()) );
+		cfg.get<bool>("ImageSource:loop", is->getLoop()),
+		cfg.get<bool>("ImageSource:showImage", is->getShowImage()) );
 
 	cout<<"[main] DONE...exit!"<<endl;
 	return 0;

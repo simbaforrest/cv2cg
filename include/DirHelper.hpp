@@ -30,7 +30,7 @@ public:
 	inline FullFile& operator<<(std::string other) {
 		if (other.empty())
 			return *this;
-		if (out.empty() || out.back()==filesep || other.front()==filesep)
+		if (out.empty() || out[out.length()-1]==filesep || other[0]==filesep)
 			out += other;
 		else
 			out += filesep + other;

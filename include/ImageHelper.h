@@ -102,11 +102,14 @@ public:
 	*/
 	virtual void run(Processor& processor,
 		double idealfps = 20, bool verbose=false,
-		bool pa=false, bool lo=false) {
+		bool pa=false, bool lo=false, bool si=true) {
 		pause(pa);
 		loop(lo);
-		cv::namedWindow("frame",cv::WINDOW_NORMAL);
-		cvMoveWindow("frame",10,10);
+		showImage(si);
+		if(doShowImage) {
+			cv::namedWindow("frame",cv::WINDOW_NORMAL);
+			cvMoveWindow("frame",10,10);
+		}
 		bool openFromWebcam = (this->classname() == "ImageSource_Camera"
 #ifdef USE_FLYCAP
 			|| this->classname() == "ImageSource_PGR"
@@ -123,11 +126,12 @@ public:
 			this->get(frame);
 
 			processor(frame);
-			cv::imshow("frame",frame);
+			if(doShowImage) cv::imshow("frame",frame);
 
 			lastdur = PM.toc();
 			if(verbose) logli("[ImageSource::run] process duration = "<<lastdur<<" ms");
 			if(step) { step=false; pause(true); }
+			if(!doShowImage) continue;
 			double waitdur = openFromWebcam?8:(std::max)(idealdur-lastdur, 8.0);
 			char key = cv::waitKey(static_cast<int>(waitdur));
 			processor.handle(key);
@@ -177,12 +181,15 @@ public:
 	inline bool getPause() const { return isPause; }
 	inline void loop(bool val=true) { isLoop=val; }
 	inline bool getLoop() const { return isLoop; }
+	inline void showImage(bool val=true) { doShowImage=val; }
+	inline bool getShowImage() { return doShowImage; }
 
-	ImageSource() : sourceDir(".") { isLoop=true; isPause=true; }
+	ImageSource() : sourceDir(".") { isLoop=true; isPause=true; doShowImage=true; }
 	virtual ~ImageSource() {}
 protected:
 	bool isLoop;
 	bool isPause;
+	bool doShowImage;
 	std::string sourceDir; //directory of the source
 };
 
