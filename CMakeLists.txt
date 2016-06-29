@@ -25,6 +25,12 @@ ENDIF()
 ########### Find packages ###########
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/)
 ### OpenCV
+OPTION(USE_OPENCV_STATIC "Use static version of OpenCV" OFF)
+if(USE_OPENCV_STATIC)
+	set(OpenCV_STATIC ON)
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+endif()
 FIND_PACKAGE(OpenCV REQUIRED)
 SET(CV2CG_3RDPARTY_LINKEROPTION
 	${CV2CG_3RDPARTY_LINKEROPTION}
@@ -38,7 +44,15 @@ SET(CV2CG_3RDPARTY_LINKEROPTION
 #)
 
 ### LCH
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/lch/include/")
+if(NOT LCH_INCLUDE_DIR)
+	set(LCH_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lch/include/" CACHE PATH "include directory for LCH")
+endif()
+if(EXISTS ${LCH_INCLUDE_DIR}/lch.hpp)
+	include_directories(${LCH_INCLUDE_DIR})
+	message(STATUS "LCH: ${LCH_INCLUDE_DIR}")
+else()
+	message(FATAL_ERROR "Please specify a valid root directory for LCH! You may use: git clone https://github.com/simbaforrest/lch.git")
+endif()
 
 ### FlyCap
 OPTION(USE_FLYCAP "Use Point Grey FlyCapture2 library" OFF)
@@ -52,6 +66,8 @@ IF(USE_FLYCAP)
 		${CV2CG_3RDPARTY_LINKEROPTION}
 		${FLYCAPTURE_LIBRARY}
 	)
+	message(STATUS "FLYCAP include: ${FLYCAPTURE_INCLUDE_PATH}")
+	message(STATUS "FLYCAP libs: ${FLYCAPTURE_LIBRARY}")
 ENDIF()
 
 ### LCM
@@ -66,6 +82,8 @@ IF(USE_LCM)
 		${CV2CG_3RDPARTY_LINKEROPTION}
 		${LCM_LIBRARY}
 	)
+	message(STATUS "LCM include: ${LCM_INCLUDE_DIR}")
+	message(STATUS "LCM libs: ${LCM_LIBRARY}")
 ENDIF()
 
 ########### uninstall files ###############
