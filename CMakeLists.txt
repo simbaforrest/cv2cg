@@ -37,6 +37,9 @@ SET(CV2CG_3RDPARTY_LINKEROPTION
 #	${EIGEN3_INCLUDE_DIR}
 #)
 
+### LCH
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/lch/include/")
+
 ### FlyCap
 OPTION(USE_FLYCAP "Use Point Grey FlyCapture2 library" OFF)
 IF(USE_FLYCAP)

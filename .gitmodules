@@ -1,0 +1,3 @@
+[submodule "lch"]
+	path = lch
+	url = https://github.com/simbaforrest/lch.git
