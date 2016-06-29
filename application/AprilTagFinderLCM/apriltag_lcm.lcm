@@ -8,6 +8,8 @@ struct TagPose_t
 	double  cxy[2];
 	double  homography[3][3];
 	string  familyName;
+	double  R[3][3];
+	double  t[3];
 }
 
 struct TagPoseArray_t

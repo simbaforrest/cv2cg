@@ -4,6 +4,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm> //std::replace
 #include <stdlib.h> //getenv
 
 #include "StringHelper.hpp"
@@ -11,9 +12,11 @@
 namespace DirHelper
 {
 #ifdef _WIN32
-const char filesep = '\\';
+	const char filesep = '\\';
+	const char another_filesep = '/';
 #else
-const char filesep = '/';
+	const char filesep = '/';
+	const char another_filesep = '\\';
 #endif
 
 // similar to matlab's fullfile
@@ -25,7 +28,7 @@ public:
 	FullFile(std::string init="") : out(init) {}
 	FullFile(FullFile& other) : out(other.out) {}
 
-	inline operator std::string() { return out; }
+	inline operator std::string() const { return out; }
 
 	inline FullFile& operator<<(std::string other) {
 		if (other.empty())
@@ -45,40 +48,45 @@ public:
 inline void fileparts(const std::string& str, std::string* pPath=0,
 	std::string* pName=0, std::string* pExt=0)
 {
-	std::string::size_type last_sep = str.find_last_of(filesep);
-	std::string::size_type last_dot = str.find_last_of('.');
-	if (last_sep!=std::string::npos && last_dot<last_sep) // "D:\parent\child.folderA\file", "D:\parent\child.folderA\"
+	std::string str2(str);
+	std::replace(str2.begin(), str2.end(), another_filesep, filesep); //make sure no mixed filesep
+	std::string::size_type last_sep = str2.find_last_of(filesep);
+	std::string::size_type last_dot = str2.find_last_of('.');
+	if (last_sep != std::string::npos && last_dot<last_sep) // "D:\parent\child.folderA\file", "D:\parent\child.folderA\"
 		last_dot = std::string::npos;
 
 	std::string path, name, ext;
 
-	if (last_sep==std::string::npos) {
+	if (last_sep == std::string::npos) {
 		path = "";
-		if(last_dot==std::string::npos) { // "test"
-			name = str;
+		if (last_dot == std::string::npos) { // "test"
+			name = str2;
 			ext = "";
-		} else { // "test.txt"
-			name = str.substr(0, last_dot);
-			ext = str.substr(last_dot+1);
 		}
-	} else {
-		path = str.substr(0, last_sep);
-		if(last_dot==std::string::npos) { // "d:/parent/test", "d:/parent/child/"
-			name = str.substr(last_sep+1);
-			ext = "";
-		} else { // "d:/parent/test.txt"
-			name = str.substr(last_sep+1, last_dot-last_sep-1);
-			ext = str.substr(last_dot+1);
+		else { // "test.txt"
+			name = str2.substr(0, last_dot);
+			ext = str2.substr(last_dot + 1);
 		}
 	}
-	
-	if(pPath!=0) {
+	else {
+		path = str2.substr(0, last_sep);
+		if (last_dot == std::string::npos) { // "d:/parent/test", "d:/parent/child/"
+			name = str2.substr(last_sep + 1);
+			ext = "";
+		}
+		else { // "d:/parent/test.txt"
+			name = str2.substr(last_sep + 1, last_dot - last_sep - 1);
+			ext = str2.substr(last_dot + 1);
+		}
+	}
+
+	if (pPath != 0) {
 		*pPath = path;
 	}
-	if(pName!=0) {
+	if (pName != 0) {
 		*pName = name;
 	}
-	if(pExt!=0) {
+	if (pExt != 0) {
 		*pExt = ext;
 	}
 }
@@ -175,6 +183,18 @@ inline std::string &legalDir(std::string &dir)
 		dir.push_back(filesep);    //ensure last char==sep
 	}
 	return dir;
+}
+
+inline bool isAbsolutePath(const std::string &path)
+{
+#ifdef _WIN32
+	return path.length()>=3
+		&& (('a'<=path[0] && path[0]<='z') || ('A'<=path[0] && path[0]<='Z') )
+		&& path[1]==':'
+		&& (path[2]==filesep || path[2]==another_filesep);
+#else
+	return path.length()>=1 && path[0]==filesep;
+#endif
 }
 
 }//DirHelper

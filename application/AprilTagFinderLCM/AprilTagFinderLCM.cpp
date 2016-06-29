@@ -6,8 +6,6 @@
 
 #include <iostream>
 #include <string>
-#include <fstream>
-#include <sstream>
 
 #include "AllHelpers.h"
 #include "apriltag/apriltag.hpp"
@@ -47,6 +45,8 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 	double publishImageScale;
 	std::string IMG_CHANNEL_NAME;
 
+	double K[9];
+
 	virtual ~AprilTagprocessor() {}
 	AprilTagprocessor() : isPhoto(false) {
 		if(!lcm.good()) {
@@ -65,15 +65,28 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		publishImage = cfg.get<int>("publishImage",0); //by default: do not publish image
 		publishImageScale = cfg.get<double>("publishImageScale",1.0); //by default: no scaling
 		if(publishImageScale<=0) publishImageScale=1.0; //must be positive
+		
+		std::vector<double> K_;
+		if(!cfg->exist("K") || 9!=(cfg.getRoot()["K"]>>K_)) {
+			logli("[AprilTagFinderLCM.warn] calibration matrix K"
+				" not correctly specified in config!");
+			K[0] = 525; K[1]=0;   K[2]=320;
+			K[3] = 0;   K[4]=525; K[5]=240;
+			K[6] = 0;   K[7]=0;   K[8]=1;
+		} else {
+			for(int i=0; i<9; ++i) K[i] = K_[i]/K_[8];
+		}
+		logli("[AprilTagFinderLCM] K=\n"<<helper::PrintMat<>(3,3,K));
 	}
 	
-	static void TagDetection2TagPose_t(const TagDetection& td, apriltag_lcm::TagPose_t& out)
+	static void TagDetection2TagPose_t(const TagDetection& td, apriltag_lcm::TagPose_t& out, double K[9])
 	{
 		out.id = td.id;
 		out.hammingDistance = td.hammingDistance;
 		std::copy(&(td.p[0][0]), &(td.p[0][0])+8, &(out.p[0][0]));
 		std::copy(td.cxy, td.cxy+2, out.cxy);
 		std::copy(&(td.homography[0][0]), &(td.homography[0][0])+9, &(out.homography[0][0]));
+		helper::RTfromKH(K, &td.homography[0][0], &out.R[0][0], out.t, true);
 		out.familyName = td.familyName;
 	}
 
@@ -126,7 +139,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		for(int i=0; i<(int)detections.size(); ++i) {
 			TagDetection &dd = detections[i];
 			if(dd.hammingDistance>this->hammingThresh) continue;
-			TagDetection2TagPose_t(dd, msg.detections[nValidDetections]);
+			TagDetection2TagPose_t(dd, msg.detections[nValidDetections], K);
 			++nValidDetections;
 
 			logld("id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation);

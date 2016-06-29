@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <csignal> //signal SIGINT
 
 #include "StringHelper.hpp"
 #include "DirHelper.hpp"
@@ -37,8 +38,17 @@
 #include "flycap2opencv.hpp"
 #endif//USE_FLYCAP
 
+extern "C" {
+	inline void signalHandler_ImageSourceInterrupt( int signum )
+	{
+		logli("User interrupt by Ctrl+C, exit!");
+		exit(signum);
+	}
+};
+
 namespace ImageHelper
 {
+
 /**
 \class ImageSource ImageHelper.h "ImageHelper.h"
 \brief Interface for easier access to different image sources such as videos,
@@ -106,6 +116,7 @@ public:
 		pause(pa);
 		loop(lo);
 		showImage(si);
+		signal(SIGINT, signalHandler_ImageSourceInterrupt);
 		if(doShowImage) {
 			cv::namedWindow("frame",cv::WINDOW_NORMAL);
 			cvMoveWindow("frame",10,10);
@@ -182,7 +193,7 @@ public:
 	inline void loop(bool val=true) { isLoop=val; }
 	inline bool getLoop() const { return isLoop; }
 	inline void showImage(bool val=true) { doShowImage=val; }
-	inline bool getShowImage() { return doShowImage; }
+	inline bool getShowImage() const { return doShowImage; }
 
 	ImageSource() : sourceDir(".") { isLoop=true; isPause=true; doShowImage=true; }
 	virtual ~ImageSource() {}
@@ -471,9 +482,15 @@ public:
 			logle("[ImageSource_List error] can't open file: "<<content);
 			exit(-1);
 		}
+		this->sourceDir = DirHelper::getFileDir(content);
 		std::string line;
 		while( IOHelper::readValidLine(is, line) ) {
-			imnames.push_back(line);
+			if (DirHelper::isAbsolutePath(line)) {
+				this->sourceDir = DirHelper::getFileDir(line);
+				imnames.push_back(line);
+			} else {
+				imnames.push_back(DirHelper::FullFile()<<this->sourceDir<<line);
+			}
 			logli(imnames.back());
 		}
 		is.close();
@@ -496,8 +513,6 @@ public:
 			curF = (int)imnames.size(); //set done since no image available
 			logle("[ImageSource_List] warning: no image available!");
 		}
-
-		this->sourceDir = DirHelper::getFileDir(content);
 	}
 
 	inline std::string classname() {

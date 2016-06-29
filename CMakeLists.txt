@@ -40,6 +40,7 @@ SET(CV2CG_3RDPARTY_LINKEROPTION
 ### FlyCap
 OPTION(USE_FLYCAP "Use Point Grey FlyCapture2 library" OFF)
 IF(USE_FLYCAP)
+	add_definitions( -DUSE_FLYCAP )
 	FIND_PACKAGE(FlyCapture REQUIRED)
 	INCLUDE_DIRECTORIES(
 		${FLYCAPTURE_INCLUDE_PATH}
@@ -63,14 +64,6 @@ IF(USE_LCM)
 		${LCM_LIBRARY}
 	)
 ENDIF()
-
-############################# create cv2cgConfig.h
-CONFIGURE_FILE(
-  "${CMAKE_CURRENT_SOURCE_DIR}/include/cv2cgConfig.h.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/include/cv2cgConfig.h")
-INCLUDE_DIRECTORIES(
-	"${CMAKE_CURRENT_BINARY_DIR}/include"
-)
 
 ########### uninstall files ###############
 CONFIGURE_FILE(

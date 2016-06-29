@@ -19,8 +19,6 @@
 
 #include "AllOpenCVHeaders.h"
 
-#include "cv2cgConfig.h"
-
 #include "CvMatHelper.h"
 #include "CameraHelper.h"
 #include "UtilHelper.h"
