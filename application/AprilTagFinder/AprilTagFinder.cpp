@@ -399,9 +399,9 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		case 'r':
 			doRecord=true; break;
 		case '1':
-			LogHelper::GLogControl::Instance().level = LogHelper::LOG_DEBUG; break;
+			LogHelper::GetOrSetLogLevel(LogHelper::LOG_DEBUG); break;
 		case '2':
-			LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO; break;
+			LogHelper::GetOrSetLogLevel(LogHelper::LOG_INFO); break;
 		case 'h':
 			cout<<"d: segDecimate\n"
 				"l: do log\n"
@@ -433,7 +433,7 @@ void usage(const int argc, const char **argv ) {
 
 int main(const int argc, const char **argv )
 {
-	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
+	LogHelper::GetOrSetLogLevel(LogHelper::LOG_INFO);
 
 	if (argc > 1) {
 		std::string arg1(argv[1]);

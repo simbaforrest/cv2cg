@@ -75,7 +75,7 @@ void usage( int argc, char **argv ) {
 
 int main( int argc, char **argv )
 {
-	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
+	LogHelper::GetOrSetLogLevel(LogHelper::LOG_INFO);
 	if(argc<2) {
 		usage(argc,argv);
 		return -1;

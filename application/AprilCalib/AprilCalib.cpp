@@ -287,9 +287,9 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 			gDetector->segDecimate = !(gDetector->segDecimate);
 			logli("[ProcessVideo] detector.segDecimate="<<gDetector->segDecimate); break;
 		case '1':
-			LogHelper::GLogControl::Instance().level = LogHelper::LOG_DEBUG; break;
+			LogHelper::GetOrSetLogLevel(LogHelper::LOG_DEBUG); break;
 		case '2':
-			LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO; break;
+			LogHelper::GetOrSetLogLevel(LogHelper::LOG_INFO); break;
 		case 'l':
 			doLog=true; break;
 		case 'h':
@@ -322,7 +322,7 @@ void usage(const int argc, const char **argv ) {
 
 int main(const int argc, const char **argv )
 {
-	LogHelper::GLogControl::Instance().level = LogHelper::LOG_INFO;
+	LogHelper::GetOrSetLogLevel(LogHelper::LOG_INFO);
 
 	if (argc > 1) {
 		std::string arg1(argv[1]);
