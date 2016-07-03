@@ -1,50 +1,3 @@
-/************************************************************************\
-
-  Copyright 2011 The University of Michigan.
-  All Rights Reserved.
-
-  Permission to use, copy, modify and distribute this software
-  and its documentation for educational, research and non-profit
-  purposes, without fee, and without a written agreement is
-  hereby granted, provided that the above copyright notice and
-  the following paragraph appear in all copies.
-
-  THIS SOFTWARE IS PROVIDED BY THE UNIVERSITY OF MICHIGAN "AS IS" AND 
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-  PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE UNIVERSITY OF MICHIGAN
-  OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
-  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
-  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR 
-  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
-  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  
-  Authors:
-
-			Chen Feng
-            Laboratory for Interactive Visualization in Engineering (LIVE)
-			Department of Civil and Environmental Engineering
-            2350 Hayward Street, Suite 2340 GG Brown Building
-            University of Michigan
-            Ann Arbor, MI 48109-2125
-			Phone:    (734)764-8495
-			EMail:    simbaforrest@gmail.com
-			WWW site: http://www.umich.edu/~cforrest
-            
-			Vineet R. Kamat
-            Laboratory for Interactive Visualization in Engineering (LIVE)
-			Department of Civil and Environmental Engineering
-            2350 Hayward Street, Suite 2340 GG Brown Building
-            University of Michigan
-            Ann Arbor, MI 48109-2125
-            Phone:    (734)764-4325
-			EMail:    vkamat@umich.edu
-			WWW site: http://pathfinder.engin.umich.edu
-
-\************************************************************************/
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -71,6 +24,46 @@ void usage( int argc, char **argv ) {
 	}
 	cout<<"default ID:    0"<<endl;
 	cout<<"default Scale: 1.0"<<endl;
+}
+
+bool write_calib_pattern_cfg(
+	const TagFamily &tagFamily,
+	const std::string& filepath, const int start_id,
+	const int rows, const int cols, const int scale)
+{
+	const int dim = tagFamily.getTagRenderDimension()*scale;
+	std::vector<float> tagCenters;
+	std::vector<std::string> markerNames;
+
+	for(int r=0,id=start_id; r<rows; ++r) {
+		for(int c=0; c<cols; ++c,++id) {
+			tagCenters.push_back(c*dim+dim*0.5); //x
+			tagCenters.push_back(r*dim+dim*0.5); //y
+			tagCenters.push_back(0); //z
+
+			markerNames.push_back(tagFamily.familyName()+cv::format(".%d", id));
+		}
+	}
+
+	std::ofstream fout((filepath+".cfg").c_str());
+	if(!fout.is_open()) {
+		return false;
+	}
+
+	fout<<"CalibRig={"<<std::endl;
+	fout<<"\tmode=2d\n"
+		  "\tmarkerNames=["<<markerNames[0];
+	for(size_t i=1; i<markerNames.size(); ++i) {
+		fout<<", "<<markerNames[i];
+	}
+	fout<<"];\n"
+		  "\ttagCenters=["<<std::endl;
+	for(size_t i=0; i<markerNames.size(); ++i) {
+		fout<<"\t"<<tagCenters[i*3+0]<<" "<<tagCenters[i*3+1]<<" "<<tagCenters[i*3+2]<<std::endl;
+	}
+	fout<<"\t];\n}"<<std::endl;
+
+	return true;
 }
 
 int main( int argc, char **argv )
@@ -101,6 +94,9 @@ int main( int argc, char **argv )
 	} else {
 		std::vector<string> pars=helper::split(argv[4], ',');
 		tagFamily->writeImagesMosaic(
+			dir+pars[3], atoi(pars[0].c_str()),
+			atoi(pars[1].c_str()), atoi(pars[2].c_str()), tagscale);
+		write_calib_pattern_cfg(*tagFamily,
 			dir+pars[3], atoi(pars[0].c_str()),
 			atoi(pars[1].c_str()), atoi(pars[2].c_str()), tagscale);
 	}
