@@ -1,0 +1,3 @@
+[submodule "3rdparty/lch"]
+	path = 3rdparty/lch
+	url = https://github.com/simbaforrest/lch.git

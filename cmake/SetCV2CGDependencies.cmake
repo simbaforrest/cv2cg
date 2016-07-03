@@ -19,13 +19,13 @@ SET(CV2CG_3RDPARTY_LINKEROPTION
 
 ### LCH
 if(NOT LCH_INCLUDE_DIR)
-	set(LCH_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lch/include/" CACHE PATH "include directory for LCH")
+	set(LCH_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/lch/include/" CACHE PATH "include directory for LCH")
 endif()
 if(EXISTS ${LCH_INCLUDE_DIR}/lch.hpp)
 	include_directories(${LCH_INCLUDE_DIR})
 	message(STATUS "LCH: ${LCH_INCLUDE_DIR}")
 else()
-	message(FATAL_ERROR "Please specify a valid root directory for LCH! You may use: git clone https://github.com/simbaforrest/lch.git")
+	message(FATAL_ERROR "Please specify a valid root directory for LCH (https://github.com/simbaforrest/lch.git)!")
 endif()
 
 ### FlyCap
