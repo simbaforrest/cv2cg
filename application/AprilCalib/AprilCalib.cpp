@@ -1,50 +1,3 @@
-/************************************************************************\
-
-  Copyright 2011 The University of Michigan.
-  All Rights Reserved.
-
-  Permission to use, copy, modify and distribute this software
-  and its documentation for educational, research and non-profit
-  purposes, without fee, and without a written agreement is
-  hereby granted, provided that the above copyright notice and
-  the following paragraph appear in all copies.
-
-  THIS SOFTWARE IS PROVIDED BY THE UNIVERSITY OF MICHIGAN "AS IS" AND 
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-  PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE UNIVERSITY OF MICHIGAN
-  OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
-  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
-  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR 
-  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
-  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  
-  Authors:
-
-			Chen Feng
-            Laboratory for Interactive Visualization in Engineering (LIVE)
-			Department of Civil and Environmental Engineering
-            2350 Hayward Street, Suite 2340 GG Brown Building
-            University of Michigan
-            Ann Arbor, MI 48109-2125
-			Phone:    (734)764-8495
-			EMail:    simbaforrest@gmail.com
-			WWW site: http://www.umich.edu/~cforrest
-            
-			Vineet R. Kamat
-            Laboratory for Interactive Visualization in Engineering (LIVE)
-			Department of Civil and Environmental Engineering
-            2350 Hayward Street, Suite 2340 GG Brown Building
-            University of Michigan
-            Ann Arbor, MI 48109-2125
-            Phone:    (734)764-4325
-			EMail:    vkamat@umich.edu
-			WWW site: http://pathfinder.engin.umich.edu
-
-\************************************************************************/
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -145,9 +98,16 @@ struct CalibRig {
 } gRig;
 
 struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
+	typedef std::map<std::string, cv::Point2f> String2Point2f;
+	String2Point2f name2pt;
+
 	double tagTextScale;
 	int tagTextThickness;
 	bool doLog;
+	bool doAutoLog;
+	int autoLogCountDown;
+	int autoLogPixTh;
+	int autoLogFreeze;
 	bool isPhoto;
 	bool useEachValidPhoto;
 	bool logVisFrame;
@@ -156,11 +116,14 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	int nDistCoeffs;
 	std::vector<std::vector<cv::Point2f> > imagePtsArr;
 	std::vector<std::vector<cv::Point3f> > worldPtsArr;
-	cv::Mat K;
+	cv::Mat K, CovK;
 	double rmsThresh;
 
+	int AUTO_LOG_COUNTDOWN;
+	int AUTO_LOG_FREEZE;
+
 	virtual ~AprilCalibprocessor() {}
-	AprilCalibprocessor() : doLog(false), isPhoto(false) {
+	AprilCalibprocessor() : doLog(false), isPhoto(false), autoLogFreeze(0) {
 		ConfigHelper::ConfigNode::Ptr cfg_ptr = GConfig::Instance()->getChild("AprilCalibprocessor");
 		assert(cfg_ptr!=0);
 		ConfigHelper::ConfigNode& cfg=*cfg_ptr;
@@ -170,14 +133,25 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 		rmsThresh = cfg.get<int>("rmsThresh",2);
 		nDistCoeffs = cfg.get<int>("nDistCoeffs",0);
 		logVisFrame = cfg.get<bool>("logVisFrame",false);
+		doAutoLog = cfg.get<bool>("doAutoLog", true);
+		autoLogPixTh = cfg.get<int>("autoLogPixTh", 10);
+		autoLogCountDown = AUTO_LOG_COUNTDOWN = cfg.get<int>("AUTO_LOG_COUNTDOWN", 10);
+		AUTO_LOG_FREEZE = cfg.get<int>("AUTO_LOG_FREEZE", 30);
 		if(nDistCoeffs>5) {
 			nDistCoeffs=5;
 			logli("[AprilCalibprocessor warn] AprilCalib::nDistCoeffs>5, set back to 5!");
 		}
 		gDetector->segDecimate = cfg.get<bool>("segDecimate",false);
+		CovK = cv::Mat::eye(9,9,cv::DataType<double>::type) * 100;
 	}
 /////// Override
 	void operator()(cv::Mat& frame) {
+		if(autoLogFreeze>0) {
+			--autoLogFreeze;
+			return;
+		}
+
+		//1. process frame
 		static helper::PerformanceMeasurer PM;
 		vector<TagDetection> detections;
 		cv::Mat orgFrame;
@@ -191,10 +165,17 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 		worldPts.reserve(detections.size());
 		imagePts.reserve(detections.size());
 
+		bool allDetectionSteady = true, hasDetection = false;
+
 		logld(">>> find: ");
 		for(int i=0; i<(int)detections.size(); ++i) {
 			TagDetection &dd = detections[i];
 			if(dd.hammingDistance>0) continue; //strict!
+			hasDetection = true;
+
+			if(doAutoLog && !isPhoto && allDetectionSteady) {
+				allDetectionSteady = !hasChangedMoreThan(dd, autoLogPixTh);
+			}
 
 			double worldPt[3];
 			if(!gRig.name2worldPt(dd.name(), worldPt)) {
@@ -213,72 +194,136 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 			cv::circle(frame, cv::Point2d(dd.p[0][0],dd.p[0][1]), 3, helper::CV_GREEN, 2);
 		}
 
+		{//visualization
+			cv::putText( frame,
+				doAutoLog?
+				cv::format("captured=%d, countdown=%d",imagePtsArr.size(),autoLogCountDown)
+				:cv::format("captured=%d",imagePtsArr.size()),
+				cv::Point(5,15), CV_FONT_NORMAL, 0.5, helper::CV_BLUE );
+
+			cv::Mat ck;
+			cv::sqrt(CovK.diag(), ck);
+			cv::putText( frame,
+				cv::format("sigma: fx=%.2f, fy=%.2f, cx=%.2f, cy=%.2f",
+				ck.at<double>(0), ck.at<double>(1), ck.at<double>(2), ck.at<double>(3)),
+				cv::Point(5,35), CV_FONT_NORMAL, 0.5, helper::CV_RED );
+		}
+
+		//2. do calibration
 		if((worldPts.size()>=8 && gRig.isTag3d)
 			|| (worldPts.size()>=4 && !gRig.isTag3d))
-		{//TODO: need to judge whether is planar structure
-			cv::Mat Ut, Xwt, P;
-			cv::Mat(imagePts).reshape(1).convertTo(Ut, cv::DataType<double>::type);
-			cv::Mat(worldPts).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
-			if(gRig.isTag3d) {
-				cv::Mat K0,Rwc,twc;
-				helper::dlt3<double>(Ut.t(), Xwt.t(), P);
-				helper::decomposeP10<double>(P, K0, Rwc, twc);
-				logli("K_dlt="<<K0);
-				if(this->K.empty()) K0.copyTo(this->K);
+		{//TODO: need to judge whether is degenerated case (planar structure for 3d or line for 2d)
+			if(!gRig.isTag3d && helper::cloudShape(worldPts)<=1) {
+				autoLogCountDown=AUTO_LOG_COUNTDOWN;
+				return;
 			}
+			if(doAutoLog && !isPhoto) {
+				doLog = hasDetection && allDetectionSteady;
+				updateName2Pt(detections);
+				if(doLog) {
+					--autoLogCountDown;
+				} else {
+					autoLogCountDown=AUTO_LOG_COUNTDOWN; //not captured, restart
+				}
+				if(autoLogCountDown==0) {
+					autoLogCountDown=AUTO_LOG_COUNTDOWN; //to be captured, restart
+					autoLogFreeze=AUTO_LOG_FREEZE;
+				} else {
+					doLog=false;
+				}
+			}
+			addNewFrameAndCalib(frame, orgFrame, worldPts, imagePts);
+		} else {
+			if(doAutoLog && !isPhoto) {
+				autoLogCountDown=AUTO_LOG_COUNTDOWN;
+			}
+		}
+	}
 
-			if(doLog || (isPhoto && useEachValidPhoto)) {
-				doLog=false;
-				static int cnt=0;
-				std::ofstream ofs((outputDir+"/AprilCalib_log_"+helper::num2str(cnt,5)+".m").c_str());
-				ofs<<"% AprilCalib log "<<cnt<<std::endl;
-				ofs<<"% CalibRig::mode="<<(gRig.isTag3d?"3d":"2d")<<std::endl;
-				ofs<<"% @ "<<LogHelper::getCurrentTimeString()<<std::endl;
-				ofs<<"U="<<Ut.t()<<";"<<std::endl;
-				ofs<<"Xw="<<Xwt.t()<<";"<<std::endl;
-				if(gRig.isTag3d) ofs<<"P="<<P<<";"<<std::endl;
-	
-				if(logVisFrame) cv::imwrite(outputDir+"/AprilCalib_frame_"+helper::num2str(cnt,5)+".png", frame);
-				if(!isPhoto) cv::imwrite(outputDir+"/AprilCalib_orgframe_"+helper::num2str(cnt,5)+".png", orgFrame);
-				++cnt;
+	bool hasChangedMoreThan(const TagDetection& dd, const float pixTh) const {
+		String2Point2f::const_iterator itr = name2pt.find(dd.name());
+		if(itr==name2pt.end()) return false;
+		const cv::Point2f& pt = itr->second;
+		return std::abs<float>(dd.cxy[0]-pt.x)>pixTh
+			|| std::abs<float>(dd.cxy[1]-pt.y)>pixTh;
+	}
 
-				this->imagePtsArr.push_back(imagePts);
-				this->worldPtsArr.push_back(worldPts);
-				if(cnt>=2) {
-					cv::Mat distCoeffs, CovK;
-					if(this->nDistCoeffs>0) {
-						distCoeffs=cv::Mat::zeros(nDistCoeffs,1,CV_64FC1);
+	void updateName2Pt(const vector<TagDetection>& detections) {
+		name2pt.clear();
+		for(size_t i=0; i<detections.size(); ++i) {
+			const TagDetection &dd = detections[i];
+			name2pt[dd.name()]=cv::Point2f(dd.cxy[0], dd.cxy[1]);
+		}
+	}
+
+	void addNewFrameAndCalib(
+		const cv::Mat& frame,
+		const cv::Mat& orgFrame,
+		const std::vector<cv::Point3f>& worldPts,
+		const std::vector<cv::Point2f>& imagePts)
+	{
+		cv::Mat Ut, Xwt, P;
+		cv::Mat(imagePts).reshape(1).convertTo(Ut, cv::DataType<double>::type);
+		cv::Mat(worldPts).reshape(1).convertTo(Xwt, cv::DataType<double>::type);
+		if(gRig.isTag3d && this->K.empty()) {
+			cv::Mat K0,Rwc,twc;
+			helper::dlt3<double>(Ut.t(), Xwt.t(), P);
+			helper::decomposeP10<double>(P, K0, Rwc, twc);
+			logli("K_dlt="<<K0);
+			K0.copyTo(this->K);
+		}
+
+		if(doLog || (isPhoto && useEachValidPhoto)) {
+			doLog=false;
+			static int cnt=0;
+			std::ofstream ofs((outputDir+"AprilCalib_log_"+helper::num2str(cnt,5)+".m").c_str());
+			ofs<<"% AprilCalib log "<<cnt<<std::endl;
+			ofs<<"% CalibRig::mode="<<(gRig.isTag3d?"3d":"2d")<<std::endl;
+			ofs<<"% @ "<<LogHelper::getCurrentTimeString()<<std::endl;
+			ofs<<"U="<<Ut.t()<<";"<<std::endl;
+			ofs<<"Xw="<<Xwt.t()<<";"<<std::endl;
+			if(gRig.isTag3d) ofs<<"P="<<P<<";"<<std::endl;
+
+			if(logVisFrame) cv::imwrite(outputDir+"AprilCalib_frame_"+helper::num2str(cnt,5)+".png", frame);
+			if(!isPhoto) cv::imwrite(outputDir+"AprilCalib_orgframe_"+helper::num2str(cnt,5)+".png", orgFrame);
+			++cnt;
+
+			this->imagePtsArr.push_back(imagePts);
+			this->worldPtsArr.push_back(worldPts);
+			if(cnt>=2) {
+				cv::Mat distCoeffs;
+				if(this->nDistCoeffs>0) {
+					distCoeffs=cv::Mat::zeros(nDistCoeffs,1,CV_64FC1);
+				}
+				std::vector<cv::Mat> rvecs, tvecs, Covrs, Covts;
+				double rms=0;
+				helper::intrinsicCalibration(imagePtsArr, worldPtsArr,
+					gRig.isTag3d,
+					cv::Size(frame.cols, frame.rows), K, distCoeffs,
+					rvecs, tvecs, rms, &CovK, &Covrs, &Covts);
+
+				if(rms>rmsThresh) { //rms too large usually means gross error
+					logli("[AprilCalib warn] rms="<<rms<<", too large, ignore this image.");
+					--cnt;
+					doLog=true;
+					this->imagePtsArr.pop_back();
+					this->worldPtsArr.pop_back();
+				} else {
+					ofs<<"%After LM:"<<std::endl;
+					ofs<<"K="<<K<<";"<<std::endl;
+					ofs<<"distCoeffs="<<distCoeffs<<";"<<std::endl;
+					ofs<<"CovK="<<CovK<<";"<<std::endl;
+					ofs<<"%rms="<<rms<<std::endl;
+					for(int i=0; i<(int)rvecs.size(); ++i) {
+						ofs<<"r"<<i<<"="<<rvecs[i]<<";"<<std::endl;
+						ofs<<"t"<<i<<"="<<tvecs[i]<<";"<<std::endl;
+						ofs<<"Covr"<<i<<"="<<Covrs[i]<<";"<<std::endl;
+						ofs<<"Covt"<<i<<"="<<Covts[i]<<";"<<std::endl;
 					}
-					std::vector<cv::Mat> rvecs, tvecs, Covrs, Covts;
-					double rms=0;
-					helper::intrinsicCalibration(imagePtsArr, worldPtsArr,
-						gRig.isTag3d,
-						cv::Size(frame.cols, frame.rows), K, distCoeffs,
-						rvecs, tvecs, rms, &CovK, &Covrs, &Covts);
-
-					if(rms>rmsThresh) { //rms too large usually means gross error
-						logli("[AprilCalib warn] rms="<<rms<<", too large, ignore this image.");
-						--cnt;
-						doLog=true;
-						this->imagePtsArr.pop_back();
-						this->worldPtsArr.pop_back();
-					} else {
-						ofs<<"%After LM:"<<std::endl;
-						ofs<<"K="<<K<<";"<<std::endl;
-						ofs<<"distCoeffs="<<distCoeffs<<";"<<std::endl;
-						ofs<<"CovK="<<CovK<<";"<<std::endl;
-						ofs<<"%rms="<<rms<<std::endl;
-						for(int i=0; i<(int)rvecs.size(); ++i) {
-							ofs<<"r"<<i<<"="<<rvecs[i]<<";"<<std::endl;
-							ofs<<"t"<<i<<"="<<tvecs[i]<<";"<<std::endl;
-							ofs<<"Covr"<<i<<"="<<Covrs[i]<<";"<<std::endl;
-							ofs<<"Covt"<<i<<"="<<Covts[i]<<";"<<std::endl;
-						}
-					}//if rms>rmsThresh
-				}//if cnt>=2
-				ofs.close();
-			}//if doLog
-		}//if leftCnt>=4
+				}//if rms>rmsThresh
+			}//if cnt>=2
+			ofs.close();
+		}//if doLog
 	}
 
 	void handle(char key) {
@@ -369,7 +414,15 @@ int main(const int argc, const char **argv )
 	tagli("the Calibration Rig is:\n"<<std::string(gRig));
 	AprilCalibprocessor processor;
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
-	processor.outputDir = cfg.get("outputDir", is->getSourceDir());
+	processor.outputDir = helper::legalDir( cfg.get("outputDir", is->getSourceDir()) );
+	{//create outputDir
+#ifdef _WIN32
+		std::string cmd = "if not exist \"" + processor.outputDir + "\" mkdir \"" + processor.outputDir + "\"";
+#else
+		std::string cmd = "mkdir -p " + processor.outputDir;
+#endif
+		system(cmd.c_str());
+	}
 	logli("[main] detection will be logged to outputDir="<<processor.outputDir);
 	is->run(processor,-1, false,
 			cfg.get<bool>("ImageSource:pause", is->getPause()),

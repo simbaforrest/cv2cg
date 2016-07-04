@@ -369,5 +369,15 @@ inline void intrinsicCalibration(const std::vector<std::vector<cv::Point2f> >& i
 	}
 }
 
+//return 0 for point, 1 for line, 2 for plane, 3 for cloud
+inline int cloudShape(const std::vector<cv::Point3f>& pts, const float eps=1e-8)
+{
+	cv::Mat Ut; //U: 3xn
+	cv::Mat(pts).reshape(1).convertTo(Ut, cv::DataType<float>::type);
+	cv::PCA pca(Ut, cv::Mat(), CV_PCA_DATA_AS_ROW);
+	return int( std::abs(pca.eigenvalues.at<float>(0))>eps )
+		+ int( std::abs(pca.eigenvalues.at<float>(1))>eps )
+		+ int( std::abs(pca.eigenvalues.at<float>(2))>eps );
+}
 
 }//CameraHelper
