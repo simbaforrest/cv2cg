@@ -373,7 +373,8 @@ public:
 	ImageSource_Photo(std::string content) {
 		logli("[ImageSource_Photo] open images from: "<<content);
 #ifdef _WIN32
-		std::string cmd = std::string("dir /B ")+content;
+		std::replace(content.begin(), content.end(), DirHelper::another_filesep, DirHelper::filesep); //make sure no mixed filesep
+		std::string cmd = std::string("dir /B ")+"\""+content+"\"";
 		std::string dirstr = DirHelper::getFileDir(content);
 		FILE* fptr = _popen(cmd.c_str(), "r");
 

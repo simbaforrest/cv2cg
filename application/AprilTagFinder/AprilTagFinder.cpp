@@ -1,50 +1,3 @@
-/************************************************************************\
-
-  Copyright 2011 The University of Michigan.
-  All Rights Reserved.
-
-  Permission to use, copy, modify and distribute this software
-  and its documentation for educational, research and non-profit
-  purposes, without fee, and without a written agreement is
-  hereby granted, provided that the above copyright notice and
-  the following paragraph appear in all copies.
-
-  THIS SOFTWARE IS PROVIDED BY THE UNIVERSITY OF MICHIGAN "AS IS" AND 
-  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
-  PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE UNIVERSITY OF MICHIGAN
-  OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
-  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
-  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR 
-  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
-  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  
-  Authors:
-
-			Chen Feng
-            Laboratory for Interactive Visualization in Engineering (LIVE)
-			Department of Civil and Environmental Engineering
-            2350 Hayward Street, Suite 2340 GG Brown Building
-            University of Michigan
-            Ann Arbor, MI 48109-2125
-			Phone:    (734)764-8495
-			EMail:    simbaforrest@gmail.com
-			WWW site: http://www.umich.edu/~cforrest
-            
-			Vineet R. Kamat
-            Laboratory for Interactive Visualization in Engineering (LIVE)
-			Department of Civil and Environmental Engineering
-            2350 Hayward Street, Suite 2340 GG Brown Building
-            University of Michigan
-            Ann Arbor, MI 48109-2125
-            Phone:    (734)764-4325
-			EMail:    vkamat@umich.edu
-			WWW site: http://pathfinder.engin.umich.edu
-
-\************************************************************************/
-
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -191,7 +144,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 		useEachValidPhoto = cfg.get<bool>("AprilTagprocessor:useEachValidPhoto",false);
 		hammingThresh = cfg.get<int>("AprilTagprocessor:hammingThresh",0);
 		logVisFrame = cfg.get<bool>("AprilTagprocessor:logVisFrame",false);
-		undistortImage = cfg.get<int>("AprilTagprocessor:undistortImage",false);
+		undistortImage = cfg.get<bool>("AprilTagprocessor:undistortImage",false);
 		gDetector->segDecimate = cfg.get<bool>("AprilTagprocessor:segDecimate",false);
 		doLogIfNoValidDetections = cfg.get<bool>("AprilTagprocessor:doLogIfNoValidDetections",false);
 
@@ -268,7 +221,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 				continue;
 
 			for (int k = 0; k < 4; ++k) { //each marker <=> 4 corners <=> 4 2D-3D correspondences
-				U.push_back(cv::Point2f(dd.p[k][0], dd.p[k][1]));
+				U.push_back(cv::Point2f((float)dd.p[k][0], (float)dd.p[k][1]));
 				X.push_back(ms.markerCorners[itr->second + k]);
 			}
 		}
@@ -337,7 +290,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			++nValidDetections;
 
 			logld("id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation);
-			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]),
+			cv::putText( frame, dd.toString(), cv::Point((int)dd.cxy[0],(int)dd.cxy[1]),
 				         CV_FONT_NORMAL, tagTextScale, helper::CV_BLUE, tagTextThickness );
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 			helper::drawHomography(frame, Homo);
@@ -372,18 +325,20 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			fs.close();
 
 			//log optimization
-			std::ofstream os(
+			if(markerSets.size()>0) {
+				std::ofstream os(
 					(outputDir + "/AprilTagFinder_opt_" + fileid + ".m").c_str());
-			os << "% AprilTagFinder optimization log " << cnt << std::endl;
-			os << "% @ " << LogHelper::getCurrentTimeString() << std::endl;
-			os << "K=" << K << ";" << std::endl;
-			os << "distCoeffs=" << distCoeffs << ";" << std::endl;
-			os << "% note U are distorted image points (raw image points)" << std::endl;
-			for (int i = 0; i < (int) markerSets.size(); ++i) {
-				cv::Mat Rwc, twc;
-				optimizeOn(detections, markerSets[i], Rwc, twc, os);
+				os << "% AprilTagFinder optimization log " << cnt << std::endl;
+				os << "% @ " << LogHelper::getCurrentTimeString() << std::endl;
+				os << "K=" << K << ";" << std::endl;
+				os << "distCoeffs=" << distCoeffs << ";" << std::endl;
+				os << "% note U are distorted image points (raw image points)" << std::endl;
+				for (int i = 0; i < (int) markerSets.size(); ++i) {
+					cv::Mat Rwc, twc;
+					optimizeOn(detections, markerSets[i], Rwc, twc, os);
+				}
+				os.close();
 			}
-			os.close();
 
 			++cnt;
 		}//if doLog

@@ -37,8 +37,8 @@ bool write_calib_pattern_cfg(
 
 	for(int r=0,id=start_id; r<rows; ++r) {
 		for(int c=0; c<cols; ++c,++id) {
-			tagCenters.push_back(c*dim+dim*0.5); //x
-			tagCenters.push_back(r*dim+dim*0.5); //y
+			tagCenters.push_back((float)(c*dim+dim*0.5)); //x
+			tagCenters.push_back((float)(r*dim+dim*0.5)); //y
 			tagCenters.push_back(0); //z
 
 			markerNames.push_back(tagFamily.familyName()+cv::format(".%d", id));
@@ -88,17 +88,17 @@ int main( int argc, char **argv )
 	if(argc>3) tagscale = atof(argv[3]);
 	helper::legalDir(dir);
 	if(argc<=4) {
-		tagFamily->writeAllImages(dir,tagscale);
+		tagFamily->writeAllImages(dir,(int)tagscale);
 		tagFamily->writeAllImagesMosaic(dir+"mosaic.png");
 		tagFamily->writeAllImagesPostScript(dir+"all.ps");
 	} else {
 		std::vector<string> pars=helper::split(argv[4], ',');
 		tagFamily->writeImagesMosaic(
 			dir+pars[3], atoi(pars[0].c_str()),
-			atoi(pars[1].c_str()), atoi(pars[2].c_str()), tagscale);
+			atoi(pars[1].c_str()), atoi(pars[2].c_str()), (int)tagscale);
 		write_calib_pattern_cfg(*tagFamily,
 			dir+pars[3], atoi(pars[0].c_str()),
-			atoi(pars[1].c_str()), atoi(pars[2].c_str()), tagscale);
+			atoi(pars[1].c_str()), atoi(pars[2].c_str()), (int)tagscale);
 	}
 
 	std::cout<<"DONE!"<<std::endl;

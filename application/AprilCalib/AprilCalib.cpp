@@ -106,7 +106,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	bool doLog;
 	bool doAutoLog;
 	int autoLogCountDown;
-	int autoLogPixTh;
+	float autoLogPixTh;
 	int autoLogFreeze;
 	bool isPhoto;
 	bool useEachValidPhoto;
@@ -134,7 +134,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 		nDistCoeffs = cfg.get<int>("nDistCoeffs",0);
 		logVisFrame = cfg.get<bool>("logVisFrame",false);
 		doAutoLog = cfg.get<bool>("doAutoLog", true);
-		autoLogPixTh = cfg.get<int>("autoLogPixTh", 10);
+		autoLogPixTh = cfg.get<float>("autoLogPixTh", 10);
 		autoLogCountDown = AUTO_LOG_COUNTDOWN = cfg.get<int>("AUTO_LOG_COUNTDOWN", 10);
 		AUTO_LOG_FREEZE = cfg.get<int>("AUTO_LOG_FREEZE", 30);
 		if(nDistCoeffs>5) {
@@ -182,12 +182,12 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 				logli("[AprilCalibprocessor info] ignore tag with id="<<dd.id);
 				continue;
 			}
-			worldPts.push_back(cv::Point3f(worldPt[0],worldPt[1],worldPt[2]));
-			imagePts.push_back(cv::Point2f(dd.cxy[0], dd.cxy[1]));
+			worldPts.push_back(cv::Point3f((float)worldPt[0],(float)worldPt[1],(float)worldPt[2]));
+			imagePts.push_back(cv::Point2f((float)dd.cxy[0], (float)dd.cxy[1]));
 
 			//visualization
 			logld("id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation);
-			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]),
+			cv::putText( frame, dd.toString(), cv::Point((int)dd.cxy[0],(int)dd.cxy[1]),
 				         CV_FONT_NORMAL, tagTextScale, helper::CV_BLUE, tagTextThickness );
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 			helper::drawHomography(frame, Homo);
@@ -244,15 +244,15 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 		String2Point2f::const_iterator itr = name2pt.find(dd.name());
 		if(itr==name2pt.end()) return false;
 		const cv::Point2f& pt = itr->second;
-		return std::abs<float>(dd.cxy[0]-pt.x)>pixTh
-			|| std::abs<float>(dd.cxy[1]-pt.y)>pixTh;
+		return std::abs<float>((float)dd.cxy[0]-pt.x)>pixTh
+			|| std::abs<float>((float)dd.cxy[1]-pt.y)>pixTh;
 	}
 
 	void updateName2Pt(const vector<TagDetection>& detections) {
 		name2pt.clear();
 		for(size_t i=0; i<detections.size(); ++i) {
 			const TagDetection &dd = detections[i];
-			name2pt[dd.name()]=cv::Point2f(dd.cxy[0], dd.cxy[1]);
+			name2pt[dd.name()]=cv::Point2f((float)dd.cxy[0], (float)dd.cxy[1]);
 		}
 	}
 
