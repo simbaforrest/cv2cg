@@ -19,6 +19,15 @@ IF(USE_LCM) #only build this app if LCM is enabled
 			get_filename_component(jar_file_name ${jar_file} NAME)
 			INSTALL(FILES ${jar_file_name} DESTINATION bin)
 		ENDFOREACH()
+
+		FILE(GLOB M_FILES
+			*.m
+		)
+		FOREACH(m_file ${M_FILES})
+			get_filename_component(m_file_name ${m_file} NAME)
+			INSTALL(FILES ${m_file_name} DESTINATION bin)
+		ENDFOREACH()
+		INSTALL(FILES ${LCM_JAR} DESTINATION bin)
 	ELSE()
 		MESSAGE(WARNING "lcm-gen of apriltag_lcm.lcm failed!")
 	ENDIF()

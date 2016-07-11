@@ -8,7 +8,9 @@
 #  Author: simbaforrest at gmail dot com
 #############################################
 
-SET(LCM_DIR "$ENV{LCM_DIR}")
+IF(NOT LCM_DIR)
+	SET(LCM_DIR "$ENV{LCM_DIR}" CACHE PATH "$ENV{LCM_DIR}")
+ENDIF()
 IF(LCM_DIR STREQUAL "")
   # not set with env var, abort
   MESSAGE(FATAL_ERROR "Please set environment variable LCM_DIR!")

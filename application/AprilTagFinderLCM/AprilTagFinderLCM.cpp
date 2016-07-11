@@ -143,7 +143,7 @@ struct AprilTagprocessor : public ImageHelper::ImageSource::Processor {
 			++nValidDetections;
 
 			logld("id="<<dd.id<<", hdist="<<dd.hammingDistance<<", rotation="<<dd.rotation);
-			cv::putText( frame, dd.toString(), cv::Point(dd.cxy[0],dd.cxy[1]),
+			cv::putText( frame, dd.toString(), cv::Point((int)dd.cxy[0],(int)dd.cxy[1]),
 				         CV_FONT_NORMAL, tagTextScale, helper::CV_BLUE, tagTextThickness );
 			cv::Mat Homo = cv::Mat(3,3,CV_64FC1,dd.homography[0]);
 			helper::drawHomography(frame, Homo);
