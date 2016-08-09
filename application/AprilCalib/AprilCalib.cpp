@@ -414,7 +414,7 @@ int main(const int argc, const char **argv )
 	tagli("the Calibration Rig is:\n"<<std::string(gRig));
 	AprilCalibprocessor processor;
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
-	processor.outputDir = helper::legalDir( cfg.get("outputDir", is->getSourceDir()) );
+	//processor.outputDir = helper::legalDir( cfg.get("outputDir", is->getSourceDir()) );
 	{//create outputDir
 #ifdef _WIN32
 		std::string cmd = "if not exist \"" + processor.outputDir + "\" mkdir \"" + processor.outputDir + "\"";
