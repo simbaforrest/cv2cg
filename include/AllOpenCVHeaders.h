@@ -2,10 +2,13 @@
 
 #include "opencv2/opencv.hpp"
 
+/*
 #if (CV_MAJOR_VERSION*100+CV_MINOR_VERSION*10+CV_SUBMINOR_VERSION)>=233
-#include "opencv2/nonfree/nonfree.hpp"
+//#include "opencv2/nonfree/nonfree.hpp"
+#include "opencv2/contrib/contrib.hpp"
 #include "opencv2/legacy/legacy.hpp"
 #endif
+*/
 
 #pragma once
 
@@ -13,17 +16,18 @@
 
 ///////////////////////////////////////////////////////////////////////
 // defines for headers
-//
+
 #if		CV_MAJOR_VERSION == 2
-#define	UTIL_OPENCV_HEADER(module)	<opencv2/##module/##module.hpp>
+#define	UTIL_OPENCV_HEADER(module)	<opencv2/module/module.hpp>
 #elif	CV_MAJOR_VERSION == 3
-#define	UTIL_OPENCV_HEADER(module)	<opencv2/##module.hpp>
+#define	UTIL_OPENCV_HEADER(module)	<opencv2/module.hpp>
 #endif
 
+
 // include those headers by default
-#include UTIL_OPENCV_HEADER(core)
-#include UTIL_OPENCV_HEADER(imgproc)
-#include UTIL_OPENCV_HEADER(highgui)
+//#include UTIL_OPENCV_HEADER(core)
+//#include UTIL_OPENCV_HEADER(imgproc)
+//#include UTIL_OPENCV_HEADER(highgui)
 
 // additional headers can be specified as follows
 //#include UTIL_OPENCV_HEADER(features2d)
