@@ -17,7 +17,7 @@ IF(NOT CMAKE_BUILD_TYPE)
 ENDIF()
 
 IF(UNIX AND NOT WIN32)
- SET(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter")
+ SET(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-unknown-pragmas")
 ELSE()
 	SET(CMAKE_CXX_FLAGS "/fp:precise /fp:except /bigobj /Zm1000 /EHsc /DWIN32")
 ENDIF()

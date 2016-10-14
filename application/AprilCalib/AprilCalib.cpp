@@ -123,7 +123,7 @@ struct AprilCalibprocessor : public ImageHelper::ImageSource::Processor {
 	int AUTO_LOG_FREEZE;
 
 	virtual ~AprilCalibprocessor() {}
-	AprilCalibprocessor() : doLog(false), isPhoto(false), autoLogFreeze(0) {
+	AprilCalibprocessor() : doLog(false), autoLogFreeze(0), isPhoto(false) {
 		ConfigHelper::ConfigNode::Ptr cfg_ptr = GConfig::Instance()->getChild("AprilCalibprocessor");
 		assert(cfg_ptr!=0);
 		ConfigHelper::ConfigNode& cfg=*cfg_ptr;
@@ -414,14 +414,16 @@ int main(const int argc, const char **argv )
 	tagli("the Calibration Rig is:\n"<<std::string(gRig));
 	AprilCalibprocessor processor;
 	processor.isPhoto = is->isClass<helper::ImageSource_Photo>();
-	processor.outputDir = helper::legalDir( cfg.get("outputDir", is->getSourceDir()) );
+	processor.outputDir = cfg.get("outputDir", is->getSourceDir());
+	helper::legalDir( processor.outputDir );
 	{//create outputDir
 #ifdef _WIN32
 		std::string cmd = "if not exist \"" + processor.outputDir + "\" mkdir \"" + processor.outputDir + "\"";
 #else
 		std::string cmd = "mkdir -p " + processor.outputDir;
 #endif
-		system(cmd.c_str());
+		int ret = system(cmd.c_str());
+		logld(cmd+"\nreturned "+cv::format("%d\n",ret));
 	}
 	logli("[main] detection will be logged to outputDir="<<processor.outputDir);
 	is->run(processor,-1, false,
